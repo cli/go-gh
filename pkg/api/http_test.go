@@ -101,7 +101,7 @@ func defaultHeaders() http.Header {
 	a += ", application/vnd.github.antiope-preview"
 	a += ", application/vnd.github.shadow-cat-preview"
 	h.Set(contentType, jsonContentType)
-	h.Set(userAgent, "")
+	h.Set(userAgent, "go-gh")
 	h.Set(authorization, fmt.Sprintf("token %s", "oauth_token"))
 	h.Set(timeZone, currentTimeZone())
 	h.Set(accept, a)

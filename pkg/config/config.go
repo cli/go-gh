@@ -13,17 +13,20 @@ import (
 )
 
 const (
+	GH_HOST         = "GH_HOST"
 	GH_CONFIG_DIR   = "GH_CONFIG_DIR"
 	XDG_CONFIG_HOME = "XDG_CONFIG_HOME"
 	XDG_STATE_HOME  = "XDG_STATE_HOME"
 	XDG_DATA_HOME   = "XDG_DATA_HOME"
 	APP_DATA        = "AppData"
 	LOCAL_APP_DATA  = "LocalAppData"
+	defaultHost     = "github.com"
 )
 
 type Config interface {
 	Get(key string) (string, error)
 	GetForHost(host string, key string) (string, error)
+	Host() string
 }
 
 type config struct {
@@ -42,6 +45,17 @@ func (c config) GetForHost(host, key string) (string, error) {
 	}
 	hostMap := configMap{Root: hostEntry.ValueNode}
 	return hostMap.getStringValue(key)
+}
+
+func (c config) Host() string {
+	if host := os.Getenv(GH_HOST); host != "" {
+		return host
+	}
+	entries := c.hosts.keys()
+	if len(entries) == 1 {
+		return entries[0]
+	}
+	return defaultHost
 }
 
 func FromString(str string) (Config, error) {

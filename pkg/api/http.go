@@ -235,7 +235,7 @@ func newHeaderRoundTripper(authToken string, headers map[string]string, rt http.
 		headers[contentType] = jsonContentType
 	}
 	if headers[userAgent] == "" {
-		headers[userAgent] = "" //TODO: Add some default user agent maybe using debug.ReadBuildInfo()
+		headers[userAgent] = "go-gh" //TODO: Add some default user agent maybe using debug.ReadBuildInfo()
 	}
 	if headers[authorization] == "" && authToken != "" {
 		headers[authorization] = fmt.Sprintf("token %s", authToken)

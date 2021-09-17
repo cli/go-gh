@@ -174,6 +174,31 @@ func TestRemoveEntry(t *testing.T) {
 	}
 }
 
+func TestKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		cm       configMap
+		wantKeys []string
+	}{
+		{
+			name:     "keys for full map",
+			cm:       configMap{Root: testYaml()},
+			wantKeys: []string{"valid", "erroneous", "blank", "same"},
+		},
+		{
+			name:     "keys for empty map",
+			cm:       configMap{Root: nil},
+			wantKeys: []string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys := tt.cm.keys()
+			assert.Equal(t, tt.wantKeys, keys)
+		})
+	}
+}
+
 func testYaml() *yaml.Node {
 	var root yaml.Node
 	var data = `

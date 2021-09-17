@@ -354,6 +354,50 @@ func TestConfigGetForHost(t *testing.T) {
 	}
 }
 
+func TestConfigHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      Config
+		ghHost   string
+		wantHost string
+	}{
+		{
+			name:     "GH_HOST if set",
+			cfg:      testLoadedNoHostConfig(),
+			ghHost:   "test.com",
+			wantHost: "test.com",
+		},
+		{
+			name:     "authenticated host if only one",
+			cfg:      testLoadedSingleHostConfig(),
+			wantHost: "enterprise.com",
+		},
+		{
+			name:     "default host if more than one authenticated host",
+			cfg:      testLoadedConfig(),
+			wantHost: "github.com",
+		},
+		{
+			name:     "default host if no authenticated host",
+			cfg:      testLoadedNoHostConfig(),
+			wantHost: "github.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.ghHost != "" {
+				k := "GH_HOST"
+				old := os.Getenv(k)
+				os.Setenv(k, tt.ghHost)
+				defer os.Setenv(k, old)
+			}
+			host := tt.cfg.Host()
+			assert.Equal(t, tt.wantHost, host)
+		})
+	}
+}
+
 func TestLoad(t *testing.T) {
 	tempDir := t.TempDir()
 	oldWd, _ := os.Getwd()
@@ -517,5 +561,26 @@ hosts:
     git_protocol: https
 `
 	cfg, _ := FromString(data)
+	return cfg
+}
+
+func testLoadedSingleHostConfig() Config {
+	var data = `
+git_protocol: ssh
+editor:
+prompt: enabled
+pager: less
+hosts:
+  enterprise.com:
+    user: user2
+    oauth_token: yyyyyyyyyyyyyyyyyyyy
+    git_protocol: https
+`
+	cfg, _ := FromString(data)
+	return cfg
+}
+
+func testLoadedNoHostConfig() Config {
+	cfg, _ := FromString(testGlobalConfig())
 	return cfg
 }

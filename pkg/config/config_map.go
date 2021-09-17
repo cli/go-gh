@@ -62,7 +62,7 @@ func (cm *configMap) setStringValue(key, value string) error {
 }
 
 func (cm *configMap) findEntry(key string) (*configEntry, error) {
-	if cm.Root == nil {
+	if cm.empty() {
 		return nil, &NotFoundError{errors.New("not found")}
 	}
 
@@ -89,11 +89,14 @@ func (cm *configMap) findEntry(key string) (*configEntry, error) {
 }
 
 func (cm *configMap) removeEntry(key string) {
+	if cm.empty() {
+		return
+	}
+
 	newContent := []*yaml.Node{}
 
-	topLevelPairs := cm.Root.Content
 	var skipNext bool
-	for i, v := range topLevelPairs {
+	for i, v := range cm.Root.Content {
 		if skipNext {
 			skipNext = false
 			continue
@@ -106,4 +109,22 @@ func (cm *configMap) removeEntry(key string) {
 	}
 
 	cm.Root.Content = newContent
+}
+
+func (cm *configMap) keys() []string {
+	keys := []string{}
+	if cm.empty() {
+		return keys
+	}
+
+	// Content slice goes [key1, value1, key2, value2, ...]
+	for i, v := range cm.Root.Content {
+		// Skip every other slice item since we only want keys
+		if i%2 != 0 {
+			continue
+		}
+		keys = append(keys, v.Value)
+	}
+
+	return keys
 }
