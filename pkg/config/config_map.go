@@ -6,7 +6,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// This type implements a low-level get/set config that is backed by an in-memory tree of Yaml
+// This type implements a low-level get/set config that is backed by an in-memory tree of yaml
 // nodes. It allows us to interact with a yaml-based config programmatically, preserving any
 // comments that were present when the yaml was parsed.
 type configMap struct {
@@ -68,10 +68,10 @@ func (cm *configMap) findEntry(key string) (*configEntry, error) {
 
 	ce := &configEntry{}
 
-	// Content slice goes [key1, value1, key2, value2, ...]
+	// Content slice goes [key1, value1, key2, value2, ...].
 	topLevelPairs := cm.Root.Content
 	for i, v := range topLevelPairs {
-		// Skip every other slice item since we only want to check against keys
+		// Skip every other slice item since we only want to check against keys.
 		if i%2 != 0 {
 			continue
 		}
@@ -104,7 +104,8 @@ func (cm *configMap) removeEntry(key string) {
 		if i%2 != 0 || v.Value != key {
 			newContent = append(newContent, v)
 		} else {
-			skipNext = true // dont append current node and skip the next which is this key's value
+			// Don't append current node and skip the next which is this key's value.
+			skipNext = true
 		}
 	}
 
@@ -117,9 +118,9 @@ func (cm *configMap) keys() []string {
 		return keys
 	}
 
-	// Content slice goes [key1, value1, key2, value2, ...]
+	// Content slice goes [key1, value1, key2, value2, ...].
 	for i, v := range cm.Root.Content {
-		// Skip every other slice item since we only want keys
+		// Skip every other slice item since we only want keys.
 		if i%2 != 0 {
 			continue
 		}

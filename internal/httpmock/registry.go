@@ -40,13 +40,13 @@ func (r *Registry) Verify(t Testing) {
 	}
 	if n > 0 {
 		t.Helper()
-		// NOTE: stubs offer no useful reflection, so we can't print details
-		// about dead stubs and what they were trying to match
+		// NOTE: Stubs offer no useful reflection, so we can't print details
+		// about dead stubs and what they were trying to match.
 		t.Errorf("%d unmatched HTTP stubs", n)
 	}
 }
 
-// RoundTrip satisfies http.RoundTripper
+// RoundTrip satisfies http.RoundTripper.
 func (r *Registry) RoundTrip(req *http.Request) (*http.Response, error) {
 	var stub *Stub
 

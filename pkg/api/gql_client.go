@@ -43,7 +43,7 @@ func NewGQLClient(host string, opts ClientOptions) GQLClient {
 	}
 }
 
-// Do executes a single GraphQL query request and parses the response
+// Do executes a single GraphQL query request and parses the response.
 func (c gqlClient) Do(query string, variables map[string]interface{}, data interface{}) error {
 	reqBody, err := json.Marshal(map[string]interface{}{"query": query, "variables": variables})
 	if err != nil {
@@ -90,7 +90,7 @@ func (c gqlClient) Do(query string, variables map[string]interface{}, data inter
 
 // Mutate executes a single GraphQL mutation request,
 // with a mutation derived from m, populating the response into it.
-// m should be a pointer to struct that corresponds to the GitHub GraphQL schema.
+// "m" should be a pointer to struct that corresponds to the GitHub GraphQL schema.
 // Provided input will be set as a variable named "input".
 func (c gqlClient) Mutate(m interface{}, input interface{}, variables map[string]interface{}) error {
 	return c.client.Mutate(context.Background(), m, input, variables)
@@ -98,7 +98,7 @@ func (c gqlClient) Mutate(m interface{}, input interface{}, variables map[string
 
 // Query executes a single GraphQL query request,
 // with a query derived from q, populating the response into it.
-// q should be a pointer to struct that corresponds to the GitHub GraphQL schema.
+// "q" should be a pointer to struct that corresponds to the GitHub GraphQL schema.
 func (c gqlClient) Query(q interface{}, variables map[string]interface{}) error {
 	return c.client.Query(context.Background(), q, variables)
 }
@@ -108,13 +108,13 @@ type gqlResponse struct {
 	Errors []gqlError
 }
 
-// gqlError is a single error returned in a GQL response
+// gqlError is a single error returned in a GQL response.
 type gqlError struct {
 	Type    string
 	Message string
 }
 
-// gqlErrorResponse contains errors returned in a GQL response
+// gqlErrorResponse contains errors returned in a GQL response.
 type gqlErrorResponse struct {
 	Errors []gqlError
 }

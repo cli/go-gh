@@ -89,7 +89,7 @@ func load(globalFilePath, hostsFilePath string) (Config, error) {
 		return nil, readErr
 	}
 
-	//Use defaultGlobal node if globalFile does not exist or is empty
+	// Use defaultGlobal node if globalFile does not exist or is empty.
 	global := defaultGlobal().Content[0]
 	if len(globalData) > 0 {
 		global, parseErr = parseData(globalData)
@@ -103,7 +103,7 @@ func load(globalFilePath, hostsFilePath string) (Config, error) {
 		return nil, readErr
 	}
 
-	//Use nil if hostsFile does not exist or is empty
+	// Use nil if hostsFile does not exist or is empty.
 	var hosts *yaml.Node
 	if len(hostsData) > 0 {
 		hosts, parseErr = parseData(hostsData)
@@ -120,11 +120,7 @@ func load(globalFilePath, hostsFilePath string) (Config, error) {
 	return cfg, nil
 }
 
-// Config path precedence
-// 1. GH_CONFIG_DIR
-// 2. XDG_CONFIG_HOME
-// 3. AppData (windows only)
-// 4. HOME
+// Config path precedence: GH_CONFIG_DIR, XDG_CONFIG_HOME, AppData (windows only), HOME.
 func ConfigDir() string {
 	var path string
 	if a := os.Getenv(GH_CONFIG_DIR); a != "" {
@@ -140,10 +136,7 @@ func ConfigDir() string {
 	return path
 }
 
-// State path precedence
-// 1. XDG_CONFIG_HOME
-// 2. LocalAppData (windows only)
-// 3. HOME
+// State path precedence: XDG_CONFIG_HOME, LocalAppData (windows only), HOME.
 func StateDir() string {
 	var path string
 	if a := os.Getenv(XDG_STATE_HOME); a != "" {
@@ -157,10 +150,7 @@ func StateDir() string {
 	return path
 }
 
-// Data path precedence
-// 1. XDG_DATA_HOME
-// 2. LocalAppData (windows only)
-// 3. HOME
+// Data path precedence: XDG_DATA_HOME, LocalAppData (windows only), HOME.
 func DataDir() string {
 	var path string
 	if a := os.Getenv(XDG_DATA_HOME); a != "" {

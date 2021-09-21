@@ -200,7 +200,7 @@ func handleHTTPError(resp *http.Response) error {
 	return httpError
 }
 
-// https://docs.github.com/en/rest/overview/resources-in-the-rest-api#client-errors
+// See https://docs.github.com/en/rest/overview/resources-in-the-rest-api#client-errors for more details.
 func errorCodeToMessage(code string) string {
 	switch code {
 	case "missing", "missing_field":
