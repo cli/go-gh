@@ -8,25 +8,33 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	GH_HOST         = "GH_HOST"
-	GH_CONFIG_DIR   = "GH_CONFIG_DIR"
-	XDG_CONFIG_HOME = "XDG_CONFIG_HOME"
-	XDG_STATE_HOME  = "XDG_STATE_HOME"
-	XDG_DATA_HOME   = "XDG_DATA_HOME"
-	APP_DATA        = "AppData"
-	LOCAL_APP_DATA  = "LocalAppData"
-	defaultHost     = "github.com"
+	GH_HOST                 = "GH_HOST"
+	GH_CONFIG_DIR           = "GH_CONFIG_DIR"
+	XDG_CONFIG_HOME         = "XDG_CONFIG_HOME"
+	XDG_STATE_HOME          = "XDG_STATE_HOME"
+	XDG_DATA_HOME           = "XDG_DATA_HOME"
+	APP_DATA                = "AppData"
+	LOCAL_APP_DATA          = "LocalAppData"
+	GH_TOKEN                = "GH_TOKEN"
+	GITHUB_TOKEN            = "GITHUB_TOKEN"
+	GH_ENTERPRISE_TOKEN     = "GH_ENTERPRISE_TOKEN"
+	GITHUB_ENTERPRISE_TOKEN = "GITHUB_ENTERPRISE_TOKEN"
+
+	oauthToken  = "oauth_token"
+	defaultHost = "github.com"
 )
 
 type Config interface {
 	Get(key string) (string, error)
 	GetForHost(host string, key string) (string, error)
 	Host() string
+	Token(host string) (string, error)
 }
 
 type config struct {
@@ -58,7 +66,46 @@ func (c config) Host() string {
 	return defaultHost
 }
 
-func FromString(str string) (Config, error) {
+func (c config) Token(host string) (string, error) {
+	hostname := normalizeHostname(host)
+	if isEnterprise(hostname) {
+		if token := os.Getenv(GH_ENTERPRISE_TOKEN); token != "" {
+			return token, nil
+		}
+		if token := os.Getenv(GITHUB_ENTERPRISE_TOKEN); token != "" {
+			return token, nil
+		}
+		if token, err := c.GetForHost(hostname, oauthToken); err == nil {
+			return token, nil
+		}
+		return "", NotFoundError{errors.New("not found")}
+	}
+
+	if token := os.Getenv(GH_TOKEN); token != "" {
+		return token, nil
+	}
+	if token := os.Getenv(GITHUB_TOKEN); token != "" {
+		return token, nil
+	}
+	if token, err := c.GetForHost(hostname, oauthToken); err == nil {
+		return token, nil
+	}
+	return "", NotFoundError{errors.New("not found")}
+}
+
+func isEnterprise(host string) bool {
+	return host != defaultHost
+}
+
+func normalizeHostname(host string) string {
+	hostname := strings.ToLower(host)
+	if strings.HasSuffix(hostname, "."+defaultHost) {
+		return defaultHost
+	}
+	return hostname
+}
+
+func fromString(str string) (Config, error) {
 	root, err := parseData([]byte(str))
 	if err != nil {
 		return nil, err
@@ -73,12 +120,12 @@ func FromString(str string) (Config, error) {
 	return cfg, nil
 }
 
-func DefaultConfig() Config {
+func defaultConfig() Config {
 	return config{global: configMap{Root: defaultGlobal().Content[0]}}
 }
 
 func Load() (Config, error) {
-	return load(ConfigFile(), HostsConfigFile())
+	return load(configFile(), hostsConfigFile())
 }
 
 func load(globalFilePath, hostsFilePath string) (Config, error) {
@@ -121,7 +168,7 @@ func load(globalFilePath, hostsFilePath string) (Config, error) {
 }
 
 // Config path precedence: GH_CONFIG_DIR, XDG_CONFIG_HOME, AppData (windows only), HOME.
-func ConfigDir() string {
+func configDir() string {
 	var path string
 	if a := os.Getenv(GH_CONFIG_DIR); a != "" {
 		path = a
@@ -137,7 +184,7 @@ func ConfigDir() string {
 }
 
 // State path precedence: XDG_CONFIG_HOME, LocalAppData (windows only), HOME.
-func StateDir() string {
+func stateDir() string {
 	var path string
 	if a := os.Getenv(XDG_STATE_HOME); a != "" {
 		path = filepath.Join(a, "gh")
@@ -151,7 +198,7 @@ func StateDir() string {
 }
 
 // Data path precedence: XDG_DATA_HOME, LocalAppData (windows only), HOME.
-func DataDir() string {
+func dataDir() string {
 	var path string
 	if a := os.Getenv(XDG_DATA_HOME); a != "" {
 		path = filepath.Join(a, "gh")
@@ -164,12 +211,12 @@ func DataDir() string {
 	return path
 }
 
-func ConfigFile() string {
-	return filepath.Join(ConfigDir(), "config.yml")
+func configFile() string {
+	return filepath.Join(configDir(), "config.yml")
 }
 
-func HostsConfigFile() string {
-	return filepath.Join(ConfigDir(), "hosts.yml")
+func hostsConfigFile() string {
+	return filepath.Join(configDir(), "hosts.yml")
 }
 
 func readFile(filename string) ([]byte, error) {

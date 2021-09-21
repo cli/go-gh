@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/cli/go-gh/internal/auth"
 	"github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/internal/git"
 	"github.com/cli/go-gh/pkg/api"
@@ -42,15 +41,24 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 }
 
 func DefaultRESTClient(opts api.ClientOptions) (api.RESTClient, error) {
+	var cfg config.Config
+	var token string
+	var err error
 	if opts.Host == "" {
-		cfg, err := config.Load()
+		cfg, err = config.Load()
 		if err != nil {
 			return nil, err
 		}
 		opts.Host = cfg.Host()
 	}
 	if opts.AuthToken == "" {
-		token, err := auth.Token(opts.Host)
+		if cfg == nil {
+			cfg, err = config.Load()
+			if err != nil {
+				return nil, err
+			}
+		}
+		token, err = cfg.Token(opts.Host)
 		if err != nil {
 			return nil, err
 		}
@@ -60,15 +68,24 @@ func DefaultRESTClient(opts api.ClientOptions) (api.RESTClient, error) {
 }
 
 func DefaultGQLClient(opts api.ClientOptions) (api.GQLClient, error) {
+	var cfg config.Config
+	var token string
+	var err error
 	if opts.Host == "" {
-		cfg, err := config.Load()
+		cfg, err = config.Load()
 		if err != nil {
 			return nil, err
 		}
 		opts.Host = cfg.Host()
 	}
 	if opts.AuthToken == "" {
-		token, err := auth.Token(opts.Host)
+		if cfg == nil {
+			cfg, err = config.Load()
+			if err != nil {
+				return nil, err
+			}
+		}
+		token, err = cfg.Token(opts.Host)
 		if err != nil {
 			return nil, err
 		}

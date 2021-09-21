@@ -8,17 +8,17 @@ import (
 	"github.com/cli/safeexec"
 )
 
-func Path() (string, error) {
-	return safeexec.LookPath("git")
-}
-
 func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
-	path, err := Path()
+	path, err := path()
 	if err != nil {
 		err = fmt.Errorf("could not find git executable in PATH. error: %w", err)
 		return
 	}
 	return run(path, nil, args...)
+}
+
+func path() (string, error) {
+	return safeexec.LookPath("git")
 }
 
 func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer, err error) {

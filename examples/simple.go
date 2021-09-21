@@ -1,15 +1,6 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/cli/go-gh/pkg/api"
-	"github.com/cli/go-gh/pkg/auth"
-	"github.com/cli/go-gh/pkg/config"
-	"github.com/cli/go-gh/pkg/git"
-)
-
-func main() {
+/* func main() {
 	// Retreive a sorted list of git remotes for current directory.
 	// Will return an error if git is not found in path, or if current directory is not a git directory.
 	remotes, err := git.Remotes()
@@ -62,4 +53,4 @@ func main() {
 	}
 
 	fmt.Println(response)
-}
+} */

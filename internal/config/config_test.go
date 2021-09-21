@@ -92,7 +92,7 @@ func TestConfigDir(t *testing.T) {
 				}
 			}
 
-			assert.Equal(t, tt.output, ConfigDir())
+			assert.Equal(t, tt.output, configDir())
 		})
 	}
 }
@@ -157,7 +157,7 @@ func TestStateDir(t *testing.T) {
 				}
 			}
 
-			assert.Equal(t, tt.output, StateDir())
+			assert.Equal(t, tt.output, stateDir())
 		})
 	}
 }
@@ -222,7 +222,7 @@ func TestDataDir(t *testing.T) {
 				}
 			}
 
-			assert.Equal(t, tt.output, DataDir())
+			assert.Equal(t, tt.output, dataDir())
 		})
 	}
 }
@@ -398,6 +398,105 @@ func TestConfigHost(t *testing.T) {
 	}
 }
 
+func TestConfigToken(t *testing.T) {
+	orig_GITHUB_TOKEN := os.Getenv("GITHUB_TOKEN")
+	orig_GITHUB_ENTERPRISE_TOKEN := os.Getenv("GITHUB_ENTERPRISE_TOKEN")
+	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
+	orig_GH_ENTERPRISE_TOKEN := os.Getenv("GH_ENTERPRISE_TOKEN")
+	t.Cleanup(func() {
+		os.Setenv("GITHUB_TOKEN", orig_GITHUB_TOKEN)
+		os.Setenv("GITHUB_ENTERPRISE_TOKEN", orig_GITHUB_ENTERPRISE_TOKEN)
+		os.Setenv("GH_TOKEN", orig_GH_TOKEN)
+		os.Setenv("GH_ENTERPRISE_TOKEN", orig_GH_ENTERPRISE_TOKEN)
+	})
+
+	tests := []struct {
+		name                    string
+		host                    string
+		GITHUB_TOKEN            string
+		GITHUB_ENTERPRISE_TOKEN string
+		GH_TOKEN                string
+		GH_ENTERPRISE_TOKEN     string
+		cfg                     Config
+		wantToken               string
+		wantErr                 bool
+		wantErrMsg              string
+	}{
+		{
+			name:       "token for github.com with no env tokens and no config token",
+			host:       "github.com",
+			cfg:        testLoadedNoHostConfig(),
+			wantErr:    true,
+			wantErrMsg: "not found",
+		},
+		{
+			name:       "token for enterprise.com with no env tokens and no config token",
+			host:       "enterprise.com",
+			cfg:        testLoadedNoHostConfig(),
+			wantErr:    true,
+			wantErrMsg: "not found",
+		},
+		{
+			name:         "token for github.com with GH_TOKEN, GITHUB_TOKEN, and config token",
+			host:         "github.com",
+			GH_TOKEN:     "GH_TOKEN",
+			GITHUB_TOKEN: "GITHUB_TOKEN",
+			cfg:          testLoadedConfig(),
+			wantToken:    "GH_TOKEN",
+		},
+		{
+			name:         "token for github.com with GITHUB_TOKEN, and config token",
+			host:         "github.com",
+			GITHUB_TOKEN: "GITHUB_TOKEN",
+			cfg:          testLoadedConfig(),
+			wantToken:    "GITHUB_TOKEN",
+		},
+		{
+			name:      "token for github.com with config token",
+			host:      "github.com",
+			cfg:       testLoadedConfig(),
+			wantToken: "xxxxxxxxxxxxxxxxxxxx",
+		},
+		{
+			name:                    "token for enterprise.com with GH_ENTERPRISE_TOKEN, GITHUB_ENTERPRISE_TOKEN, and config token",
+			host:                    "enterprise.com",
+			GH_ENTERPRISE_TOKEN:     "GH_ENTERPRISE_TOKEN",
+			GITHUB_ENTERPRISE_TOKEN: "GITHUB_ENTERPRISE_TOKEN",
+			cfg:                     testLoadedConfig(),
+			wantToken:               "GH_ENTERPRISE_TOKEN",
+		},
+		{
+			name:                    "token for enterprise.com with GITHUB_ENTERPRISE_TOKEN, and config token",
+			host:                    "enterprise.com",
+			GITHUB_ENTERPRISE_TOKEN: "GITHUB_ENTERPRISE_TOKEN",
+			cfg:                     testLoadedConfig(),
+			wantToken:               "GITHUB_ENTERPRISE_TOKEN",
+		},
+		{
+			name:      "token for enterprise.com with config token",
+			host:      "enterprise.com",
+			cfg:       testLoadedConfig(),
+			wantToken: "yyyyyyyyyyyyyyyyyyyy",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			os.Setenv("GITHUB_TOKEN", tt.GITHUB_TOKEN)
+			os.Setenv("GITHUB_ENTERPRISE_TOKEN", tt.GITHUB_ENTERPRISE_TOKEN)
+			os.Setenv("GH_TOKEN", tt.GH_TOKEN)
+			os.Setenv("GH_ENTERPRISE_TOKEN", tt.GH_ENTERPRISE_TOKEN)
+			token, err := tt.cfg.Token(tt.host)
+			if tt.wantErr {
+				assert.EqualError(t, err, tt.wantErrMsg)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantToken, token)
+		})
+	}
+}
+
 func TestLoad(t *testing.T) {
 	tempDir := t.TempDir()
 	oldWd, _ := os.Getwd()
@@ -490,7 +589,7 @@ func TestLoad(t *testing.T) {
 }
 
 func TestDefaultConfig(t *testing.T) {
-	cfg := DefaultConfig()
+	cfg := defaultConfig()
 
 	git_protocol, err := cfg.Get("git_protocol")
 	assert.NoError(t, err)
@@ -560,7 +659,7 @@ hosts:
     oauth_token: yyyyyyyyyyyyyyyyyyyy
     git_protocol: https
 `
-	cfg, _ := FromString(data)
+	cfg, _ := fromString(data)
 	return cfg
 }
 
@@ -576,11 +675,11 @@ hosts:
     oauth_token: yyyyyyyyyyyyyyyyyyyy
     git_protocol: https
 `
-	cfg, _ := FromString(data)
+	cfg, _ := fromString(data)
 	return cfg
 }
 
 func testLoadedNoHostConfig() Config {
-	cfg, _ := FromString(testGlobalConfig())
+	cfg, _ := fromString(testGlobalConfig())
 	return cfg
 }
