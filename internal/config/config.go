@@ -14,20 +14,19 @@ import (
 )
 
 const (
-	GH_HOST                 = "GH_HOST"
-	GH_CONFIG_DIR           = "GH_CONFIG_DIR"
-	XDG_CONFIG_HOME         = "XDG_CONFIG_HOME"
-	XDG_STATE_HOME          = "XDG_STATE_HOME"
-	XDG_DATA_HOME           = "XDG_DATA_HOME"
-	APP_DATA                = "AppData"
-	LOCAL_APP_DATA          = "LocalAppData"
-	GH_TOKEN                = "GH_TOKEN"
-	GITHUB_TOKEN            = "GITHUB_TOKEN"
-	GH_ENTERPRISE_TOKEN     = "GH_ENTERPRISE_TOKEN"
-	GITHUB_ENTERPRISE_TOKEN = "GITHUB_ENTERPRISE_TOKEN"
-
-	oauthToken  = "oauth_token"
-	defaultHost = "github.com"
+	appData               = "AppData"
+	defaultHost           = "github.com"
+	ghConfigDir           = "GH_CONFIG_DIR"
+	ghEnterpriseToken     = "GH_ENTERPRISE_TOKEN"
+	ghHost                = "GH_HOST"
+	ghToken               = "GH_TOKEN"
+	githubEnterpriseToken = "GITHUB_ENTERPRISE_TOKEN"
+	githubToken           = "GITHUB_TOKEN"
+	localAppData          = "LocalAppData"
+	oauthToken            = "oauth_token"
+	xdgConfigHome         = "XDG_CONFIG_HOME"
+	xdgDataHome           = "XDG_DATA_HOME"
+	xdgStateHome          = "XDG_STATE_HOME"
 )
 
 type Config interface {
@@ -56,7 +55,7 @@ func (c config) GetForHost(host, key string) (string, error) {
 }
 
 func (c config) Host() string {
-	if host := os.Getenv(GH_HOST); host != "" {
+	if host := os.Getenv(ghHost); host != "" {
 		return host
 	}
 	entries := c.hosts.keys()
@@ -69,10 +68,10 @@ func (c config) Host() string {
 func (c config) Token(host string) (string, error) {
 	hostname := normalizeHostname(host)
 	if isEnterprise(hostname) {
-		if token := os.Getenv(GH_ENTERPRISE_TOKEN); token != "" {
+		if token := os.Getenv(ghEnterpriseToken); token != "" {
 			return token, nil
 		}
-		if token := os.Getenv(GITHUB_ENTERPRISE_TOKEN); token != "" {
+		if token := os.Getenv(githubEnterpriseToken); token != "" {
 			return token, nil
 		}
 		if token, err := c.GetForHost(hostname, oauthToken); err == nil {
@@ -81,10 +80,10 @@ func (c config) Token(host string) (string, error) {
 		return "", NotFoundError{errors.New("not found")}
 	}
 
-	if token := os.Getenv(GH_TOKEN); token != "" {
+	if token := os.Getenv(ghToken); token != "" {
 		return token, nil
 	}
-	if token := os.Getenv(GITHUB_TOKEN); token != "" {
+	if token := os.Getenv(githubToken); token != "" {
 		return token, nil
 	}
 	if token, err := c.GetForHost(hostname, oauthToken); err == nil {
@@ -170,11 +169,11 @@ func load(globalFilePath, hostsFilePath string) (Config, error) {
 // Config path precedence: GH_CONFIG_DIR, XDG_CONFIG_HOME, AppData (windows only), HOME.
 func configDir() string {
 	var path string
-	if a := os.Getenv(GH_CONFIG_DIR); a != "" {
+	if a := os.Getenv(ghConfigDir); a != "" {
 		path = a
-	} else if b := os.Getenv(XDG_CONFIG_HOME); b != "" {
+	} else if b := os.Getenv(xdgConfigHome); b != "" {
 		path = filepath.Join(b, "gh")
-	} else if c := os.Getenv(APP_DATA); runtime.GOOS == "windows" && c != "" {
+	} else if c := os.Getenv(appData); runtime.GOOS == "windows" && c != "" {
 		path = filepath.Join(c, "GitHub CLI")
 	} else {
 		d, _ := os.UserHomeDir()
@@ -183,12 +182,12 @@ func configDir() string {
 	return path
 }
 
-// State path precedence: XDG_CONFIG_HOME, LocalAppData (windows only), HOME.
+// State path precedence: XDG_STATE_HOME, LocalAppData (windows only), HOME.
 func stateDir() string {
 	var path string
-	if a := os.Getenv(XDG_STATE_HOME); a != "" {
+	if a := os.Getenv(xdgStateHome); a != "" {
 		path = filepath.Join(a, "gh")
-	} else if b := os.Getenv(LOCAL_APP_DATA); runtime.GOOS == "windows" && b != "" {
+	} else if b := os.Getenv(localAppData); runtime.GOOS == "windows" && b != "" {
 		path = filepath.Join(b, "GitHub CLI")
 	} else {
 		c, _ := os.UserHomeDir()
@@ -200,9 +199,9 @@ func stateDir() string {
 // Data path precedence: XDG_DATA_HOME, LocalAppData (windows only), HOME.
 func dataDir() string {
 	var path string
-	if a := os.Getenv(XDG_DATA_HOME); a != "" {
+	if a := os.Getenv(xdgDataHome); a != "" {
 		path = filepath.Join(a, "gh")
-	} else if b := os.Getenv(LOCAL_APP_DATA); runtime.GOOS == "windows" && b != "" {
+	} else if b := os.Getenv(localAppData); runtime.GOOS == "windows" && b != "" {
 		path = filepath.Join(b, "GitHub CLI")
 	} else {
 		c, _ := os.UserHomeDir()
