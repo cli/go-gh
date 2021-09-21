@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cli/go-gh/pkg/config"
+	"github.com/cli/go-gh/internal/config"
 )
 
 const (

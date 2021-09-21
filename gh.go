@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/cli/go-gh/internal/auth"
+	"github.com/cli/go-gh/internal/config"
+	"github.com/cli/go-gh/internal/git"
+	"github.com/cli/go-gh/pkg/api"
 	"github.com/cli/safeexec"
 )
 
@@ -35,4 +39,76 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 		return
 	}
 	return
+}
+
+func DefaultRESTClient(opts api.ClientOptions) (api.RESTClient, error) {
+	if opts.Host == "" {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, err
+		}
+		opts.Host = cfg.Host()
+	}
+	if opts.AuthToken == "" {
+		token, err := auth.Token(opts.Host)
+		if err != nil {
+			return nil, err
+		}
+		opts.AuthToken = token
+	}
+	return api.NewRESTClient(opts.Host, opts), nil
+}
+
+func DefaultGQLClient(opts api.ClientOptions) (api.GQLClient, error) {
+	if opts.Host == "" {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, err
+		}
+		opts.Host = cfg.Host()
+	}
+	if opts.AuthToken == "" {
+		token, err := auth.Token(opts.Host)
+		if err != nil {
+			return nil, err
+		}
+		opts.AuthToken = token
+	}
+	return api.NewGQLClient(opts.Host, opts), nil
+}
+
+func CurrentRepository() (Repository, error) {
+	remotes, err := git.Remotes()
+	if err != nil {
+		return nil, err
+	}
+	if len(remotes) == 0 {
+		return nil, fmt.Errorf("unable to determine current repository")
+	}
+	r := remotes[0]
+	return repo{host: r.Host, name: r.Repo, owner: r.Owner}, nil
+}
+
+type Repository interface {
+	Host() string
+	Name() string
+	Owner() string
+}
+
+type repo struct {
+	host  string
+	name  string
+	owner string
+}
+
+func (r repo) Host() string {
+	return r.host
+}
+
+func (r repo) Name() string {
+	return r.name
+}
+
+func (r repo) Owner() string {
+	return r.owner
 }

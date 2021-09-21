@@ -72,6 +72,7 @@ type ClientOptions struct {
 	CacheTTL    time.Duration
 	EnableCache bool
 	Headers     map[string]string
+	Host        string
 	Log         io.Writer
 	Timeout     time.Duration
 	Transport   http.RoundTripper
