@@ -10,6 +10,7 @@ import (
 	"github.com/cli/go-gh/pkg/api"
 )
 
+// Implements api.RESTClient interface.
 type restClient struct {
 	client http.Client
 	host   string

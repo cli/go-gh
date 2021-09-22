@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ const (
 	contentType     = "Content-Type"
 	defaultHostname = "github.com"
 	jsonContentType = "application/json; charset=utf-8"
+	modulePath      = "github.com/cli/go-gh"
 	timeZone        = "Time-Zone"
 	userAgent       = "User-Agent"
 )
@@ -229,7 +231,16 @@ func newHeaderRoundTripper(authToken string, headers map[string]string, rt http.
 		headers[contentType] = jsonContentType
 	}
 	if headers[userAgent] == "" {
-		headers[userAgent] = "go-gh" //TODO: Add some default user agent maybe using debug.ReadBuildInfo()
+		headers[userAgent] = "go-gh"
+		info, ok := debug.ReadBuildInfo()
+		if ok {
+			for _, dep := range info.Deps {
+				if dep.Path == modulePath {
+					headers[userAgent] += fmt.Sprintf(" %s", dep.Version)
+					break
+				}
+			}
+		}
 	}
 	if headers[authorization] == "" && authToken != "" {
 		headers[authorization] = fmt.Sprintf("token %s", authToken)

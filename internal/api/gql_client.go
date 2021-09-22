@@ -13,6 +13,7 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
+// Implements api.GQLClient interface.
 type gqlClient struct {
 	client     *githubv4.Client
 	host       string
@@ -103,13 +104,11 @@ type gqlResponse struct {
 	Errors []gqlError
 }
 
-// gqlError is a single error returned in a GQL response.
 type gqlError struct {
 	Type    string
 	Message string
 }
 
-// gqlErrorResponse contains errors returned in a GQL response.
 type gqlErrorResponse struct {
 	Errors []gqlError
 }
