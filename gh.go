@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 
+	iapi "github.com/cli/go-gh/internal/api"
 	"github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/internal/git"
 	"github.com/cli/go-gh/pkg/api"
@@ -67,7 +68,7 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 		}
 		opts.AuthToken = token
 	}
-	return api.NewRESTClient(opts.Host, opts), nil
+	return iapi.NewRESTClient(opts.Host, opts), nil
 }
 
 func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
@@ -97,7 +98,7 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 		}
 		opts.AuthToken = token
 	}
-	return api.NewGQLClient(opts.Host, opts), nil
+	return iapi.NewGQLClient(opts.Host, opts), nil
 }
 
 func CurrentRepository() (Repository, error) {

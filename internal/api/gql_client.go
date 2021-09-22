@@ -9,14 +9,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cli/go-gh/pkg/api"
 	"github.com/shurcooL/githubv4"
 )
-
-type GQLClient interface {
-	Do(query string, variables map[string]interface{}, data interface{}) error
-	Mutate(mutation interface{}, input interface{}, variables map[string]interface{}) error
-	Query(query interface{}, variables map[string]interface{}) error
-}
 
 type gqlClient struct {
 	client     *githubv4.Client
@@ -24,7 +19,7 @@ type gqlClient struct {
 	httpClient *http.Client
 }
 
-func NewGQLClient(host string, opts *ClientOptions) GQLClient {
+func NewGQLClient(host string, opts *api.ClientOptions) api.GQLClient {
 	httpClient := newHTTPClient(opts)
 
 	var client *githubv4.Client

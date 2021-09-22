@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cli/go-gh/pkg/api"
 	"github.com/henvic/httpretty"
 )
 
@@ -66,21 +67,9 @@ var timeZoneNames = map[int]string{
 	50400:  "Pacific/Kiritimati",
 }
 
-type ClientOptions struct {
-	AuthToken   string
-	CacheDir    string
-	CacheTTL    time.Duration
-	EnableCache bool
-	Headers     map[string]string
-	Host        string
-	Log         io.Writer
-	Timeout     time.Duration
-	Transport   http.RoundTripper
-}
-
-func newHTTPClient(opts *ClientOptions) http.Client {
+func newHTTPClient(opts *api.ClientOptions) http.Client {
 	if opts == nil {
-		opts = &ClientOptions{}
+		opts = &api.ClientOptions{}
 	}
 
 	transport := http.DefaultTransport

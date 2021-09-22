@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cli/go-gh/internal/httpmock"
+	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,7 +75,7 @@ func TestRESTClientDo(t *testing.T) {
 				tt.responder = httpmock.StatusStringResponse(204, "{}")
 			}
 			http := httpmock.NewRegistry(t)
-			client := NewRESTClient(tt.host, &ClientOptions{Transport: http})
+			client := NewRESTClient(tt.host, &api.ClientOptions{Transport: http})
 			http.Register(
 				tt.matcher,
 				tt.responder,
@@ -94,7 +95,7 @@ func TestRESTClientDo(t *testing.T) {
 
 func TestRESTClientDelete(t *testing.T) {
 	http := httpmock.NewRegistry(t)
-	client := NewRESTClient("github.com", &ClientOptions{Transport: http})
+	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
 		httpmock.REST("DELETE", "some/path/here"),
 		httpmock.StatusStringResponse(204, "{}"),
@@ -105,7 +106,7 @@ func TestRESTClientDelete(t *testing.T) {
 
 func TestRESTClientGet(t *testing.T) {
 	http := httpmock.NewRegistry(t)
-	client := NewRESTClient("github.com", &ClientOptions{Transport: http})
+	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
 		httpmock.REST("GET", "some/path/here"),
 		httpmock.StatusStringResponse(204, "{}"),
@@ -116,7 +117,7 @@ func TestRESTClientGet(t *testing.T) {
 
 func TestRESTClientPatch(t *testing.T) {
 	http := httpmock.NewRegistry(t)
-	client := NewRESTClient("github.com", &ClientOptions{Transport: http})
+	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
 		httpmock.REST("PATCH", "some/path/here"),
 		httpmock.StatusStringResponse(204, "{}"),
@@ -128,7 +129,7 @@ func TestRESTClientPatch(t *testing.T) {
 
 func TestRESTClientPost(t *testing.T) {
 	http := httpmock.NewRegistry(t)
-	client := NewRESTClient("github.com", &ClientOptions{Transport: http})
+	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
 		httpmock.REST("POST", "some/path/here"),
 		httpmock.StatusStringResponse(204, "{}"),
@@ -140,7 +141,7 @@ func TestRESTClientPost(t *testing.T) {
 
 func TestRESTClientPut(t *testing.T) {
 	http := httpmock.NewRegistry(t)
-	client := NewRESTClient("github.com", &ClientOptions{Transport: http})
+	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
 		httpmock.REST("PUT", "some/path/here"),
 		httpmock.StatusStringResponse(204, "{}"),

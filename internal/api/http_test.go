@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -67,7 +68,7 @@ func TestNewHTTPClient(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := ClientOptions{
+			opts := api.ClientOptions{
 				AuthToken: "oauth_token",
 				Headers:   tt.headers,
 				Transport: reflectHTTP,

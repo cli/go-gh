@@ -6,23 +6,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
-)
 
-type RESTClient interface {
-	Do(method string, path string, body io.Reader, response interface{}) error
-	Delete(path string, response interface{}) error
-	Get(path string, response interface{}) error
-	Patch(path string, body io.Reader, response interface{}) error
-	Post(path string, body io.Reader, response interface{}) error
-	Put(path string, body io.Reader, response interface{}) error
-}
+	"github.com/cli/go-gh/pkg/api"
+)
 
 type restClient struct {
 	client http.Client
 	host   string
 }
 
-func NewRESTClient(host string, opts *ClientOptions) RESTClient {
+func NewRESTClient(host string, opts *api.ClientOptions) api.RESTClient {
 	return restClient{
 		client: newHTTPClient(opts),
 		host:   host,
