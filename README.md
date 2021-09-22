@@ -1,6 +1,6 @@
 # go-gh
 
-A Go module for CLI Go applications and [gh extensions]() that want a convenient way to interact with [gh](), and the GitHub API using `gh` environment configuration.
+A Go module for CLI Go applications and [gh extensions][extensions] that want a convenient way to interact with [gh][], and the GitHub API using [gh][] environment configuration.
 
 ## Installation
 ```bash
@@ -27,4 +27,13 @@ func main() {
 }
 ```
 
-See [examples folder]() for more use cases.
+See [examples folder][examples] for more use cases.
+
+## Contributing
+
+If anything feels off, or if you feel that some functionality is missing, please check out the [contributing page][contributing]. There you will find instructions for sharing your feedback, and submitting pull requests to the project.
+
+[extensions]: https://github.com/topics/gh-extension
+[gh]: https://github.com/cli/cli
+[examples]: ./examples/
+[contributing]: ./.github/CONTRIBUTING.md
