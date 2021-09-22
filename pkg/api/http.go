@@ -78,7 +78,11 @@ type ClientOptions struct {
 	Transport   http.RoundTripper
 }
 
-func newHTTPClient(opts ClientOptions) http.Client {
+func newHTTPClient(opts *ClientOptions) http.Client {
+	if opts == nil {
+		opts = &ClientOptions{}
+	}
+
 	transport := http.DefaultTransport
 	if opts.Transport != nil {
 		transport = opts.Transport

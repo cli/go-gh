@@ -24,7 +24,7 @@ type gqlClient struct {
 	httpClient *http.Client
 }
 
-func NewGQLClient(host string, opts ClientOptions) GQLClient {
+func NewGQLClient(host string, opts *ClientOptions) GQLClient {
 	httpClient := newHTTPClient(opts)
 
 	var client *githubv4.Client

@@ -75,7 +75,7 @@ func TestNewHTTPClient(t *testing.T) {
 			if tt.enableLog {
 				opts.Log = tt.log
 			}
-			client := newHTTPClient(opts)
+			client := newHTTPClient(&opts)
 			res, err := client.Get("test.com")
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHeaders, res.Header)

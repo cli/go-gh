@@ -22,7 +22,7 @@ type restClient struct {
 	host   string
 }
 
-func NewRESTClient(host string, opts ClientOptions) RESTClient {
+func NewRESTClient(host string, opts *ClientOptions) RESTClient {
 	return restClient{
 		client: newHTTPClient(opts),
 		host:   host,

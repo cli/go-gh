@@ -64,7 +64,7 @@ func TestGQLClientDo(t *testing.T) {
 				tt.wantHost = "api.github.com"
 			}
 			http := httpmock.NewRegistry(t)
-			client := NewGQLClient(tt.host, ClientOptions{Transport: http})
+			client := NewGQLClient(tt.host, &ClientOptions{Transport: http})
 			http.Register(
 				httpmock.GQL("QUERY"),
 				tt.responder,

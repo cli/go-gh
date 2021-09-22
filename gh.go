@@ -40,10 +40,13 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 	return
 }
 
-func DefaultRESTClient(opts api.ClientOptions) (api.RESTClient, error) {
+func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 	var cfg config.Config
 	var token string
 	var err error
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
 	if opts.Host == "" {
 		cfg, err = config.Load()
 		if err != nil {
@@ -67,10 +70,13 @@ func DefaultRESTClient(opts api.ClientOptions) (api.RESTClient, error) {
 	return api.NewRESTClient(opts.Host, opts), nil
 }
 
-func DefaultGQLClient(opts api.ClientOptions) (api.GQLClient, error) {
+func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 	var cfg config.Config
 	var token string
 	var err error
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
 	if opts.Host == "" {
 		cfg, err = config.Load()
 		if err != nil {
