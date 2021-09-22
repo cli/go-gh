@@ -48,20 +48,16 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
-	if opts.Host == "" {
+	if opts.Host == "" || opts.AuthToken == "" {
 		cfg, err = config.Load()
 		if err != nil {
 			return nil, err
 		}
+	}
+	if opts.Host == "" {
 		opts.Host = cfg.Host()
 	}
 	if opts.AuthToken == "" {
-		if cfg == nil {
-			cfg, err = config.Load()
-			if err != nil {
-				return nil, err
-			}
-		}
 		token, err = cfg.Token(opts.Host)
 		if err != nil {
 			return nil, err
@@ -78,20 +74,16 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
-	if opts.Host == "" {
+	if opts.Host == "" || opts.AuthToken == "" {
 		cfg, err = config.Load()
 		if err != nil {
 			return nil, err
 		}
+	}
+	if opts.Host == "" {
 		opts.Host = cfg.Host()
 	}
 	if opts.AuthToken == "" {
-		if cfg == nil {
-			cfg, err = config.Load()
-			if err != nil {
-				return nil, err
-			}
-		}
 		token, err = cfg.Token(opts.Host)
 		if err != nil {
 			return nil, err
