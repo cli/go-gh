@@ -33,7 +33,7 @@ type Config interface {
 	Get(key string) (string, error)
 	GetForHost(host string, key string) (string, error)
 	Host() string
-	Token(host string) (string, error)
+	AuthToken(host string) (string, error)
 }
 
 type config struct {
@@ -65,7 +65,7 @@ func (c config) Host() string {
 	return defaultHost
 }
 
-func (c config) Token(host string) (string, error) {
+func (c config) AuthToken(host string) (string, error) {
 	hostname := normalizeHostname(host)
 	if isEnterprise(hostname) {
 		if token := os.Getenv(ghEnterpriseToken); token != "" {

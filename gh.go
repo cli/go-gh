@@ -63,7 +63,7 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 		opts.Host = cfg.Host()
 	}
 	if opts.AuthToken == "" {
-		token, err = cfg.Token(opts.Host)
+		token, err = cfg.AuthToken(opts.Host)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 		opts.Host = cfg.Host()
 	}
 	if opts.AuthToken == "" {
-		token, err = cfg.Token(opts.Host)
+		token, err = cfg.AuthToken(opts.Host)
 		if err != nil {
 			return nil, err
 		}

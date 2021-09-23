@@ -1,3 +1,4 @@
+// Package api is a set of types for GitHub API.
 package api
 
 import (
