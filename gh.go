@@ -1,3 +1,5 @@
+// Package gh is a library for CLI Go applications to help interface with the gh CLI tool,
+// and the GitHub API.
 package gh
 
 import (
@@ -12,7 +14,7 @@ import (
 	"github.com/cli/safeexec"
 )
 
-// Execute gh command with provided arguments.
+// Exec gh command with provided arguments.
 func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
 	path, err := path()
 	if err != nil {
@@ -41,6 +43,9 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 	return
 }
 
+// RESTClient builds a client to send requests to GitHub REST API endpoints.
+// As part of the configuration a hostname, auth token, and default set of headers are resolved
+// from the gh environment configuration. These behaviors can be overridden using the opts argument.
 func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 	var cfg config.Config
 	var token string
@@ -67,6 +72,9 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 	return iapi.NewRESTClient(opts.Host, opts), nil
 }
 
+// GQLClient builds a client to send requests to GitHub GraphQL API endpoints.
+// As part of the configuration a hostname, auth token, and default set of headers are resolved
+// from the gh environment configuration. These behaviors can be overridden using the opts argument.
 func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 	var cfg config.Config
 	var token string
@@ -93,6 +101,8 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 	return iapi.NewGQLClient(opts.Host, opts), nil
 }
 
+// CurrentRepository uses git remotes to determine the GitHub repository
+// the current directory is tracking.
 func CurrentRepository() (Repository, error) {
 	remotes, err := git.Remotes()
 	if err != nil {
@@ -105,6 +115,7 @@ func CurrentRepository() (Repository, error) {
 	return repo{host: r.Host, name: r.Repo, owner: r.Owner}, nil
 }
 
+// Repository is the interface that wraps repository information methods.
 type Repository interface {
 	Host() string
 	Name() string

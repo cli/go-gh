@@ -79,10 +79,8 @@ func newHTTPClient(opts *api.ClientOptions) http.Client {
 		transport = opts.Transport
 	}
 
-	// header RoundTripper
 	transport = newHeaderRoundTripper(opts.AuthToken, opts.Headers, transport)
 
-	// log RoundTripper
 	if opts.Log != nil {
 		logger := &httpretty.Logger{
 			Time:            true,
@@ -102,7 +100,6 @@ func newHTTPClient(opts *api.ClientOptions) http.Client {
 		transport = logger.RoundTripper(transport)
 	}
 
-	// cache RoundTripper
 	if opts.EnableCache {
 		if opts.CacheDir == "" {
 			opts.CacheDir = filepath.Join(os.TempDir(), "gh-cli-cache")
@@ -196,6 +193,7 @@ func handleHTTPError(resp *http.Response) error {
 	return httpError
 }
 
+// Convert common error codes to human readable messages
 // See https://docs.github.com/en/rest/overview/resources-in-the-rest-api#client-errors for more details.
 func errorCodeToMessage(code string) string {
 	switch code {
@@ -249,10 +247,14 @@ func newHeaderRoundTripper(authToken string, headers map[string]string, rt http.
 		headers[timeZone] = currentTimeZone()
 	}
 	if headers[accept] == "" {
-		a := "application/vnd.github.merge-info-preview+json" // PullRequest.mergeStateStatus
-		a += ", application/vnd.github.nebula-preview"        // visibility when RESTing repos into an org
-		a += ", application/vnd.github.antiope-preview"       // Commit.statusCheckRollup for old GHES versions
-		a += ", application/vnd.github.shadow-cat-preview"    // PullRequest.isDraft for old GHES versions
+		// Preview for PullRequest.mergeStateStatus.
+		a := "application/vnd.github.merge-info-preview+json"
+		// Preview for visibility when RESTing repos into an org.
+		a += ", application/vnd.github.nebula-preview"
+		// Preview for Commit.statusCheckRollup for old GHES versions.
+		a += ", application/vnd.github.antiope-preview"
+		// Preview for // PullRequest.isDraft for old GHES versions.
+		a += ", application/vnd.github.shadow-cat-preview"
 		headers[accept] = a
 	}
 	return headerRoundTripper{headers: headers, rt: rt}

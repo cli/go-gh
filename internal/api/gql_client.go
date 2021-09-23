@@ -39,8 +39,8 @@ func NewGQLClient(host string, opts *api.ClientOptions) api.GQLClient {
 	}
 }
 
-// Do executes a single GraphQL query request and parses the response.
-func (c gqlClient) Do(query string, variables map[string]interface{}, data interface{}) error {
+// Do executes a single GraphQL query request and populates the response into the data argument.
+func (c gqlClient) Do(query string, variables map[string]interface{}, response interface{}) error {
 	reqBody, err := json.Marshal(map[string]interface{}{"query": query, "variables": variables})
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func (c gqlClient) Do(query string, variables map[string]interface{}, data inter
 		return err
 	}
 
-	gr := &gqlResponse{Data: data}
+	gr := &gqlResponse{Data: response}
 	err = json.Unmarshal(body, &gr)
 	if err != nil {
 		return err

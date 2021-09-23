@@ -43,7 +43,7 @@ func ExampleRESTClient_simple() {
 func ExampleRESTClient_advanced() {
 	opts := api.ClientOptions{
 		Host:      "github.com",
-		AuthToken: "xxxxxxxxxx", // Replace with valid auth token
+		AuthToken: "xxxxxxxxxx", // Replace with valid auth token.
 		Headers:   map[string]string{"Time-Zone": "America/Los_Angeles"},
 		Log:       os.Stdout,
 	}

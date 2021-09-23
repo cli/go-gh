@@ -46,7 +46,7 @@ func (r *Registry) Verify(t Testing) {
 	}
 }
 
-// RoundTrip satisfies http.RoundTripper.
+// Registry satisfies http.RoundTripper interface.
 func (r *Registry) RoundTrip(req *http.Request) (*http.Response, error) {
 	var stub *Stub
 
