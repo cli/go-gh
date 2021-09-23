@@ -1,22 +1,21 @@
-package example
+package gh
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
-	"github.com/cli/go-gh"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/shurcooL/githubv4"
 )
 
-// Execute `gh issue list -R cli/cli`, and print the output.
+// Execute 'gh issue list -R cli/cli', and print the output.
 func ExampleExec() {
 	args := []string{"issue", "list", "-R", "cli/cli"}
-	stdOut, stdErr, err := gh.Exec(args...)
+	stdOut, stdErr, err := Exec(args...)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	fmt.Println(stdOut.String())
 	fmt.Println(stdErr.String())
@@ -24,16 +23,14 @@ func ExampleExec() {
 
 // Get tags from cli/cli repository using REST API.
 func ExampleRESTClient_simple() {
-	client, err := gh.RESTClient(nil)
+	client, err := RESTClient(nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	response := []struct{ Name string }{}
 	err = client.Get("repos/cli/cli/tags", &response)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	fmt.Println(response)
 }
@@ -47,26 +44,23 @@ func ExampleRESTClient_advanced() {
 		Headers:   map[string]string{"Time-Zone": "America/Los_Angeles"},
 		Log:       os.Stdout,
 	}
-	client, err := gh.RESTClient(&opts)
+	client, err := RESTClient(&opts)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	response := []struct{ Name string }{}
 	err = client.Get("repos/cli/cli/tags", &response)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	fmt.Println(response)
 }
 
 // Query tags from cli/cli repository using GQL API.
 func ExampleGQLClient_simple() {
-	client, err := gh.GQLClient(nil)
+	client, err := GQLClient(nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	var query struct {
 		Repository struct {
@@ -85,8 +79,7 @@ func ExampleGQLClient_simple() {
 	}
 	err = client.Query(&query, variables)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	fmt.Println(query)
 }
@@ -98,10 +91,9 @@ func ExampleGQLClient_advanced() {
 		EnableCache: true,
 		Timeout:     5 * time.Second,
 	}
-	client, err := gh.GQLClient(&opts)
+	client, err := GQLClient(&opts)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	var query struct {
 		Repository struct {
@@ -120,18 +112,16 @@ func ExampleGQLClient_advanced() {
 	}
 	err = client.Query(&query, variables)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	fmt.Println(query)
 }
 
 // Get repository for the current directory.
 func ExampleCurrentRepository() {
-	repo, err := gh.CurrentRepository()
+	repo, err := CurrentRepository()
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	fmt.Printf("%s/%s/%s\n", repo.Host(), repo.Owner(), repo.Name())
 }

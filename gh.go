@@ -1,5 +1,8 @@
 // Package gh is a library for CLI Go applications to help interface with the gh CLI tool,
 // and the GitHub API.
+//
+// Note that the examples in this package assume gh and git are installed. They do not run in
+// the Go Playground used by pkg.go.dev.
 package gh
 
 import (

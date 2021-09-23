@@ -27,7 +27,7 @@ func main() {
 }
 ```
 
-See [examples folder][examples] for more use cases.
+See [examples][examples] for more use cases.
 
 ## Contributing
 
@@ -35,5 +35,5 @@ If anything feels off, or if you feel that some functionality is missing, please
 
 [extensions]: https://github.com/topics/gh-extension
 [gh]: https://github.com/cli/cli
-[examples]: ./examples/
+[examples]: ./example_gh_test.go
 [contributing]: ./.github/CONTRIBUTING.md
