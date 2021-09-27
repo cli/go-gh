@@ -115,6 +115,12 @@ func CurrentRepository() (Repository, error) {
 		return nil, fmt.Errorf("unable to determine current repository")
 	}
 	r := remotes[0]
+	for _, remote := range remotes {
+		if remote.Resolved == "base" {
+			r = remote
+			break
+		}
+	}
 	return repo{host: r.Host, name: r.Repo, owner: r.Owner}, nil
 }
 

@@ -15,6 +15,7 @@ type Remote struct {
 	Name     string
 	FetchURL *url.URL
 	PushURL  *url.URL
+	Resolved string
 	Host     string
 	Owner    string
 	Repo     string
@@ -45,6 +46,7 @@ func Remotes() (RemoteSet, error) {
 		return nil, err
 	}
 	remotes := parseRemotes(list)
+	setResolvedRemotes(remotes)
 	sort.Sort(remotes)
 	return remotes, nil
 }
@@ -54,8 +56,7 @@ func listRemotes() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := strings.TrimSuffix(stdOut.String(), "\n")
-	return strings.Split(s, "\n"), nil
+	return toLines(stdOut.String()), nil
 }
 
 func parseRemotes(gitRemotes []string) RemoteSet {
@@ -107,4 +108,33 @@ func parseRemotes(gitRemotes []string) RemoteSet {
 		}
 	}
 	return remotes
+}
+
+func setResolvedRemotes(remotes RemoteSet) {
+	stdOut, _, err := Exec("config", "--get-regexp", `^remote\..*\.gh-resolved$`)
+	if err != nil {
+		return
+	}
+	for _, l := range toLines(stdOut.String()) {
+		parts := strings.SplitN(l, " ", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		rp := strings.SplitN(parts[0], ".", 3)
+		if len(rp) < 2 {
+			continue
+		}
+		name := rp[1]
+		for _, r := range remotes {
+			if r.Name == name {
+				r.Resolved = parts[1]
+				break
+			}
+		}
+	}
+}
+
+func toLines(output string) []string {
+	lines := strings.TrimSuffix(output, "\n")
+	return strings.Split(lines, "\n")
 }

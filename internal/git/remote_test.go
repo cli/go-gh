@@ -22,8 +22,10 @@ func TestRemotes(t *testing.T) {
 	url = git@example.com:monalisa/origin.git
 [remote "test"]
 	url = git://github.com/hubot/test.git
+	gh-resolved = other
 [remote "upstream"]
 	url = https://github.com/monalisa/upstream.git
+	gh-resolved = base
 [remote "github"]
 	url = git@github.com:hubot/github.git
 `
@@ -37,9 +39,13 @@ func TestRemotes(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 4, len(rs))
 	assert.Equal(t, "upstream", rs[0].Name)
+	assert.Equal(t, "base", rs[0].Resolved)
 	assert.Equal(t, "github", rs[1].Name)
+	assert.Equal(t, "", rs[1].Resolved)
 	assert.Equal(t, "origin", rs[2].Name)
+	assert.Equal(t, "", rs[2].Resolved)
 	assert.Equal(t, "test", rs[3].Name)
+	assert.Equal(t, "other", rs[3].Resolved)
 }
 
 func TestParseRemotes(t *testing.T) {
