@@ -10,12 +10,12 @@ import (
 	"strings"
 
 	"github.com/cli/go-gh/pkg/api"
-	"github.com/shurcooL/githubv4"
+	graphql "github.com/samcoe/go-graphql-client"
 )
 
 // Implements api.GQLClient interface.
 type gqlClient struct {
-	client     *githubv4.Client
+	client     *graphql.Client
 	host       string
 	httpClient *http.Client
 }
@@ -23,17 +23,14 @@ type gqlClient struct {
 func NewGQLClient(host string, opts *api.ClientOptions) api.GQLClient {
 	httpClient := newHTTPClient(opts)
 
-	var client *githubv4.Client
 	if isEnterprise(host) {
 		host = fmt.Sprintf("https://%s/api/graphql", host)
-		client = githubv4.NewEnterpriseClient(host, &httpClient)
 	} else {
 		host = "https://api.github.com/graphql"
-		client = githubv4.NewClient(&httpClient)
 	}
 
 	return gqlClient{
-		client:     client,
+		client:     graphql.NewClient(host, &httpClient),
 		host:       host,
 		httpClient: &httpClient,
 	}
@@ -87,16 +84,15 @@ func (c gqlClient) Do(query string, variables map[string]interface{}, response i
 // Mutate executes a single GraphQL mutation request,
 // with a mutation derived from m, populating the response into it.
 // "m" should be a pointer to struct that corresponds to the GitHub GraphQL schema.
-// Provided input will be set as a variable named "input".
-func (c gqlClient) Mutate(m interface{}, input interface{}, variables map[string]interface{}) error {
-	return c.client.Mutate(context.Background(), m, input, variables)
+func (c gqlClient) Mutate(name string, m interface{}, variables map[string]interface{}) error {
+	return c.client.MutateNamed(context.Background(), name, m, variables)
 }
 
 // Query executes a single GraphQL query request,
 // with a query derived from q, populating the response into it.
 // "q" should be a pointer to struct that corresponds to the GitHub GraphQL schema.
-func (c gqlClient) Query(q interface{}, variables map[string]interface{}) error {
-	return c.client.Query(context.Background(), q, variables)
+func (c gqlClient) Query(name string, q interface{}, variables map[string]interface{}) error {
+	return c.client.QueryNamed(context.Background(), name, q, variables)
 }
 
 type gqlResponse struct {

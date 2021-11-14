@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cli/go-gh/pkg/api"
-	"github.com/shurcooL/githubv4"
+	graphql "github.com/samcoe/go-graphql-client"
 )
 
 // Execute 'gh issue list -R cli/cli', and print the output.
@@ -72,12 +72,12 @@ func ExampleGQLClient_simple() {
 		} `graphql:"repository(owner: $owner, name: $name)"`
 	}
 	variables := map[string]interface{}{
-		"refPrefix": githubv4.String("refs/tags/"),
-		"last":      githubv4.Int(30),
-		"owner":     githubv4.String("cli"),
-		"name":      githubv4.String("cli"),
+		"refPrefix": graphql.String("refs/tags/"),
+		"last":      graphql.Int(30),
+		"owner":     graphql.String("cli"),
+		"name":      graphql.String("cli"),
 	}
-	err = client.Query(&query, variables)
+	err = client.Query("RepositoryTags", &query, variables)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -105,12 +105,12 @@ func ExampleGQLClient_advanced() {
 		} `graphql:"repository(owner: $owner, name: $name)"`
 	}
 	variables := map[string]interface{}{
-		"refPrefix": githubv4.String("refs/tags/"),
-		"last":      githubv4.Int(30),
-		"owner":     githubv4.String("cli"),
-		"name":      githubv4.String("cli"),
+		"refPrefix": graphql.String("refs/tags/"),
+		"last":      graphql.Int(30),
+		"owner":     graphql.String("cli"),
+		"name":      graphql.String("cli"),
 	}
-	err = client.Query(&query, variables)
+	err = client.Query("RepositoryTags", &query, variables)
 	if err != nil {
 		log.Fatal(err)
 	}

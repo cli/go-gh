@@ -88,12 +88,12 @@ type GQLClient interface {
 	// The mutation argument should be a pointer to struct that corresponds
 	// to the GitHub GraphQL schema.
 	// Provided input will be set as a variable named input.
-	Mutate(mutation interface{}, input interface{}, variables map[string]interface{}) error
+	Mutate(name string, mutation interface{}, variables map[string]interface{}) error
 
 	// Query executes a GraphQL query request,
 	// The query string is derived from the query argument, and the
 	// response is populated into it.
 	// The query argument should be a pointer to struct that corresponds
 	// to the GitHub GraphQL schema.
-	Query(query interface{}, variables map[string]interface{}) error
+	Query(name string, query interface{}, variables map[string]interface{}) error
 }
