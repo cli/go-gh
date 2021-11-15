@@ -51,6 +51,20 @@ func Remotes() (RemoteSet, error) {
 	return remotes, nil
 }
 
+// Filter remotes by given hostnames, maintains original order.
+func (rs RemoteSet) FilterByHosts(hosts []string) RemoteSet {
+	filtered := make(RemoteSet, 0)
+	for _, remote := range rs {
+		for _, host := range hosts {
+			if strings.EqualFold(remote.Host, host) {
+				filtered = append(filtered, remote)
+				break
+			}
+		}
+	}
+	return filtered
+}
+
 func listRemotes() ([]string, error) {
 	stdOut, _, err := Exec("remote", "-v")
 	if err != nil {

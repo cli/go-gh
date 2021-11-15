@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/cli/go-gh/internal/set"
 	"gopkg.in/yaml.v3"
 )
 
@@ -33,6 +34,7 @@ type Config interface {
 	Get(key string) (string, error)
 	GetForHost(host string, key string) (string, error)
 	Host() string
+	Hosts() []string
 	AuthToken(host string) (string, error)
 }
 
@@ -63,6 +65,16 @@ func (c config) Host() string {
 		return entries[0]
 	}
 	return defaultHost
+}
+
+func (c config) Hosts() []string {
+	hosts := set.NewStringSet()
+	if host := os.Getenv(ghHost); host != "" {
+		hosts.Add(host)
+	}
+	entries := c.hosts.keys()
+	hosts.AddValues(entries)
+	return hosts.ToSlice()
 }
 
 func (c config) AuthToken(host string) (string, error) {

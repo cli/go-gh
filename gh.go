@@ -7,12 +7,15 @@ package gh
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"net/url"
 	"os/exec"
 
 	iapi "github.com/cli/go-gh/internal/api"
 	"github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/internal/git"
+	"github.com/cli/go-gh/internal/ssh"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/cli/safeexec"
 )
@@ -112,16 +115,37 @@ func CurrentRepository() (Repository, error) {
 		return nil, err
 	}
 	if len(remotes) == 0 {
-		return nil, fmt.Errorf("unable to determine current repository")
+		return nil, errors.New("unable to determine current repository, no git remotes configured for this repository")
 	}
-	r := remotes[0]
-	for _, remote := range remotes {
-		if remote.Resolved == "base" {
-			r = remote
-			break
+
+	sshConfig := ssh.ParseConfig()
+	translateRemotes(remotes, sshConfig.Translator())
+
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	hosts := cfg.Hosts()
+
+	filteredRemotes := remotes.FilterByHosts(hosts)
+	if len(filteredRemotes) == 0 {
+		return nil, errors.New("unable to determine current repository, none of the git remotes configured for this repository point to a known GitHub host")
+	}
+
+	r := filteredRemotes[0]
+	return repo{host: r.Host, name: r.Repo, owner: r.Owner}, nil
+}
+
+func translateRemotes(remotes git.RemoteSet, urlTranslate func(*url.URL) *url.URL) {
+	for _, r := range remotes {
+		if r.FetchURL != nil {
+			r.FetchURL = urlTranslate(r.FetchURL)
+		}
+		if r.PushURL != nil {
+			r.PushURL = urlTranslate(r.PushURL)
 		}
 	}
-	return repo{host: r.Host, name: r.Repo, owner: r.Owner}, nil
 }
 
 // Repository is the interface that wraps repository information methods.
