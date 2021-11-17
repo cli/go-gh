@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cli/go-gh/pkg/api"
-	graphql "github.com/samcoe/go-graphql-client"
+	graphql "github.com/cli/shurcooL-graphql"
 )
 
 // Execute 'gh issue list -R cli/cli', and print the output.

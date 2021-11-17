@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/cli/go-gh/pkg/api"
-	graphql "github.com/samcoe/go-graphql-client"
+	graphql "github.com/cli/shurcooL-graphql"
 )
 
 // Implements api.GQLClient interface.
