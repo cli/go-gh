@@ -55,6 +55,10 @@ func main() {
 
 See [examples][examples] for more use cases.
 
+## Reference Documentation
+
+Full reference docs can be found on [pkg.go.dev](https://pkg.go.dev/github.com/cli/go-gh).
+
 ## Contributing
 
 If anything feels off, or if you feel that some functionality is missing, please check out the [contributing page][contributing]. There you will find instructions for sharing your feedback, and submitting pull requests to the project.
