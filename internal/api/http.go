@@ -114,7 +114,7 @@ func newHTTPClient(opts *api.ClientOptions) http.Client {
 	return http.Client{Transport: transport, Timeout: opts.Timeout}
 }
 
-type httpError struct {
+type HttpError struct {
 	StatusCode  int
 	RequestURL  *url.URL
 	Message     string
@@ -129,7 +129,7 @@ type httpErrorItem struct {
 	Code     string
 }
 
-func (err httpError) Error() string {
+func (err HttpError) Error() string {
 	if msgs := strings.SplitN(err.Message, "\n", 2); len(msgs) > 1 {
 		return fmt.Sprintf("HTTP %d: %s (%s)\n%s", err.StatusCode, msgs[0], err.RequestURL, msgs[1])
 	} else if err.Message != "" {
@@ -139,7 +139,7 @@ func (err httpError) Error() string {
 }
 
 func handleHTTPError(resp *http.Response) error {
-	httpError := httpError{
+	httpError := HttpError{
 		StatusCode:  resp.StatusCode,
 		RequestURL:  resp.Request.URL,
 		OAuthScopes: resp.Header.Get("X-Oauth-Scopes"),
