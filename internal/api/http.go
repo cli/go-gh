@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -114,32 +113,8 @@ func newHTTPClient(opts *api.ClientOptions) http.Client {
 	return http.Client{Transport: transport, Timeout: opts.Timeout}
 }
 
-type HTTPError struct {
-	StatusCode  int
-	RequestURL  *url.URL
-	Message     string
-	OAuthScopes string
-	Errors      []httpErrorItem
-}
-
-type httpErrorItem struct {
-	Message  string
-	Resource string
-	Field    string
-	Code     string
-}
-
-func (err HTTPError) Error() string {
-	if msgs := strings.SplitN(err.Message, "\n", 2); len(msgs) > 1 {
-		return fmt.Sprintf("HTTP %d: %s (%s)\n%s", err.StatusCode, msgs[0], err.RequestURL, msgs[1])
-	} else if err.Message != "" {
-		return fmt.Sprintf("HTTP %d: %s (%s)", err.StatusCode, err.Message, err.RequestURL)
-	}
-	return fmt.Sprintf("HTTP %d (%s)", err.StatusCode, err.RequestURL)
-}
-
 func handleHTTPError(resp *http.Response) error {
-	httpError := HTTPError{
+	httpError := api.HTTPError{
 		StatusCode:  resp.StatusCode,
 		RequestURL:  resp.Request.URL,
 		OAuthScopes: resp.Header.Get("X-Oauth-Scopes"),
@@ -174,9 +149,9 @@ func handleHTTPError(resp *http.Response) error {
 			var errString string
 			_ = json.Unmarshal(raw, &errString)
 			messages = append(messages, errString)
-			httpError.Errors = append(httpError.Errors, httpErrorItem{Message: errString})
+			httpError.Errors = append(httpError.Errors, api.HttpErrorItem{Message: errString})
 		case '{':
-			var errInfo httpErrorItem
+			var errInfo api.HttpErrorItem
 			_ = json.Unmarshal(raw, &errInfo)
 			msg := errInfo.Message
 			if errInfo.Code != "" && errInfo.Code != "custom" {
