@@ -14,7 +14,7 @@ func TestHelperProcess(t *testing.T) {
 	}
 	if err := func(args []string) error {
 		if args[len(args)-1] == "error" {
-			return fmt.Errorf("proccess exited with error")
+			return fmt.Errorf("process exited with error")
 		}
 		fmt.Fprintf(os.Stdout, "%v", args)
 		return nil
@@ -38,7 +38,7 @@ func TestRunError(t *testing.T) {
 	stdOut, stdErr, err := run(os.Args[0],
 		[]string{"GH_WANT_HELPER_PROCESS=1"},
 		"-test.run=TestHelperProcess", "--", "gh", "issue", "list", "error")
-	assert.EqualError(t, err, "failed to run gh: proccess exited with error. error: exit status 1")
+	assert.EqualError(t, err, "failed to run gh: process exited with error. error: exit status 1")
 	assert.Equal(t, "", stdOut.String())
-	assert.Equal(t, "proccess exited with error", stdErr.String())
+	assert.Equal(t, "process exited with error", stdErr.String())
 }

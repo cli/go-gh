@@ -72,7 +72,7 @@ type RESTClient interface {
 
 	// Put issues a PUT request to the specified path with the specified body.
 	// The response is populated into the response argument.
-	Put(path string, body io.Reader, respone interface{}) error
+	Put(path string, body io.Reader, response interface{}) error
 }
 
 // GQLClient is the interface that wraps methods for the different types of
