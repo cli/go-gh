@@ -14,7 +14,7 @@ If you'd like to use `go-gh` on systems without `gh` installed and configured, y
 
 ## Installation
 ```bash
-go get https://github.com/cli/go-gh
+go get github.com/cli/go-gh
 ```
 
 ## Usage
