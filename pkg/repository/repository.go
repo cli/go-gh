@@ -1,3 +1,5 @@
+// Package repository is a set of types and functions for modeling and
+// interacting with GitHub repositories.
 package repository
 
 import (
