@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func isURL(u string) bool {
+func IsURL(u string) bool {
 	return strings.HasPrefix(u, "git@") || isSupportedProtocol(u)
 }
 
@@ -15,6 +15,7 @@ func isSupportedProtocol(u string) bool {
 		strings.HasPrefix(u, "git+ssh:") ||
 		strings.HasPrefix(u, "git:") ||
 		strings.HasPrefix(u, "http:") ||
+		strings.HasPrefix(u, "git+https:") ||
 		strings.HasPrefix(u, "https:")
 }
 
@@ -25,8 +26,8 @@ func isPossibleProtocol(u string) bool {
 		strings.HasPrefix(u, "file:")
 }
 
-// Normalize git remote urls.
-func parseURL(rawURL string) (u *url.URL, err error) {
+// ParseURL normalizes git remote urls.
+func ParseURL(rawURL string) (u *url.URL, err error) {
 	if !isPossibleProtocol(rawURL) &&
 		strings.ContainsRune(rawURL, ':') &&
 		// Not a Windows path.
@@ -42,6 +43,10 @@ func parseURL(rawURL string) (u *url.URL, err error) {
 
 	if u.Scheme == "git+ssh" {
 		u.Scheme = "ssh"
+	}
+
+	if u.Scheme == "git+https" {
+		u.Scheme = "https"
 	}
 
 	if u.Scheme != "ssh" {
@@ -60,7 +65,7 @@ func parseURL(rawURL string) (u *url.URL, err error) {
 }
 
 // Extract GitHub repository information from a git remote URL.
-func repoInfoFromURL(u *url.URL) (host string, owner string, repo string, err error) {
+func RepoInfoFromURL(u *url.URL) (host string, owner string, name string, err error) {
 	if u.Hostname() == "" {
 		return "", "", "", fmt.Errorf("no hostname detected")
 	}

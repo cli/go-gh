@@ -10,13 +10,16 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"os/exec"
 
 	iapi "github.com/cli/go-gh/internal/api"
 	"github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/internal/git"
+	irepo "github.com/cli/go-gh/internal/repository"
 	"github.com/cli/go-gh/internal/ssh"
 	"github.com/cli/go-gh/pkg/api"
+	repo "github.com/cli/go-gh/pkg/repository"
 	"github.com/cli/safeexec"
 )
 
@@ -109,7 +112,12 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 
 // CurrentRepository uses git remotes to determine the GitHub repository
 // the current directory is tracking.
-func CurrentRepository() (Repository, error) {
+func CurrentRepository() (repo.Repository, error) {
+	override := os.Getenv("GH_REPO")
+	if override != "" {
+		return repo.Parse(override)
+	}
+
 	remotes, err := git.Remotes()
 	if err != nil {
 		return nil, err
@@ -134,7 +142,7 @@ func CurrentRepository() (Repository, error) {
 	}
 
 	r := filteredRemotes[0]
-	return repo{host: r.Host, name: r.Repo, owner: r.Owner}, nil
+	return irepo.New(r.Host, r.Owner, r.Repo), nil
 }
 
 func translateRemotes(remotes git.RemoteSet, urlTranslate func(*url.URL) *url.URL) {
@@ -146,29 +154,4 @@ func translateRemotes(remotes git.RemoteSet, urlTranslate func(*url.URL) *url.UR
 			r.PushURL = urlTranslate(r.PushURL)
 		}
 	}
-}
-
-// Repository is the interface that wraps repository information methods.
-type Repository interface {
-	Host() string
-	Name() string
-	Owner() string
-}
-
-type repo struct {
-	host  string
-	name  string
-	owner string
-}
-
-func (r repo) Host() string {
-	return r.host
-}
-
-func (r repo) Name() string {
-	return r.name
-}
-
-func (r repo) Owner() string {
-	return r.owner
 }
