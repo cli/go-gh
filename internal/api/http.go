@@ -237,7 +237,10 @@ func newHeaderRoundTripper(authToken string, headers map[string]string, rt http.
 
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	for k, v := range hrt.headers {
-		req.Header.Set(k, v)
+		// If the header is already set in the request, don't overwrite it.
+		if req.Header.Get(k) == "" {
+			req.Header.Set(k, v)
+		}
 	}
 	return hrt.rt.RoundTrip(req)
 }
