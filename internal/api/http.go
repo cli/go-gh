@@ -78,7 +78,7 @@ func newHTTPClient(opts *api.ClientOptions) http.Client {
 		transport = opts.Transport
 	}
 
-	transport = newHeaderRoundTripper(opts.AuthToken, opts.Headers, transport)
+	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
 
 	if opts.Log != nil {
 		logger := &httpretty.Logger{
@@ -187,16 +187,21 @@ func inspectableMIMEType(t string) bool {
 	return strings.HasPrefix(t, "text/") || jsonTypeRE.MatchString(t)
 }
 
+func isValidHost(reqHost, hrtHost string) bool {
+	return strings.Contains(reqHost, hrtHost)
+}
+
 func isEnterprise(host string) bool {
 	return host != defaultHostname
 }
 
 type headerRoundTripper struct {
+	host    string
 	headers map[string]string
 	rt      http.RoundTripper
 }
 
-func newHeaderRoundTripper(authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
+func newHeaderRoundTripper(host string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
 	if headers == nil {
 		headers = map[string]string{}
 	}
@@ -232,10 +237,15 @@ func newHeaderRoundTripper(authToken string, headers map[string]string, rt http.
 		a += ", application/vnd.github.shadow-cat-preview"
 		headers[accept] = a
 	}
-	return headerRoundTripper{headers: headers, rt: rt}
+	return headerRoundTripper{host: host, headers: headers, rt: rt}
 }
 
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// If request is not for the host we have configured, do not add authorization headers.
+	if !isValidHost(req.URL.Host, hrt.host) && hrt.headers[authorization] != "" {
+		delete(hrt.headers, "Authorization")
+	}
+
 	for k, v := range hrt.headers {
 		// If the header is already set in the request, don't overwrite it.
 		if req.Header.Get(k) == "" {
