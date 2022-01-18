@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os/exec"
 
@@ -105,6 +106,35 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 		opts.AuthToken = token
 	}
 	return iapi.NewGQLClient(opts.Host, opts), nil
+}
+
+// HTTPClient builds a client that can be passed to another library.
+// As part of the configuration a hostname, auth token, and default set of headers are resolved
+// from the gh environment configuration. These behaviors can be overridden using the opts argument.
+func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
+	var cfg config.Config
+	var token string
+	var err error
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
+	if opts.Host == "" || opts.AuthToken == "" {
+		cfg, err = config.Load()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if opts.Host == "" {
+		opts.Host = cfg.Host()
+	}
+	if opts.AuthToken == "" {
+		token, err = cfg.AuthToken(opts.Host)
+		if err != nil {
+			return nil, err
+		}
+		opts.AuthToken = token
+	}
+	return iapi.NewHTTPClient(opts), nil
 }
 
 // CurrentRepository uses git remotes to determine the GitHub repository
