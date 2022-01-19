@@ -76,7 +76,7 @@ func TestNewHTTPClient(t *testing.T) {
 			if tt.enableLog {
 				opts.Log = tt.log
 			}
-			client := newHTTPClient(&opts)
+			client := NewHTTPClient(&opts)
 			res, err := client.Get("test.com")
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHeaders, res.Header)
@@ -139,7 +139,7 @@ func TestNewHTTPClientWithDifferentHost(t *testing.T) {
 				return
 			}
 
-			client := newHTTPClient(&opts)
+			client := NewHTTPClient(&opts)
 			res, err := client.Do(req)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantAuthToken, res.Request.Header.Get("authorization"))

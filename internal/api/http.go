@@ -68,7 +68,7 @@ var timeZoneNames = map[int]string{
 	50400:  "Pacific/Kiritimati",
 }
 
-func newHTTPClient(opts *api.ClientOptions) http.Client {
+func NewHTTPClient(opts *api.ClientOptions) http.Client {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
@@ -243,7 +243,7 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// If request is not for the host we have configured, do not add authorization headers.
 	if !isValidHost(req.URL.Host, hrt.host) && hrt.headers[authorization] != "" {
-		delete(hrt.headers, "Authorization")
+		delete(hrt.headers, authorization)
 	}
 
 	for k, v := range hrt.headers {

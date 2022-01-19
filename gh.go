@@ -111,7 +111,7 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 // HTTPClient builds a client that can be passed to another library.
 // As part of the configuration a hostname, auth token, and default set of headers are resolved
 // from the gh environment configuration. These behaviors can be overridden using the opts argument.
-func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
+func HTTPClient(opts *api.ClientOptions) (http.Client, error) {
 	var cfg config.Config
 	var token string
 	var err error
@@ -121,7 +121,7 @@ func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
 	if opts.Host == "" || opts.AuthToken == "" {
 		cfg, err = config.Load()
 		if err != nil {
-			return nil, err
+			return http.Client{}, err
 		}
 	}
 	if opts.Host == "" {
@@ -130,7 +130,7 @@ func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
 	if opts.AuthToken == "" {
 		token, err = cfg.AuthToken(opts.Host)
 		if err != nil {
-			return nil, err
+			return http.Client{}, err
 		}
 		opts.AuthToken = token
 	}

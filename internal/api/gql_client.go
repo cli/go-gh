@@ -21,7 +21,7 @@ type gqlClient struct {
 }
 
 func NewGQLClient(host string, opts *api.ClientOptions) api.GQLClient {
-	httpClient := newHTTPClient(opts)
+	httpClient := NewHTTPClient(opts)
 
 	if isEnterprise(host) {
 		host = fmt.Sprintf("https://%s/api/graphql", host)

@@ -18,7 +18,7 @@ type restClient struct {
 
 func NewRESTClient(host string, opts *api.ClientOptions) api.RESTClient {
 	return restClient{
-		client: newHTTPClient(opts),
+		client: NewHTTPClient(opts),
 		host:   host,
 	}
 }
