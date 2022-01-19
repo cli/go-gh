@@ -187,8 +187,17 @@ func inspectableMIMEType(t string) bool {
 	return strings.HasPrefix(t, "text/") || jsonTypeRE.MatchString(t)
 }
 
-func isValidHost(reqHost, hrtHost string) bool {
-	return strings.Contains(reqHost, hrtHost)
+func isRequestHostValid(reqHost, hrtHost string) bool {
+	reqHost = strings.ToLower(reqHost)
+	hrtHost = strings.ToLower(hrtHost)
+
+	return (reqHost == hrtHost) ||
+		// // Check if the hrtHost is a subdomain of reqHost
+		// // e.g strings.HasSuffix("api.github.com", "".github.com") == true
+		strings.HasSuffix(reqHost, "."+hrtHost) ||
+		// // Check if the reqHost is a subdomain of hrtHost
+		// // e.g strings.HasSuffix("github.com", "".api.github.com") == false
+		strings.HasSuffix(hrtHost, "."+reqHost)
 }
 
 func isEnterprise(host string) bool {
@@ -241,17 +250,26 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 }
 
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	// If request is not for the host we have configured, do not add authorization headers.
-	if !isValidHost(req.URL.Host, hrt.host) && hrt.headers[authorization] != "" {
-		delete(hrt.headers, authorization)
-	}
 
 	for k, v := range hrt.headers {
+		// We don't want to process the authorization token here so we
+		// jump to the next iteration.
+		if k == authorization {
+			continue
+		}
+
 		// If the header is already set in the request, don't overwrite it.
 		if req.Header.Get(k) == "" {
 			req.Header.Set(k, v)
 		}
 	}
+
+	// If the authorization header has been set and the request
+	// host is valid then add the authorization header to the request.
+	if isRequestHostValid(req.URL.Hostname(), hrt.host) {
+		req.Header.Set(authorization, hrt.headers[authorization])
+	}
+
 	return hrt.rt.RoundTrip(req)
 }
 

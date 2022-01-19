@@ -110,16 +110,30 @@ func TestNewHTTPClientWithDifferentHost(t *testing.T) {
 		wantAuthToken string
 	}{
 		{
-			name:          "removes authorization header for a different host",
+			name:          "does not add an authorization header if optsHost is different from reqHost",
 			optsHost:      "github.com",
 			reqHost:       "https://nothub.com",
 			authToken:     "oauth_token",
 			wantAuthToken: "",
 		},
 		{
-			name:          "does not remove authorization header for a matching host",
+			name:          "does not add an authorization header if the reqHost contains optsHost but it's not a subdomain",
+			optsHost:      "github.com",
+			reqHost:       "https://thegithub.company",
+			authToken:     "oauth_token",
+			wantAuthToken: "",
+		},
+		{
+			name:          "adds an authorization header for a matching host",
 			optsHost:      "github.com",
 			reqHost:       "https://api.github.com",
+			authToken:     "oauth_token",
+			wantAuthToken: "token oauth_token",
+		},
+		{
+			name:          "adds an authorization header if hosts match but differ in case",
+			optsHost:      "github.com",
+			reqHost:       "https://api.GITHUB.com",
 			authToken:     "oauth_token",
 			wantAuthToken: "token oauth_token",
 		},
