@@ -187,17 +187,10 @@ func inspectableMIMEType(t string) bool {
 	return strings.HasPrefix(t, "text/") || jsonTypeRE.MatchString(t)
 }
 
-func isRequestHostValid(reqHost, hrtHost string) bool {
-	reqHost = strings.ToLower(reqHost)
-	hrtHost = strings.ToLower(hrtHost)
-
-	return (reqHost == hrtHost) ||
-		// // Check if the hrtHost is a subdomain of reqHost
-		// // e.g strings.HasSuffix("api.github.com", "".github.com") == true
-		strings.HasSuffix(reqHost, "."+hrtHost) ||
-		// // Check if the reqHost is a subdomain of hrtHost
-		// // e.g strings.HasSuffix("github.com", "".api.github.com") == false
-		strings.HasSuffix(hrtHost, "."+reqHost)
+func isSameDomain(requestHost, domain string) bool {
+	requestHost = strings.ToLower(requestHost)
+	domain = strings.ToLower(domain)
+	return (requestHost == domain) || strings.HasSuffix(requestHost, "."+domain)
 }
 
 func isEnterprise(host string) bool {
@@ -266,7 +259,7 @@ func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 
 	// If the authorization header has been set and the request
 	// host is valid then add the authorization header to the request.
-	if isRequestHostValid(req.URL.Hostname(), hrt.host) {
+	if isSameDomain(req.URL.Hostname(), hrt.host) {
 		req.Header.Set(authorization, hrt.headers[authorization])
 	}
 
