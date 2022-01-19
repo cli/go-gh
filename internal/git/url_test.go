@@ -34,6 +34,26 @@ func TestIsURL(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "git with extension",
+			url:  "git://example.com/owner/repo.git",
+			want: true,
+		},
+		{
+			name: "git+ssh",
+			url:  "git+ssh://git@example.com/owner/repo.git",
+			want: true,
+		},
+		{
+			name: "git+https",
+			url:  "git+https://example.com/owner/repo.git",
+			want: true,
+		},
+		{
+			name: "http",
+			url:  "http://example.com/owner/repo.git",
+			want: true,
+		},
+		{
 			name: "https",
 			url:  "https://example.com/owner/repo.git",
 			want: true,
@@ -46,7 +66,7 @@ func TestIsURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isURL(tt.url))
+			assert.Equal(t, tt.want, IsURL(tt.url))
 		})
 	}
 }
@@ -126,6 +146,16 @@ func TestParseURL(t *testing.T) {
 			},
 		},
 		{
+			name: "git+https",
+			url:  "git+https://example.com/owner/repo.git",
+			want: url{
+				Scheme: "https",
+				User:   "",
+				Host:   "example.com",
+				Path:   "/owner/repo.git",
+			},
+		},
+		{
 			name: "scp-like",
 			url:  "git@example.com:owner/repo.git",
 			want: url{
@@ -178,7 +208,7 @@ func TestParseURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u, err := parseURL(tt.url)
+			u, err := ParseURL(tt.url)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
@@ -275,7 +305,7 @@ func TestRepoInfoFromURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			u, err := url.Parse(tt.input)
 			assert.NoError(t, err)
-			host, owner, repo, err := repoInfoFromURL(u)
+			host, owner, repo, err := RepoInfoFromURL(u)
 			if tt.wantErr {
 				assert.EqualError(t, err, tt.wantErrMsg)
 				return

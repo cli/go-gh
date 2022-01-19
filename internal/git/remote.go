@@ -84,11 +84,11 @@ func parseRemotes(gitRemotes []string) RemoteSet {
 		urlStr := strings.TrimSpace(match[2])
 		urlType := strings.TrimSpace(match[3])
 
-		url, err := parseURL(urlStr)
+		url, err := ParseURL(urlStr)
 		if err != nil {
 			continue
 		}
-		host, owner, repo, _ := repoInfoFromURL(url)
+		host, owner, repo, _ := RepoInfoFromURL(url)
 
 		var rem *Remote
 		if len(remotes) > 0 {
