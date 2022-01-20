@@ -243,11 +243,11 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 }
 
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-
 	for k, v := range hrt.headers {
-		// We don't want to process the authorization token here so we
-		// jump to the next iteration.
-		if k == authorization {
+		// If the authorization header has been set and the request
+		// host is not in the same domain that was specified in the ClientOptions
+		// then do not add the authorization header to the request.
+		if k == authorization && !isSameDomain(req.URL.Hostname(), hrt.host) {
 			continue
 		}
 
@@ -255,12 +255,6 @@ func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		if req.Header.Get(k) == "" {
 			req.Header.Set(k, v)
 		}
-	}
-
-	// If the authorization header has been set and the request
-	// host is valid then add the authorization header to the request.
-	if isSameDomain(req.URL.Hostname(), hrt.host) {
-		req.Header.Set(authorization, hrt.headers[authorization])
 	}
 
 	return hrt.rt.RoundTrip(req)
