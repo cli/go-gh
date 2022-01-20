@@ -28,6 +28,7 @@ func TestNewHTTPClient(t *testing.T) {
 		name        string
 		enableLog   bool
 		log         *bytes.Buffer
+		host        string
 		headers     map[string]string
 		wantHeaders http.Header
 	}{
@@ -65,10 +66,43 @@ func TestNewHTTPClient(t *testing.T) {
 			log:         &bytes.Buffer{},
 			wantHeaders: defaultHeaders(),
 		},
+		{
+			name: "does not add an authorization header for non-matching host",
+			host: "notauthorized.com",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name: "does not add an authorization header for non-matching host subdomain",
+			host: "test.company",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:        "adds an authorization header for a matching host",
+			host:        "test.com",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:        "adds an authorization header if hosts match but differ in case",
+			host:        "TeSt.CoM",
+			wantHeaders: defaultHeaders(),
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.host == "" {
+				tt.host = "test.com"
+			}
 			opts := api.ClientOptions{
+				Host:      tt.host,
 				AuthToken: "oauth_token",
 				Headers:   tt.headers,
 				Transport: reflectHTTP,
@@ -77,86 +111,12 @@ func TestNewHTTPClient(t *testing.T) {
 				opts.Log = tt.log
 			}
 			client := NewHTTPClient(&opts)
-			res, err := client.Get("test.com")
+			res, err := client.Get("https://test.com")
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHeaders, res.Header)
 			if tt.enableLog {
 				assert.NotEmpty(t, tt.log)
 			}
-		})
-	}
-}
-
-func TestNewHTTPClientWithDifferentHost(t *testing.T) {
-	reflectHTTP := tripper{
-		roundTrip: func(req *http.Request) (*http.Response, error) {
-			header := req.Header.Clone()
-			body := "{}"
-			return &http.Response{
-				StatusCode: 200,
-				Header:     header,
-				Body:       io.NopCloser(bytes.NewBufferString(body)),
-				Request:    req,
-			}, nil
-		},
-	}
-
-	tests := []struct {
-		name          string
-		headers       map[string]string
-		optsHost      string
-		reqHost       string
-		authToken     string
-		wantAuthToken string
-	}{
-		{
-			name:          "does not add an authorization header if optsHost is different from reqHost",
-			optsHost:      "github.com",
-			reqHost:       "https://nothub.com",
-			authToken:     "oauth_token",
-			wantAuthToken: "",
-		},
-		{
-			name:          "does not add an authorization header if the reqHost contains optsHost but it's not a subdomain",
-			optsHost:      "github.com",
-			reqHost:       "https://thegithub.company",
-			authToken:     "oauth_token",
-			wantAuthToken: "",
-		},
-		{
-			name:          "adds an authorization header for a matching host",
-			optsHost:      "github.com",
-			reqHost:       "https://api.github.com",
-			authToken:     "oauth_token",
-			wantAuthToken: "token oauth_token",
-		},
-		{
-			name:          "adds an authorization header if hosts match but differ in case",
-			optsHost:      "github.com",
-			reqHost:       "https://api.GITHUB.com",
-			authToken:     "oauth_token",
-			wantAuthToken: "token oauth_token",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			opts := api.ClientOptions{
-				Host:      tt.optsHost,
-				AuthToken: tt.authToken,
-				Headers:   tt.headers,
-				Transport: reflectHTTP,
-			}
-
-			req, err := http.NewRequest(http.MethodGet, tt.reqHost, nil)
-
-			if err != nil {
-				return
-			}
-
-			client := NewHTTPClient(&opts)
-			res, err := client.Do(req)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantAuthToken, res.Request.Header.Get("authorization"))
 		})
 	}
 }
