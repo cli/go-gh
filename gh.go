@@ -57,6 +57,10 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 // As part of the configuration a hostname, auth token, and default set of headers are resolved
 // from the gh environment configuration. These behaviors can be overridden using the opts argument.
 func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
+
 	err := resolveOptions(&opts)
 	if err != nil {
 		return nil, err
@@ -68,6 +72,10 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 // As part of the configuration a hostname, auth token, and default set of headers are resolved
 // from the gh environment configuration. These behaviors can be overridden using the opts argument.
 func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
+
 	err := resolveOptions(&opts)
 	if err != nil {
 		return nil, err
@@ -83,6 +91,10 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 // host, the auth token will not be added to the headers. This is to protect against the case where tokens
 // could be sent to an arbitrary host.
 func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
+
 	err := resolveOptions(&opts)
 	if err != nil {
 		return nil, err
@@ -131,9 +143,6 @@ func resolveOptions(clientOptions **api.ClientOptions) error {
 	var cfg config.Config
 	var token string
 	var err error
-	if opts == nil {
-		opts = &api.ClientOptions{}
-	}
 	if opts.Host == "" || opts.AuthToken == "" {
 		cfg, err = config.Load()
 		if err != nil {
