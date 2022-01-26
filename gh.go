@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -56,27 +57,9 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 // As part of the configuration a hostname, auth token, and default set of headers are resolved
 // from the gh environment configuration. These behaviors can be overridden using the opts argument.
 func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
-	var cfg config.Config
-	var token string
-	var err error
-	if opts == nil {
-		opts = &api.ClientOptions{}
-	}
-	if opts.Host == "" || opts.AuthToken == "" {
-		cfg, err = config.Load()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if opts.Host == "" {
-		opts.Host = cfg.Host()
-	}
-	if opts.AuthToken == "" {
-		token, err = cfg.AuthToken(opts.Host)
-		if err != nil {
-			return nil, err
-		}
-		opts.AuthToken = token
+	err := resolveOptions(opts)
+	if err != nil {
+		return nil, err
 	}
 	return iapi.NewRESTClient(opts.Host, opts), nil
 }
@@ -85,29 +68,27 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 // As part of the configuration a hostname, auth token, and default set of headers are resolved
 // from the gh environment configuration. These behaviors can be overridden using the opts argument.
 func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
-	var cfg config.Config
-	var token string
-	var err error
-	if opts == nil {
-		opts = &api.ClientOptions{}
-	}
-	if opts.Host == "" || opts.AuthToken == "" {
-		cfg, err = config.Load()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if opts.Host == "" {
-		opts.Host = cfg.Host()
-	}
-	if opts.AuthToken == "" {
-		token, err = cfg.AuthToken(opts.Host)
-		if err != nil {
-			return nil, err
-		}
-		opts.AuthToken = token
+	err := resolveOptions(opts)
+	if err != nil {
+		return nil, err
 	}
 	return iapi.NewGQLClient(opts.Host, opts), nil
+}
+
+// HTTPClient builds a client that can be passed to another library.
+// As part of the configuration a hostname, auth token, and default set of headers are resolved
+// from the gh environment configuration. These behaviors can be overridden using the opts argument.
+// In this instance providing opts.Host will not change the destination of your request as it is
+// the responsibility of the consumer to configure this. However, if opts.Host does not match the request
+// host, the auth token will not be added to the headers. This is to protect against the case where tokens
+// could be sent to an arbitrary host.
+func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
+	err := resolveOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+	client := iapi.NewHTTPClient(opts)
+	return &client, nil
 }
 
 // CurrentRepository uses git remotes to determine the GitHub repository
@@ -143,6 +124,32 @@ func CurrentRepository() (repo.Repository, error) {
 
 	r := filteredRemotes[0]
 	return irepo.New(r.Host, r.Owner, r.Repo), nil
+}
+
+func resolveOptions(opts *api.ClientOptions) error {
+	var cfg config.Config
+	var token string
+	var err error
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
+	if opts.Host == "" || opts.AuthToken == "" {
+		cfg, err = config.Load()
+		if err != nil {
+			return err
+		}
+	}
+	if opts.Host == "" {
+		opts.Host = cfg.Host()
+	}
+	if opts.AuthToken == "" {
+		token, err = cfg.AuthToken(opts.Host)
+		if err != nil {
+			return err
+		}
+		opts.AuthToken = token
+	}
+	return nil
 }
 
 func translateRemotes(remotes git.RemoteSet, urlTranslate func(*url.URL) *url.URL) {

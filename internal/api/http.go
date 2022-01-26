@@ -68,7 +68,7 @@ var timeZoneNames = map[int]string{
 	50400:  "Pacific/Kiritimati",
 }
 
-func newHTTPClient(opts *api.ClientOptions) http.Client {
+func NewHTTPClient(opts *api.ClientOptions) http.Client {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
@@ -78,7 +78,7 @@ func newHTTPClient(opts *api.ClientOptions) http.Client {
 		transport = opts.Transport
 	}
 
-	transport = newHeaderRoundTripper(opts.AuthToken, opts.Headers, transport)
+	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
 
 	if opts.Log != nil {
 		logger := &httpretty.Logger{
@@ -187,16 +187,23 @@ func inspectableMIMEType(t string) bool {
 	return strings.HasPrefix(t, "text/") || jsonTypeRE.MatchString(t)
 }
 
+func isSameDomain(requestHost, domain string) bool {
+	requestHost = strings.ToLower(requestHost)
+	domain = strings.ToLower(domain)
+	return (requestHost == domain) || strings.HasSuffix(requestHost, "."+domain)
+}
+
 func isEnterprise(host string) bool {
 	return host != defaultHostname
 }
 
 type headerRoundTripper struct {
+	host    string
 	headers map[string]string
 	rt      http.RoundTripper
 }
 
-func newHeaderRoundTripper(authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
+func newHeaderRoundTripper(host string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
 	if headers == nil {
 		headers = map[string]string{}
 	}
@@ -232,13 +239,24 @@ func newHeaderRoundTripper(authToken string, headers map[string]string, rt http.
 		a += ", application/vnd.github.shadow-cat-preview"
 		headers[accept] = a
 	}
-	return headerRoundTripper{headers: headers, rt: rt}
+	return headerRoundTripper{host: host, headers: headers, rt: rt}
 }
 
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	for k, v := range hrt.headers {
-		req.Header.Set(k, v)
+		// If the authorization header has been set and the request
+		// host is not in the same domain that was specified in the ClientOptions
+		// then do not add the authorization header to the request.
+		if k == authorization && !isSameDomain(req.URL.Hostname(), hrt.host) {
+			continue
+		}
+
+		// If the header is already set in the request, don't overwrite it.
+		if req.Header.Get(k) == "" {
+			req.Header.Set(k, v)
+		}
 	}
+
 	return hrt.rt.RoundTrip(req)
 }
 

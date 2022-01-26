@@ -31,7 +31,7 @@ func TestCacheResponse(t *testing.T) {
 
 	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
 
-	httpClient := newHTTPClient(
+	httpClient := NewHTTPClient(
 		&api.ClientOptions{
 			Transport:   fakeHTTP,
 			EnableCache: true,
