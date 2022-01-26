@@ -60,8 +60,12 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
 
-	err := resolveOptions(&opts)
+	err = resolveOptions(&opts, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -75,8 +79,12 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
 
-	err := resolveOptions(&opts)
+	err = resolveOptions(&opts, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +103,12 @@ func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
 		opts = &api.ClientOptions{}
 	}
 
-	err := resolveOptions(&opts)
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	err = resolveOptions(&opts, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -138,17 +151,11 @@ func CurrentRepository() (repo.Repository, error) {
 	return irepo.New(r.Host, r.Owner, r.Repo), nil
 }
 
-func resolveOptions(clientOptions **api.ClientOptions) error {
+func resolveOptions(clientOptions **api.ClientOptions, cfg config.Config) error {
 	var opts = *clientOptions
-	var cfg config.Config
 	var token string
 	var err error
-	if opts.Host == "" || opts.AuthToken == "" {
-		cfg, err = config.Load()
-		if err != nil {
-			return err
-		}
-	}
+
 	if opts.Host == "" {
 		opts.Host = cfg.Host()
 	}
