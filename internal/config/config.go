@@ -116,7 +116,7 @@ func normalizeHostname(host string) string {
 	return hostname
 }
 
-func fromString(str string) (Config, error) {
+func FromString(str string) (Config, error) {
 	root, err := parseData([]byte(str))
 	if err != nil {
 		return nil, err

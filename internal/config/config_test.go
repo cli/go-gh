@@ -659,7 +659,7 @@ hosts:
     oauth_token: yyyyyyyyyyyyyyyyyyyy
     git_protocol: https
 `
-	cfg, _ := fromString(data)
+	cfg, _ := FromString(data)
 	return cfg
 }
 
@@ -675,11 +675,11 @@ hosts:
     oauth_token: yyyyyyyyyyyyyyyyyyyy
     git_protocol: https
 `
-	cfg, _ := fromString(data)
+	cfg, _ := FromString(data)
 	return cfg
 }
 
 func testLoadedNoHostConfig() Config {
-	cfg, _ := fromString(testGlobalConfig())
+	cfg, _ := FromString(testGlobalConfig())
 	return cfg
 }
