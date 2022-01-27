@@ -57,7 +57,14 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 // As part of the configuration a hostname, auth token, and default set of headers are resolved
 // from the gh environment configuration. These behaviors can be overridden using the opts argument.
 func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
-	err := resolveOptions(opts)
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	err = resolveOptions(opts, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +75,14 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 // As part of the configuration a hostname, auth token, and default set of headers are resolved
 // from the gh environment configuration. These behaviors can be overridden using the opts argument.
 func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
-	err := resolveOptions(opts)
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	err = resolveOptions(opts, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +97,14 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 // host, the auth token will not be added to the headers. This is to protect against the case where tokens
 // could be sent to an arbitrary host.
 func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
-	err := resolveOptions(opts)
+	if opts == nil {
+		opts = &api.ClientOptions{}
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	err = resolveOptions(opts, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -126,19 +147,9 @@ func CurrentRepository() (repo.Repository, error) {
 	return irepo.New(r.Host, r.Owner, r.Repo), nil
 }
 
-func resolveOptions(opts *api.ClientOptions) error {
-	var cfg config.Config
+func resolveOptions(opts *api.ClientOptions, cfg config.Config) error {
 	var token string
 	var err error
-	if opts == nil {
-		opts = &api.ClientOptions{}
-	}
-	if opts.Host == "" || opts.AuthToken == "" {
-		cfg, err = config.Load()
-		if err != nil {
-			return err
-		}
-	}
 	if opts.Host == "" {
 		opts.Host = cfg.Host()
 	}

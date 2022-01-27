@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/internal/httpmock"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
@@ -127,4 +128,52 @@ func TestHTTPClient(t *testing.T) {
 	assert.Equal(t, 200, res.StatusCode)
 	assert.Equal(t, "api.github.com", http.Requests[0].URL.Hostname())
 	assert.Equal(t, "token GH_TOKEN", http.Requests[0].Header.Get("Authorization"))
+}
+
+func TestResolveOptions(t *testing.T) {
+	cfg := testConfig()
+
+	tests := []struct {
+		name          string
+		opts          *api.ClientOptions
+		wantAuthToken string
+		wantHost      string
+	}{
+		{
+			name: "honors consumer provided ClientOptions",
+			opts: &api.ClientOptions{
+				Host:      "test.com",
+				AuthToken: "token_from_opts",
+			},
+			wantAuthToken: "token_from_opts",
+			wantHost:      "test.com",
+		},
+		{
+			name:          "uses config values if there are no consumer provided ClientOptions",
+			opts:          &api.ClientOptions{},
+			wantAuthToken: "token",
+			wantHost:      "github.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := resolveOptions(tt.opts, cfg)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantHost, tt.opts.Host)
+			assert.Equal(t, tt.wantAuthToken, tt.opts.AuthToken)
+		})
+	}
+}
+
+func testConfig() config.Config {
+	var data = `
+hosts:
+  github.com:
+    user: user1
+    oauth_token: token
+    git_protocol: ssh
+`
+	cfg, _ := config.FromString(data)
+	return cfg
 }
