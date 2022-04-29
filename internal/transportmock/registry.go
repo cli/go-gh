@@ -1,4 +1,4 @@
-package httpmock
+package transportmock
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 
 type Registry struct {
 	mu       sync.Mutex
-	stubs    []*Stub
+	Stubs    []*stub
 	Requests []*http.Request
 }
 
@@ -19,59 +19,49 @@ func NewRegistry(t *testing.T) *Registry {
 	return &reg
 }
 
-func (r *Registry) Register(m Matcher, resp Responder) {
-	r.stubs = append(r.stubs, &Stub{
-		Matcher:   m,
-		Responder: resp,
+func (r *Registry) Register(name string, matcher Matcher, responder Responder) {
+	r.Stubs = append(r.Stubs, &stub{
+		name:      name,
+		matcher:   matcher,
+		responder: responder,
 	})
 }
 
-type Testing interface {
-	Errorf(string, ...interface{})
-	Helper()
-}
-
-func (r *Registry) Verify(t Testing) {
-	n := 0
-	for _, s := range r.stubs {
+func (r *Registry) Verify(t *testing.T) {
+	unmatched := []string{}
+	for _, s := range r.Stubs {
 		if !s.matched {
-			n++
+			unmatched = append(unmatched, s.name)
 		}
 	}
-	if n > 0 {
+	if len(unmatched) > 0 {
 		t.Helper()
-		// NOTE: Stubs offer no useful reflection, so we can't print details
-		// about dead stubs and what they were trying to match.
-		t.Errorf("%d unmatched HTTP stubs", n)
+		t.Errorf("%d unmatched stubs: %s", len(unmatched), unmatched)
 	}
 }
 
 // Registry satisfies http.RoundTripper interface.
 func (r *Registry) RoundTrip(req *http.Request) (*http.Response, error) {
-	var stub *Stub
-
+	var stub *stub
 	r.mu.Lock()
-	for _, s := range r.stubs {
-		if s.matched || !s.Matcher(req) {
+	for _, s := range r.Stubs {
+		if s.matched || !s.matcher(req) {
 			continue
 		}
 		if stub != nil {
 			r.mu.Unlock()
-			return nil, fmt.Errorf("more than 1 stub matched %v", req)
+			return nil, fmt.Errorf("both %s stub and %s stub matched %v", s, stub, req)
 		}
 		stub = s
 	}
 	if stub != nil {
 		stub.matched = true
 	}
-
 	if stub == nil {
 		r.mu.Unlock()
 		return nil, fmt.Errorf("no registered stubs matched %v", req)
 	}
-
 	r.Requests = append(r.Requests, req)
 	r.mu.Unlock()
-
-	return stub.Responder(req)
+	return stub.responder(req)
 }
