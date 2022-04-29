@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/cli/go-gh/internal/config"
-	"github.com/cli/go-gh/internal/httpmock"
+	"github.com/cli/go-gh/internal/transportmock"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -57,10 +57,11 @@ func TestRESTClient(t *testing.T) {
 	os.Setenv("GH_CONFIG_DIR", tempDir)
 	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
-	http := httpmock.NewRegistry(t)
+	http := transportmock.NewRegistry(t)
 	http.Register(
-		httpmock.REST("GET", "some/test/path"),
-		httpmock.StatusStringResponse(200, `{"message": "success"}`),
+		"TestRESTClient",
+		transportmock.REST("GET", "some/test/path"),
+		transportmock.HTTPResponse(200, nil, `{"message": "success"}`, nil),
 	)
 
 	client, err := RESTClient(&api.ClientOptions{Transport: http})
@@ -85,10 +86,11 @@ func TestGQLClient(t *testing.T) {
 	os.Setenv("GH_CONFIG_DIR", tempDir)
 	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
-	http := httpmock.NewRegistry(t)
+	http := transportmock.NewRegistry(t)
 	http.Register(
-		httpmock.GQL("QUERY"),
-		httpmock.StringResponse(`{"data":{"viewer":{"login":"hubot"}}}`),
+		"TestGQLClient",
+		transportmock.GQL("QUERY"),
+		transportmock.RESTResponse(`{"data":{"viewer":{"login":"hubot"}}}`, nil),
 	)
 
 	client, err := GQLClient(&api.ClientOptions{Transport: http})
@@ -114,10 +116,11 @@ func TestHTTPClient(t *testing.T) {
 	os.Setenv("GH_CONFIG_DIR", tempDir)
 	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
-	http := httpmock.NewRegistry(t)
+	http := transportmock.NewRegistry(t)
 	http.Register(
-		httpmock.REST("GET", "some/test/path"),
-		httpmock.StatusStringResponse(200, `{"message": "success"}`),
+		"TestHTTPClient",
+		transportmock.REST("GET", "some/test/path"),
+		transportmock.HTTPResponse(200, nil, `{"message": "success"}`, nil),
 	)
 
 	client, err := HTTPClient(&api.ClientOptions{Transport: http})

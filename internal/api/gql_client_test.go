@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/cli/go-gh/internal/httpmock"
+	"github.com/cli/go-gh/internal/transportmock"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -12,8 +12,8 @@ func TestGQLClientDo(t *testing.T) {
 	tests := []struct {
 		name       string
 		host       string
-		matcher    httpmock.Matcher
-		responder  httpmock.Responder
+		matcher    transportmock.Matcher
+		responder  transportmock.Responder
 		wantErr    bool
 		wantErrMsg string
 		wantHost   string
@@ -21,36 +21,36 @@ func TestGQLClientDo(t *testing.T) {
 	}{
 		{
 			name:      "success request",
-			responder: httpmock.StringResponse(`{"data":{"viewer":{"login":"hubot"}}}`),
+			responder: transportmock.RESTResponse(`{"data":{"viewer":{"login":"hubot"}}}`, nil),
 			wantLogin: "hubot",
 		},
 		{
 			name:       "fail request",
-			responder:  httpmock.StringResponse(`{"errors":[{"message":"OH NO"},{"message":"this is fine"}]}`),
+			responder:  transportmock.RESTResponse(`{"errors":[{"message":"OH NO"},{"message":"this is fine"}]}`, nil),
 			wantErr:    true,
 			wantErrMsg: "GQL error: OH NO\nthis is fine",
 		},
 		{
 			name:       "http fail request empty response",
-			responder:  httpmock.StatusStringResponse(404, `{}`),
+			responder:  transportmock.HTTPResponse(404, nil, `{}`, nil),
 			wantErr:    true,
 			wantErrMsg: "HTTP 404 (https://api.github.com/graphql)",
 		},
 		{
 			name:       "http fail request message response",
-			responder:  httpmock.StatusStringResponse(422, `{"message": "OH NO"}`),
+			responder:  transportmock.HTTPResponse(422, nil, `{"message": "OH NO"}`, nil),
 			wantErr:    true,
 			wantErrMsg: "HTTP 422: OH NO (https://api.github.com/graphql)",
 		},
 		{
 			name:       "http fail request errors response",
-			responder:  httpmock.StatusStringResponse(502, `{"errors":[{"message":"Something went wrong"}]}`),
+			responder:  transportmock.HTTPResponse(502, nil, `{"errors":[{"message":"Something went wrong"}]}`, nil),
 			wantErr:    true,
 			wantErrMsg: "HTTP 502: Something went wrong (https://api.github.com/graphql)",
 		},
 		{
 			name:      "support enterprise hosts",
-			responder: httpmock.StatusStringResponse(204, "{}"),
+			responder: transportmock.HTTPResponse(204, nil, "{}", nil),
 			host:      "enterprise.com",
 			wantHost:  "enterprise.com",
 		},
@@ -64,12 +64,10 @@ func TestGQLClientDo(t *testing.T) {
 			if tt.wantHost == "" {
 				tt.wantHost = "api.github.com"
 			}
-			http := httpmock.NewRegistry(t)
+			http := transportmock.NewRegistry(t)
 			client := NewGQLClient(tt.host, &api.ClientOptions{Transport: http})
-			http.Register(
-				httpmock.GQL("QUERY"),
-				tt.responder,
-			)
+			matcher := transportmock.GQL("QUERY")
+			http.Register(tt.name, matcher, tt.responder)
 			vars := map[string]interface{}{"var": "test"}
 			res := struct{ Viewer struct{ Login string } }{}
 			err := client.Do("QUERY", vars, &res)

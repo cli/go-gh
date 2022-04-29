@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cli/go-gh/internal/httpmock"
+	"github.com/cli/go-gh/internal/transportmock"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -14,8 +14,8 @@ func TestRESTClientDo(t *testing.T) {
 		name       string
 		host       string
 		path       string
-		matcher    httpmock.Matcher
-		responder  httpmock.Responder
+		matcher    transportmock.Matcher
+		responder  transportmock.Responder
 		wantErr    bool
 		wantErrMsg string
 		wantHost   string
@@ -28,34 +28,34 @@ func TestRESTClientDo(t *testing.T) {
 		{
 			name:      "success request non-empty response",
 			path:      "some/test/path",
-			responder: httpmock.StatusStringResponse(200, `{"message": "success"}`),
+			responder: transportmock.RESTResponse(`{"message": "success"}`, nil),
 			wantMsg:   "success",
 		},
 		{
 			name:       "fail request empty response",
 			path:       "some/test/path",
-			responder:  httpmock.StatusStringResponse(404, `{}`),
+			responder:  transportmock.HTTPResponse(404, nil, `{}`, nil),
 			wantErr:    true,
 			wantErrMsg: "HTTP 404 (https://api.github.com/some/test/path)",
 		},
 		{
 			name:       "fail request non-empty response",
 			path:       "some/test/path",
-			responder:  httpmock.StatusStringResponse(422, `{"message": "OH NO"}`),
+			responder:  transportmock.HTTPResponse(422, nil, `{"message": "OH NO"}`, nil),
 			wantErr:    true,
 			wantErrMsg: "HTTP 422: OH NO (https://api.github.com/some/test/path)",
 		},
 		{
 			name:     "support full urls",
 			path:     "https://example.com/someother/test/path",
-			matcher:  httpmock.REST("GET", "someother/test/path"),
+			matcher:  transportmock.REST("GET", "someother/test/path"),
 			wantHost: "example.com",
 		},
 		{
 			name:     "support enterprise hosts",
 			host:     "enterprise.com",
 			path:     "some/test/path",
-			matcher:  httpmock.REST("GET", "api/v3/some/test/path"),
+			matcher:  transportmock.REST("GET", "api/v3/some/test/path"),
 			wantHost: "enterprise.com",
 		},
 	}
@@ -69,17 +69,14 @@ func TestRESTClientDo(t *testing.T) {
 				tt.wantHost = "api.github.com"
 			}
 			if tt.matcher == nil {
-				tt.matcher = httpmock.REST("GET", "some/test/path")
+				tt.matcher = transportmock.REST("GET", "some/test/path")
 			}
 			if tt.responder == nil {
-				tt.responder = httpmock.StatusStringResponse(204, "{}")
+				tt.responder = transportmock.HTTPResponse(204, nil, "{}", nil)
 			}
-			http := httpmock.NewRegistry(t)
+			http := transportmock.NewRegistry(t)
 			client := NewRESTClient(tt.host, &api.ClientOptions{Transport: http})
-			http.Register(
-				tt.matcher,
-				tt.responder,
-			)
+			http.Register(tt.name, tt.matcher, tt.responder)
 			res := struct{ Message string }{}
 			err := client.Do("GET", tt.path, nil, &res)
 			if tt.wantErr {
@@ -94,33 +91,36 @@ func TestRESTClientDo(t *testing.T) {
 }
 
 func TestRESTClientDelete(t *testing.T) {
-	http := httpmock.NewRegistry(t)
+	http := transportmock.NewRegistry(t)
 	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
-		httpmock.REST("DELETE", "some/path/here"),
-		httpmock.StatusStringResponse(204, "{}"),
+		"TestRESTClientDelete",
+		transportmock.REST("DELETE", "some/path/here"),
+		transportmock.HTTPResponse(204, nil, "{}", nil),
 	)
 	err := client.Delete("some/path/here", nil)
 	assert.NoError(t, err)
 }
 
 func TestRESTClientGet(t *testing.T) {
-	http := httpmock.NewRegistry(t)
+	http := transportmock.NewRegistry(t)
 	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
-		httpmock.REST("GET", "some/path/here"),
-		httpmock.StatusStringResponse(204, "{}"),
+		"TestRESTClientGet",
+		transportmock.REST("GET", "some/path/here"),
+		transportmock.HTTPResponse(204, nil, "{}", nil),
 	)
 	err := client.Get("some/path/here", nil)
 	assert.NoError(t, err)
 }
 
 func TestRESTClientPatch(t *testing.T) {
-	http := httpmock.NewRegistry(t)
+	http := transportmock.NewRegistry(t)
 	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
-		httpmock.REST("PATCH", "some/path/here"),
-		httpmock.StatusStringResponse(204, "{}"),
+		"TestRESTClientPatch",
+		transportmock.REST("PATCH", "some/path/here"),
+		transportmock.HTTPResponse(204, nil, "{}", nil),
 	)
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Patch("some/path/here", r, nil)
@@ -128,11 +128,12 @@ func TestRESTClientPatch(t *testing.T) {
 }
 
 func TestRESTClientPost(t *testing.T) {
-	http := httpmock.NewRegistry(t)
+	http := transportmock.NewRegistry(t)
 	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
-		httpmock.REST("POST", "some/path/here"),
-		httpmock.StatusStringResponse(204, "{}"),
+		"TestRESTClientPost",
+		transportmock.REST("POST", "some/path/here"),
+		transportmock.HTTPResponse(204, nil, "{}", nil),
 	)
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Post("some/path/here", r, nil)
@@ -140,11 +141,12 @@ func TestRESTClientPost(t *testing.T) {
 }
 
 func TestRESTClientPut(t *testing.T) {
-	http := httpmock.NewRegistry(t)
+	http := transportmock.NewRegistry(t)
 	client := NewRESTClient("github.com", &api.ClientOptions{Transport: http})
 	http.Register(
-		httpmock.REST("PUT", "some/path/here"),
-		httpmock.StatusStringResponse(204, "{}"),
+		"TestRESTClientPut",
+		transportmock.REST("PUT", "some/path/here"),
+		transportmock.HTTPResponse(204, nil, "{}", nil),
 	)
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Put("some/path/here", r, nil)
