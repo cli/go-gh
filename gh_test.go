@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/cli/go-gh/internal/config"
-	"github.com/cli/go-gh/internal/httpmock"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/h2non/gock.v1"
 )
 
 func TestHelperProcess(t *testing.T) {
@@ -47,6 +47,7 @@ func TestRunError(t *testing.T) {
 }
 
 func TestRESTClient(t *testing.T) {
+	t.Cleanup(gock.Off)
 	tempDir := t.TempDir()
 	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
 	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
@@ -57,24 +58,24 @@ func TestRESTClient(t *testing.T) {
 	os.Setenv("GH_CONFIG_DIR", tempDir)
 	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
-	http := httpmock.NewRegistry(t)
-	http.Register(
-		httpmock.REST("GET", "some/test/path"),
-		httpmock.StatusStringResponse(200, `{"message": "success"}`),
-	)
+	gock.New("https://api.github.com").
+		Get("/some/test/path").
+		MatchHeader("Authorization", "token GH_TOKEN").
+		Reply(200).
+		JSON(`{"message": "success"}`)
 
-	client, err := RESTClient(&api.ClientOptions{Transport: http})
+	client, err := RESTClient(nil)
 	assert.NoError(t, err)
 
 	res := struct{ Message string }{}
 	err = client.Do("GET", "some/test/path", nil, &res)
 	assert.NoError(t, err)
+	assert.True(t, gock.IsDone())
 	assert.Equal(t, "success", res.Message)
-	assert.Equal(t, "api.github.com", http.Requests[0].URL.Hostname())
-	assert.Equal(t, "token GH_TOKEN", http.Requests[0].Header.Get("Authorization"))
 }
 
 func TestGQLClient(t *testing.T) {
+	t.Cleanup(gock.Off)
 	tempDir := t.TempDir()
 	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
 	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
@@ -85,25 +86,26 @@ func TestGQLClient(t *testing.T) {
 	os.Setenv("GH_CONFIG_DIR", tempDir)
 	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
-	http := httpmock.NewRegistry(t)
-	http.Register(
-		httpmock.GQL("QUERY"),
-		httpmock.StringResponse(`{"data":{"viewer":{"login":"hubot"}}}`),
-	)
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token GH_TOKEN").
+		BodyString("QUERY").
+		Reply(200).
+		JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
 
-	client, err := GQLClient(&api.ClientOptions{Transport: http})
+	client, err := GQLClient(nil)
 	assert.NoError(t, err)
 
 	vars := map[string]interface{}{"var": "test"}
 	res := struct{ Viewer struct{ Login string } }{}
 	err = client.Do("QUERY", vars, &res)
 	assert.NoError(t, err)
+	assert.True(t, gock.IsDone())
 	assert.Equal(t, "hubot", res.Viewer.Login)
-	assert.Equal(t, "api.github.com", http.Requests[0].URL.Hostname())
-	assert.Equal(t, "token GH_TOKEN", http.Requests[0].Header.Get("Authorization"))
 }
 
 func TestHTTPClient(t *testing.T) {
+	t.Cleanup(gock.Off)
 	tempDir := t.TempDir()
 	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
 	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
@@ -114,20 +116,19 @@ func TestHTTPClient(t *testing.T) {
 	os.Setenv("GH_CONFIG_DIR", tempDir)
 	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
-	http := httpmock.NewRegistry(t)
-	http.Register(
-		httpmock.REST("GET", "some/test/path"),
-		httpmock.StatusStringResponse(200, `{"message": "success"}`),
-	)
+	gock.New("https://api.github.com").
+		Get("/some/test/path").
+		MatchHeader("Authorization", "token GH_TOKEN").
+		Reply(200).
+		JSON(`{"message": "success"}`)
 
-	client, err := HTTPClient(&api.ClientOptions{Transport: http})
+	client, err := HTTPClient(nil)
 	assert.NoError(t, err)
 
 	res, err := client.Get("https://api.github.com/some/test/path")
 	assert.NoError(t, err)
+	assert.True(t, gock.IsDone())
 	assert.Equal(t, 200, res.StatusCode)
-	assert.Equal(t, "api.github.com", http.Requests[0].URL.Hostname())
-	assert.Equal(t, "token GH_TOKEN", http.Requests[0].Header.Get("Authorization"))
 }
 
 func TestResolveOptions(t *testing.T) {
