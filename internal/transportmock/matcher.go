@@ -32,7 +32,6 @@ func GQL(q string) Matcher {
 		if req.URL.Path != "/graphql" && req.URL.Path != "/api/graphql" {
 			return false
 		}
-
 		var bodyData struct {
 			Query string
 		}

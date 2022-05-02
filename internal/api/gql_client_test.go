@@ -77,7 +77,7 @@ func TestGQLClientDo(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantLogin, res.Viewer.Login)
-			assert.Equal(t, tt.wantHost, http.Requests[0].URL.Hostname())
+			assert.Equal(t, tt.wantHost, http.Requests()[0].URL.Hostname())
 		})
 	}
 }

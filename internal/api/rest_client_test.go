@@ -85,7 +85,7 @@ func TestRESTClientDo(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantMsg, res.Message)
-			assert.Equal(t, tt.wantHost, http.Requests[0].URL.Hostname())
+			assert.Equal(t, tt.wantHost, http.Requests()[0].URL.Hostname())
 		})
 	}
 }

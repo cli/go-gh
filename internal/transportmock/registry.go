@@ -3,14 +3,15 @@ package transportmock
 import (
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"sync"
 	"testing"
 )
 
 type Registry struct {
 	mu       sync.Mutex
-	Stubs    []*stub
-	Requests []*http.Request
+	stubs    []*stub
+	requests []*http.Request
 }
 
 func NewRegistry(t *testing.T) *Registry {
@@ -20,16 +21,20 @@ func NewRegistry(t *testing.T) *Registry {
 }
 
 func (r *Registry) Register(name string, matcher Matcher, responder Responder) {
-	r.Stubs = append(r.Stubs, &stub{
+	r.stubs = append(r.stubs, &stub{
 		name:      name,
 		matcher:   matcher,
 		responder: responder,
 	})
 }
 
+func (r *Registry) Requests() []*http.Request {
+	return r.requests
+}
+
 func (r *Registry) Verify(t *testing.T) {
 	unmatched := []string{}
-	for _, s := range r.Stubs {
+	for _, s := range r.stubs {
 		if !s.matched {
 			unmatched = append(unmatched, s.name)
 		}
@@ -40,17 +45,17 @@ func (r *Registry) Verify(t *testing.T) {
 	}
 }
 
-// Registry satisfies http.RoundTripper interface.
 func (r *Registry) RoundTrip(req *http.Request) (*http.Response, error) {
 	var stub *stub
 	r.mu.Lock()
-	for _, s := range r.Stubs {
+	for _, s := range r.stubs {
 		if s.matched || !s.matcher(req) {
 			continue
 		}
 		if stub != nil {
 			r.mu.Unlock()
-			return nil, fmt.Errorf("both %s stub and %s stub matched %v", s, stub, req)
+			dr, _ := httputil.DumpRequestOut(req, true)
+			return nil, fmt.Errorf("both %s stub and %s stub matched request\n%s", stub, s, dr)
 		}
 		stub = s
 	}
@@ -59,9 +64,10 @@ func (r *Registry) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	if stub == nil {
 		r.mu.Unlock()
-		return nil, fmt.Errorf("no registered stubs matched %v", req)
+		dr, _ := httputil.DumpRequestOut(req, true)
+		return nil, fmt.Errorf("no stubs matched request\n%s", dr)
 	}
-	r.Requests = append(r.Requests, req)
+	r.requests = append(r.requests, req)
 	r.mu.Unlock()
 	return stub.responder(req)
 }

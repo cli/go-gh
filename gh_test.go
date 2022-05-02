@@ -71,8 +71,8 @@ func TestRESTClient(t *testing.T) {
 	err = client.Do("GET", "some/test/path", nil, &res)
 	assert.NoError(t, err)
 	assert.Equal(t, "success", res.Message)
-	assert.Equal(t, "api.github.com", http.Requests[0].URL.Hostname())
-	assert.Equal(t, "token GH_TOKEN", http.Requests[0].Header.Get("Authorization"))
+	assert.Equal(t, "api.github.com", http.Requests()[0].URL.Hostname())
+	assert.Equal(t, "token GH_TOKEN", http.Requests()[0].Header.Get("Authorization"))
 }
 
 func TestGQLClient(t *testing.T) {
@@ -101,8 +101,8 @@ func TestGQLClient(t *testing.T) {
 	err = client.Do("QUERY", vars, &res)
 	assert.NoError(t, err)
 	assert.Equal(t, "hubot", res.Viewer.Login)
-	assert.Equal(t, "api.github.com", http.Requests[0].URL.Hostname())
-	assert.Equal(t, "token GH_TOKEN", http.Requests[0].Header.Get("Authorization"))
+	assert.Equal(t, "api.github.com", http.Requests()[0].URL.Hostname())
+	assert.Equal(t, "token GH_TOKEN", http.Requests()[0].Header.Get("Authorization"))
 }
 
 func TestHTTPClient(t *testing.T) {
@@ -129,8 +129,8 @@ func TestHTTPClient(t *testing.T) {
 	res, err := client.Get("https://api.github.com/some/test/path")
 	assert.NoError(t, err)
 	assert.Equal(t, 200, res.StatusCode)
-	assert.Equal(t, "api.github.com", http.Requests[0].URL.Hostname())
-	assert.Equal(t, "token GH_TOKEN", http.Requests[0].Header.Get("Authorization"))
+	assert.Equal(t, "api.github.com", http.Requests()[0].URL.Hostname())
+	assert.Equal(t, "token GH_TOKEN", http.Requests()[0].Header.Get("Authorization"))
 }
 
 func TestResolveOptions(t *testing.T) {
