@@ -32,7 +32,7 @@ type ClientOptions struct {
 	// Default headers will be overridden by keys specified in Headers.
 	Headers map[string]string
 
-	// Host is the host that every API request will be sent to.
+	// Host is the default host that API requests will be sent to.
 	Host string
 
 	// Log specifies a writer to write API request logs to.
@@ -44,8 +44,18 @@ type ClientOptions struct {
 	Timeout time.Duration
 
 	// Transport specifies the mechanism by which individual API requests are made.
+	// If both Transport and UnixDomainSocket are specified then Transport takes
+	// precedence. Due to this behavior any value set for Transport needs to manually
+	// handle routing to UnixDomainSocket if necessary. Generally, setting Transport
+	// should be reserved for testing purposes.
 	// Default is http.DefaultTransport.
 	Transport http.RoundTripper
+
+	// UnixDomainSocket specifies the Unix domain socket address by which individual
+	// API requests will be routed. If specifed, this will form the base of the API
+	// request transport chain.
+	// Default is no socket address.
+	UnixDomainSocket string
 }
 
 // RESTClient is the interface that wraps methods for the different types of

@@ -8,11 +8,12 @@ import (
 
 // HTTPError represents an error response from the GitHub API.
 type HTTPError struct {
-	StatusCode  int
-	RequestURL  *url.URL
-	Message     string
-	OAuthScopes string
-	Errors      []HTTPErrorItem
+	AcceptedOAuthScopes string
+	Errors              []HTTPErrorItem
+	Message             string
+	OAuthScopes         string
+	RequestURL          *url.URL
+	StatusCode          int
 }
 
 // HTTPErrorItem stores additional information about an error response

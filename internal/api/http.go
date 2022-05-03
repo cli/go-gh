@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -74,11 +75,25 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 	}
 
 	transport := http.DefaultTransport
+
+	if opts.UnixDomainSocket != "" {
+		transport = newUnixDomainSocketRoundTripper(opts.UnixDomainSocket)
+	}
+
 	if opts.Transport != nil {
 		transport = opts.Transport
 	}
 
-	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
+	if opts.EnableCache {
+		if opts.CacheDir == "" {
+			opts.CacheDir = filepath.Join(os.TempDir(), "gh-cli-cache")
+		}
+		if opts.CacheTTL == 0 {
+			opts.CacheTTL = time.Hour * 24
+		}
+		c := cache{dir: opts.CacheDir, ttl: opts.CacheTTL}
+		transport = c.RoundTripper(transport)
+	}
 
 	if opts.Log != nil {
 		logger := &httpretty.Logger{
@@ -99,25 +114,18 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 		transport = logger.RoundTripper(transport)
 	}
 
-	if opts.EnableCache {
-		if opts.CacheDir == "" {
-			opts.CacheDir = filepath.Join(os.TempDir(), "gh-cli-cache")
-		}
-		if opts.CacheTTL == 0 {
-			opts.CacheTTL = time.Hour * 24
-		}
-		c := cache{dir: opts.CacheDir, ttl: opts.CacheTTL}
-		transport = c.RoundTripper(transport)
-	}
+	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
 
 	return http.Client{Transport: transport, Timeout: opts.Timeout}
 }
 
+// TODO: Export function in near future.
 func handleHTTPError(resp *http.Response) error {
 	httpError := api.HTTPError{
-		StatusCode:  resp.StatusCode,
-		RequestURL:  resp.Request.URL,
-		OAuthScopes: resp.Header.Get("X-Oauth-Scopes"),
+		StatusCode:          resp.StatusCode,
+		RequestURL:          resp.Request.URL,
+		AcceptedOAuthScopes: resp.Header.Get("X-Accepted-Oauth-Scopes"),
+		OAuthScopes:         resp.Header.Get("X-Oauth-Scopes"),
 	}
 
 	if !jsonTypeRE.MatchString(resp.Header.Get(contentType)) {
@@ -198,8 +206,8 @@ func isEnterprise(host string) bool {
 }
 
 type headerRoundTripper struct {
-	host    string
 	headers map[string]string
+	host    string
 	rt      http.RoundTripper
 }
 
@@ -207,10 +215,10 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 	if headers == nil {
 		headers = map[string]string{}
 	}
-	if headers[contentType] == "" {
+	if _, ok := headers[contentType]; !ok {
 		headers[contentType] = jsonContentType
 	}
-	if headers[userAgent] == "" {
+	if _, ok := headers[userAgent]; !ok {
 		headers[userAgent] = "go-gh"
 		info, ok := debug.ReadBuildInfo()
 		if ok {
@@ -222,13 +230,13 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 			}
 		}
 	}
-	if headers[authorization] == "" && authToken != "" {
+	if _, ok := headers[authorization]; !ok && authToken != "" {
 		headers[authorization] = fmt.Sprintf("token %s", authToken)
 	}
-	if headers[timeZone] == "" {
+	if _, ok := headers[timeZone]; !ok {
 		headers[timeZone] = currentTimeZone()
 	}
-	if headers[accept] == "" {
+	if _, ok := headers[accept]; !ok {
 		// Preview for PullRequest.mergeStateStatus.
 		a := "application/vnd.github.merge-info-preview+json"
 		// Preview for visibility when RESTing repos into an org.
@@ -258,6 +266,18 @@ func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	}
 
 	return hrt.rt.RoundTrip(req)
+}
+
+func newUnixDomainSocketRoundTripper(socketPath string) http.RoundTripper {
+	dial := func(network, addr string) (net.Conn, error) {
+		return net.Dial("unix", socketPath)
+	}
+
+	return &http.Transport{
+		Dial:              dial,
+		DialTLS:           dial,
+		DisableKeepAlives: true,
+	}
 }
 
 func currentTimeZone() string {
