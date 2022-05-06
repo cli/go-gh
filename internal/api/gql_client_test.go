@@ -21,7 +21,7 @@ func TestGQLClientDo(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://api.github.com").
 					Post("/graphql").
-					BodyString("QUERY").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
 					Reply(200).
 					JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
 			},
@@ -32,7 +32,7 @@ func TestGQLClientDo(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://api.github.com").
 					Post("/graphql").
-					BodyString("QUERY").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
 					Reply(200).
 					JSON(`{"errors":[{"message":"OH NO"},{"message":"this is fine"}]}`)
 			},
@@ -44,7 +44,7 @@ func TestGQLClientDo(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://api.github.com").
 					Post("/graphql").
-					BodyString("QUERY").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
 					Reply(404).
 					JSON(`{}`)
 			},
@@ -56,7 +56,7 @@ func TestGQLClientDo(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://api.github.com").
 					Post("/graphql").
-					BodyString("QUERY").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
 					Reply(422).
 					JSON(`{"message": "OH NO"}`)
 			},
@@ -68,7 +68,7 @@ func TestGQLClientDo(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://api.github.com").
 					Post("/graphql").
-					BodyString("QUERY").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
 					Reply(502).
 					JSON(`{"errors":[{"message":"Something went wrong"}]}`)
 			},
@@ -81,7 +81,7 @@ func TestGQLClientDo(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://enterprise.com").
 					Post("/api/graphql").
-					BodyString("QUERY").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
 					Reply(200).
 					JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
 			},

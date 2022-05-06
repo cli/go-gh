@@ -89,7 +89,7 @@ func TestGQLClient(t *testing.T) {
 	gock.New("https://api.github.com").
 		Post("/graphql").
 		MatchHeader("Authorization", "token GH_TOKEN").
-		BodyString("QUERY").
+		BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
 		Reply(200).
 		JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
 
