@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cli/go-gh/internal/set"
+	gherrors "github.com/cli/go-gh/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -89,7 +90,7 @@ func (c config) AuthToken(host string) (string, error) {
 		if token, err := c.GetForHost(hostname, oauthToken); err == nil {
 			return token, nil
 		}
-		return "", NotFoundError{errors.New("not found")}
+		return "", gherrors.ErrNotFound
 	}
 
 	if token := os.Getenv(ghToken); token != "" {
@@ -101,7 +102,7 @@ func (c config) AuthToken(host string) (string, error) {
 	if token, err := c.GetForHost(hostname, oauthToken); err == nil {
 		return token, nil
 	}
-	return "", NotFoundError{errors.New("not found")}
+	return "", gherrors.ErrNotFound
 }
 
 func isEnterprise(host string) bool {

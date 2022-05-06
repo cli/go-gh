@@ -7,7 +7,6 @@ package gh
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -20,6 +19,7 @@ import (
 	irepo "github.com/cli/go-gh/internal/repository"
 	"github.com/cli/go-gh/internal/ssh"
 	"github.com/cli/go-gh/pkg/api"
+	gherrors "github.com/cli/go-gh/pkg/errors"
 	repo "github.com/cli/go-gh/pkg/repository"
 	"github.com/cli/safeexec"
 )
@@ -125,7 +125,7 @@ func CurrentRepository() (repo.Repository, error) {
 		return nil, err
 	}
 	if len(remotes) == 0 {
-		return nil, errors.New("unable to determine current repository, no git remotes configured for this repository")
+		return nil, gherrors.ErrNoRepositories
 	}
 
 	sshConfig := ssh.ParseConfig()
@@ -140,11 +140,27 @@ func CurrentRepository() (repo.Repository, error) {
 
 	filteredRemotes := remotes.FilterByHosts(hosts)
 	if len(filteredRemotes) == 0 {
-		return nil, errors.New("unable to determine current repository, none of the git remotes configured for this repository point to a known GitHub host")
+		return nil, gherrors.ErrNoRepositoryHosts
 	}
 
 	r := filteredRemotes[0]
 	return irepo.New(r.Host, r.Owner, r.Repo), nil
+}
+
+// IsAuthenticated returns whether the user has authenticated the given host.
+// The default host "github.com" is used if host is "".
+func IsAuthenticated(host string) bool {
+	cfg, err := config.Load()
+	if err != nil {
+		return false
+	}
+
+	if host == "" {
+		host = cfg.Host()
+	}
+
+	_, err = cfg.AuthToken(host)
+	return err == nil
 }
 
 func resolveOptions(opts *api.ClientOptions, cfg config.Config) error {

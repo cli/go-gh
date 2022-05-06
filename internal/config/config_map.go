@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 
+	gherrors "github.com/cli/go-gh/pkg/errors"
 	"gopkg.in/yaml.v3"
 )
 
@@ -17,10 +18,6 @@ type configEntry struct {
 	KeyNode   *yaml.Node
 	ValueNode *yaml.Node
 	Index     int
-}
-
-type NotFoundError struct {
-	error
 }
 
 func (cm *configMap) empty() bool {
@@ -42,7 +39,7 @@ func (cm *configMap) setStringValue(key, value string) error {
 		return nil
 	}
 
-	var notFound *NotFoundError
+	var notFound *gherrors.NotFoundError
 	if err != nil && !errors.As(err, &notFound) {
 		return err
 	}
@@ -63,7 +60,7 @@ func (cm *configMap) setStringValue(key, value string) error {
 
 func (cm *configMap) findEntry(key string) (*configEntry, error) {
 	if cm.empty() {
-		return nil, &NotFoundError{errors.New("not found")}
+		return nil, &gherrors.ErrNotFound
 	}
 
 	ce := &configEntry{}
@@ -85,7 +82,7 @@ func (cm *configMap) findEntry(key string) (*configEntry, error) {
 		}
 	}
 
-	return nil, &NotFoundError{errors.New("not found")}
+	return nil, &gherrors.ErrNotFound
 }
 
 func (cm *configMap) removeEntry(key string) {
