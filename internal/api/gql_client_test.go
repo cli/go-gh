@@ -107,7 +107,7 @@ func TestGQLClientDo(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			assert.True(t, gock.IsDone())
+			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 			assert.Equal(t, tt.wantLogin, res.Viewer.Login)
 		})
 	}

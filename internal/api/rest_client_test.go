@@ -2,6 +2,8 @@ package api
 
 import (
 	"bytes"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -103,7 +105,7 @@ func TestRESTClientDo(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			assert.True(t, gock.IsDone())
+			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 			assert.Equal(t, tt.wantMsg, res.Message)
 		})
 	}
@@ -118,7 +120,7 @@ func TestRESTClientDelete(t *testing.T) {
 	client := NewRESTClient("github.com", nil)
 	err := client.Delete("some/path/here", nil)
 	assert.NoError(t, err)
-	assert.True(t, gock.IsDone())
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
 func TestRESTClientGet(t *testing.T) {
@@ -130,7 +132,7 @@ func TestRESTClientGet(t *testing.T) {
 	client := NewRESTClient("github.com", nil)
 	err := client.Get("some/path/here", nil)
 	assert.NoError(t, err)
-	assert.True(t, gock.IsDone())
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
 func TestRESTClientPatch(t *testing.T) {
@@ -144,7 +146,7 @@ func TestRESTClientPatch(t *testing.T) {
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Patch("some/path/here", r, nil)
 	assert.NoError(t, err)
-	assert.True(t, gock.IsDone())
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
 func TestRESTClientPost(t *testing.T) {
@@ -158,7 +160,7 @@ func TestRESTClientPost(t *testing.T) {
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Post("some/path/here", r, nil)
 	assert.NoError(t, err)
-	assert.True(t, gock.IsDone())
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
 func TestRESTClientPut(t *testing.T) {
@@ -172,5 +174,13 @@ func TestRESTClientPut(t *testing.T) {
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Put("some/path/here", r, nil)
 	assert.NoError(t, err)
-	assert.True(t, gock.IsDone())
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func printPendingMocks(mocks []gock.Mock) string {
+	paths := []string{}
+	for _, mock := range mocks {
+		paths = append(paths, mock.Request().URLStruct.String())
+	}
+	return fmt.Sprintf("%d unmatched mocks: %s", len(paths), strings.Join(paths, ", "))
 }

@@ -3,6 +3,7 @@ package gh
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/cli/go-gh/internal/config"
@@ -70,7 +71,7 @@ func TestRESTClient(t *testing.T) {
 	res := struct{ Message string }{}
 	err = client.Do("GET", "some/test/path", nil, &res)
 	assert.NoError(t, err)
-	assert.True(t, gock.IsDone())
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 	assert.Equal(t, "success", res.Message)
 }
 
@@ -100,7 +101,7 @@ func TestGQLClient(t *testing.T) {
 	res := struct{ Viewer struct{ Login string } }{}
 	err = client.Do("QUERY", vars, &res)
 	assert.NoError(t, err)
-	assert.True(t, gock.IsDone())
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 	assert.Equal(t, "hubot", res.Viewer.Login)
 }
 
@@ -127,7 +128,7 @@ func TestHTTPClient(t *testing.T) {
 
 	res, err := client.Get("https://api.github.com/some/test/path")
 	assert.NoError(t, err)
-	assert.True(t, gock.IsDone())
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 	assert.Equal(t, 200, res.StatusCode)
 }
 
@@ -177,4 +178,12 @@ hosts:
 `
 	cfg, _ := config.FromString(data)
 	return cfg
+}
+
+func printPendingMocks(mocks []gock.Mock) string {
+	paths := []string{}
+	for _, mock := range mocks {
+		paths = append(paths, mock.Request().URLStruct.String())
+	}
+	return fmt.Sprintf("%d unmatched mocks: %s", len(paths), strings.Join(paths, ", "))
 }
