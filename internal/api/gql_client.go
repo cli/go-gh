@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/cli/go-gh/pkg/api"
 	graphql "github.com/cli/shurcooL-graphql"
@@ -75,7 +74,7 @@ func (c gqlClient) Do(query string, variables map[string]interface{}, response i
 	}
 
 	if len(gr.Errors) > 0 {
-		return &gqlErrorResponse{Errors: gr.Errors}
+		return &api.GQLError{Errors: gr.Errors}
 	}
 
 	return nil
@@ -97,22 +96,5 @@ func (c gqlClient) Query(name string, q interface{}, variables map[string]interf
 
 type gqlResponse struct {
 	Data   interface{}
-	Errors []gqlError
-}
-
-type gqlError struct {
-	Type    string
-	Message string
-}
-
-type gqlErrorResponse struct {
-	Errors []gqlError
-}
-
-func (gr gqlErrorResponse) Error() string {
-	errorMessages := make([]string, 0, len(gr.Errors))
-	for _, e := range gr.Errors {
-		errorMessages = append(errorMessages, e.Message)
-	}
-	return fmt.Sprintf("GQL error: %s", strings.Join(errorMessages, "\n"))
+	Errors []api.GQLErrorItem
 }

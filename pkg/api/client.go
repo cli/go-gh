@@ -2,8 +2,10 @@
 package api
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -96,4 +98,24 @@ type GQLClient interface {
 	// The query argument should be a pointer to struct that corresponds
 	// to the GitHub GraphQL schema.
 	Query(name string, query interface{}, variables map[string]interface{}) error
+}
+
+// GQLError contains GQLErrors from a GraphQ request.
+type GQLError struct {
+	Errors []GQLErrorItem
+}
+
+// GQLErrorItem contains error information from a GraphQL request.
+type GQLErrorItem struct {
+	Type    string
+	Message string
+}
+
+// Error formats all GQLError messages.
+func (gr GQLError) Error() string {
+	errorMessages := make([]string, 0, len(gr.Errors))
+	for _, e := range gr.Errors {
+		errorMessages = append(errorMessages, e.Message)
+	}
+	return fmt.Sprintf("GQL error: %s", strings.Join(errorMessages, "\n"))
 }

@@ -105,6 +105,32 @@ func TestGQLClient(t *testing.T) {
 	assert.Equal(t, "hubot", res.Viewer.Login)
 }
 
+func TestGQLClientError(t *testing.T) {
+	tempDir := t.TempDir()
+	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
+	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
+	t.Cleanup(func() {
+		os.Setenv("GH_CONFIG_DIR", orig_GH_CONFIG_DIR)
+		os.Setenv("GH_TOKEN", orig_GH_TOKEN)
+	})
+	os.Setenv("GH_CONFIG_DIR", tempDir)
+	os.Setenv("GH_TOKEN", "GH_TOKEN")
+
+	http := httpmock.NewRegistry(t)
+	http.Register(
+		httpmock.GQL("QUERY"),
+		httpmock.StringResponse(`{"errors":[{"type":"NOT_FOUND","path":["organization"],"message":"Could not resolve to an Organization with the login of 'cli'."}]}`),
+	)
+
+	client, err := GQLClient(&api.ClientOptions{Transport: http})
+	assert.NoError(t, err)
+
+	vars := map[string]interface{}{}
+	res := struct{ Organization struct{ Name string } }{}
+	err = client.Do("QUERY", vars, &res)
+	assert.EqualError(t, err, "GQL error: Could not resolve to an Organization with the login of 'cli'.")
+}
+
 func TestHTTPClient(t *testing.T) {
 	t.Cleanup(gock.Off)
 	tempDir := t.TempDir()
