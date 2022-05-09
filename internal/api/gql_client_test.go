@@ -3,83 +3,112 @@ package api
 import (
 	"testing"
 
-	"github.com/cli/go-gh/internal/httpmock"
-	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/h2non/gock.v1"
 )
 
 func TestGQLClientDo(t *testing.T) {
 	tests := []struct {
 		name       string
 		host       string
-		matcher    httpmock.Matcher
-		responder  httpmock.Responder
+		httpMocks  func()
 		wantErr    bool
 		wantErrMsg string
-		wantHost   string
 		wantLogin  string
 	}{
 		{
-			name:      "success request",
-			responder: httpmock.StringResponse(`{"data":{"viewer":{"login":"hubot"}}}`),
+			name: "success request",
+			httpMocks: func() {
+				gock.New("https://api.github.com").
+					Post("/graphql").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
+					Reply(200).
+					JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
+			},
 			wantLogin: "hubot",
 		},
 		{
-			name:       "fail request",
-			responder:  httpmock.StringResponse(`{"errors":[{"message":"OH NO"},{"message":"this is fine"}]}`),
+			name: "fail request",
+			httpMocks: func() {
+				gock.New("https://api.github.com").
+					Post("/graphql").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
+					Reply(200).
+					JSON(`{"errors":[{"message":"OH NO"},{"message":"this is fine"}]}`)
+			},
 			wantErr:    true,
 			wantErrMsg: "GQL error: OH NO\nthis is fine",
 		},
 		{
-			name:       "http fail request empty response",
-			responder:  httpmock.StatusStringResponse(404, `{}`),
+			name: "http fail request empty response",
+			httpMocks: func() {
+				gock.New("https://api.github.com").
+					Post("/graphql").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
+					Reply(404).
+					JSON(`{}`)
+			},
 			wantErr:    true,
 			wantErrMsg: "HTTP 404 (https://api.github.com/graphql)",
 		},
 		{
-			name:       "http fail request message response",
-			responder:  httpmock.StatusStringResponse(422, `{"message": "OH NO"}`),
+			name: "http fail request message response",
+			httpMocks: func() {
+				gock.New("https://api.github.com").
+					Post("/graphql").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
+					Reply(422).
+					JSON(`{"message": "OH NO"}`)
+			},
 			wantErr:    true,
 			wantErrMsg: "HTTP 422: OH NO (https://api.github.com/graphql)",
 		},
 		{
-			name:       "http fail request errors response",
-			responder:  httpmock.StatusStringResponse(502, `{"errors":[{"message":"Something went wrong"}]}`),
+			name: "http fail request errors response",
+			httpMocks: func() {
+				gock.New("https://api.github.com").
+					Post("/graphql").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
+					Reply(502).
+					JSON(`{"errors":[{"message":"Something went wrong"}]}`)
+			},
 			wantErr:    true,
 			wantErrMsg: "HTTP 502: Something went wrong (https://api.github.com/graphql)",
 		},
 		{
-			name:      "support enterprise hosts",
-			responder: httpmock.StatusStringResponse(204, "{}"),
-			host:      "enterprise.com",
-			wantHost:  "enterprise.com",
+			name: "support enterprise hosts",
+			host: "enterprise.com",
+			httpMocks: func() {
+				gock.New("https://enterprise.com").
+					Post("/api/graphql").
+					BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
+					Reply(200).
+					JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
+			},
+			wantLogin: "hubot",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(gock.Off)
 			if tt.host == "" {
 				tt.host = "github.com"
 			}
-			if tt.wantHost == "" {
-				tt.wantHost = "api.github.com"
+			if tt.httpMocks != nil {
+				tt.httpMocks()
 			}
-			http := httpmock.NewRegistry(t)
-			client := NewGQLClient(tt.host, &api.ClientOptions{Transport: http})
-			http.Register(
-				httpmock.GQL("QUERY"),
-				tt.responder,
-			)
+			client := NewGQLClient(tt.host, nil)
 			vars := map[string]interface{}{"var": "test"}
 			res := struct{ Viewer struct{ Login string } }{}
 			err := client.Do("QUERY", vars, &res)
 			if tt.wantErr {
 				assert.EqualError(t, err, tt.wantErrMsg)
-				return
+			} else {
+				assert.NoError(t, err)
 			}
-			assert.NoError(t, err)
+			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 			assert.Equal(t, tt.wantLogin, res.Viewer.Login)
-			assert.Equal(t, tt.wantHost, http.Requests[0].URL.Hostname())
 		})
 	}
 }
