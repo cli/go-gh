@@ -100,7 +100,7 @@ type GQLClient interface {
 	Query(name string, query interface{}, variables map[string]interface{}) error
 }
 
-// GQLError contains GQLErrors from a GraphQ request.
+// GQLError contains GQLErrors from a GraphQL request.
 type GQLError struct {
 	Errors []GQLErrorItem
 }

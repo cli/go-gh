@@ -12,12 +12,12 @@ type HTTPError struct {
 	RequestURL  *url.URL
 	Message     string
 	OAuthScopes string
-	Errors      []HttpErrorItem
+	Errors      []HTTPErrorItem
 }
 
 // HTTPErrorItem stores additional information about an error response
 // returned from the GitHub API.
-type HttpErrorItem struct {
+type HTTPErrorItem struct {
 	Message  string
 	Resource string
 	Field    string
