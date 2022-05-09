@@ -398,6 +398,65 @@ func TestConfigHost(t *testing.T) {
 	}
 }
 
+func TestConfigHosts(t *testing.T) {
+	tests := []struct {
+		name      string
+		cfg       Config
+		ghHost    string
+		ghToken   string
+		wantHosts []string
+	}{
+		{
+			name:      "no known hosts",
+			cfg:       testLoadedNoHostConfig(),
+			wantHosts: []string{},
+		},
+		{
+			name:      "includes GH_HOST",
+			cfg:       testLoadedNoHostConfig(),
+			ghHost:    "test.com",
+			wantHosts: []string{"test.com"},
+		},
+		{
+			name:      "includes authenticated hosts",
+			cfg:       testLoadedConfig(),
+			wantHosts: []string{"github.com", "enterprise.com"},
+		},
+		{
+			name:      "includes default host if environment auth token",
+			cfg:       testLoadedNoHostConfig(),
+			ghToken:   "TOKEN",
+			wantHosts: []string{"github.com"},
+		},
+		{
+			name:      "deduplicates hosts",
+			cfg:       testLoadedConfig(),
+			ghHost:    "test.com",
+			ghToken:   "TOKEN",
+			wantHosts: []string{"test.com", "github.com", "enterprise.com"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.ghHost != "" {
+				k := "GH_HOST"
+				old := os.Getenv(k)
+				os.Setenv(k, tt.ghHost)
+				defer os.Setenv(k, old)
+			}
+			if tt.ghToken != "" {
+				k := "GH_TOKEN"
+				old := os.Getenv(k)
+				os.Setenv(k, tt.ghToken)
+				defer os.Setenv(k, old)
+			}
+			hosts := tt.cfg.Hosts()
+			assert.Equal(t, tt.wantHosts, hosts)
+		})
+	}
+}
+
 func TestConfigAuthToken(t *testing.T) {
 	orig_GITHUB_TOKEN := os.Getenv("GITHUB_TOKEN")
 	orig_GITHUB_ENTERPRISE_TOKEN := os.Getenv("GITHUB_ENTERPRISE_TOKEN")

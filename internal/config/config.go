@@ -72,6 +72,9 @@ func (c config) Hosts() []string {
 	if host := os.Getenv(ghHost); host != "" {
 		hosts.Add(host)
 	}
+	if token, _ := c.AuthToken(defaultHost); token != "" {
+		hosts.Add(defaultHost)
+	}
 	entries := c.hosts.keys()
 	hosts.AddValues(entries)
 	return hosts.ToSlice()
