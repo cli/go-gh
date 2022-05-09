@@ -1,6 +1,29 @@
 name: Lint
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
+  go-mod:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        go: [1.16]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Check go mod
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod
+
   lint:
     strategy:
       matrix:
@@ -9,10 +32,15 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v2
+        uses: golangci/golangci-lint-action@v3.1.0
         with:
           version: latest
