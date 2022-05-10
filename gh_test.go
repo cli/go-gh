@@ -105,6 +105,34 @@ func TestGQLClient(t *testing.T) {
 	assert.Equal(t, "hubot", res.Viewer.Login)
 }
 
+func TestGQLClientError(t *testing.T) {
+	t.Cleanup(gock.Off)
+	tempDir := t.TempDir()
+	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
+	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
+	t.Cleanup(func() {
+		os.Setenv("GH_CONFIG_DIR", orig_GH_CONFIG_DIR)
+		os.Setenv("GH_TOKEN", orig_GH_TOKEN)
+	})
+	os.Setenv("GH_CONFIG_DIR", tempDir)
+	os.Setenv("GH_TOKEN", "GH_TOKEN")
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token GH_TOKEN").
+		BodyString(`{"query":"QUERY","variables":null}`).
+		Reply(200).
+		JSON(`{"errors":[{"type":"NOT_FOUND","path":["organization"],"message":"Could not resolve to an Organization with the login of 'cli'."}]}`)
+
+	client, err := GQLClient(nil)
+	assert.NoError(t, err)
+
+	res := struct{ Organization struct{ Name string } }{}
+	err = client.Do("QUERY", nil, &res)
+	assert.EqualError(t, err, "GQL error: Could not resolve to an Organization with the login of 'cli'.")
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
 func TestHTTPClient(t *testing.T) {
 	t.Cleanup(gock.Off)
 	tempDir := t.TempDir()

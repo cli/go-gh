@@ -149,9 +149,9 @@ func handleHTTPError(resp *http.Response) error {
 			var errString string
 			_ = json.Unmarshal(raw, &errString)
 			messages = append(messages, errString)
-			httpError.Errors = append(httpError.Errors, api.HttpErrorItem{Message: errString})
+			httpError.Errors = append(httpError.Errors, api.HTTPErrorItem{Message: errString})
 		case '{':
-			var errInfo api.HttpErrorItem
+			var errInfo api.HTTPErrorItem
 			_ = json.Unmarshal(raw, &errInfo)
 			msg := errInfo.Message
 			if errInfo.Code != "" && errInfo.Code != "custom" {
