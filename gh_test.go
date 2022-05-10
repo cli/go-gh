@@ -2,6 +2,7 @@ package gh
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -129,7 +130,7 @@ func TestGQLClientError(t *testing.T) {
 
 	res := struct{ Organization struct{ Name string } }{}
 	err = client.Do("QUERY", nil, &res)
-	assert.EqualError(t, err, "GQL error: Could not resolve to an Organization with the login of 'cli'.")
+	assert.EqualError(t, err, "GQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
@@ -197,6 +198,107 @@ func TestResolveOptions(t *testing.T) {
 			assert.Equal(t, tt.wantHost, tt.opts.Host)
 			assert.Equal(t, tt.wantAuthToken, tt.opts.AuthToken)
 			assert.Equal(t, tt.wantSocket, tt.opts.UnixDomainSocket)
+		})
+	}
+}
+
+func TestOptionsNeedResolution(t *testing.T) {
+	tests := []struct {
+		name string
+		opts *api.ClientOptions
+		out  bool
+	}{
+		{
+			name: "Host, AuthToken, and UnixDomainSocket specified",
+			opts: &api.ClientOptions{
+				Host:             "test.com",
+				AuthToken:        "token",
+				UnixDomainSocket: "socket",
+			},
+			out: false,
+		},
+		{
+			name: "Host, AuthToken, and Transport specified",
+			opts: &api.ClientOptions{
+				Host:      "test.com",
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			},
+			out: false,
+		},
+		{
+			name: "Host, and AuthToken specified",
+			opts: &api.ClientOptions{
+				Host:      "test.com",
+				AuthToken: "token",
+			},
+			out: true,
+		},
+		{
+			name: "Host, and UnixDomainSocket specified",
+			opts: &api.ClientOptions{
+				Host:             "test.com",
+				UnixDomainSocket: "socket",
+			},
+			out: true,
+		},
+		{
+			name: "Host, and Transport specified",
+			opts: &api.ClientOptions{
+				Host:      "test.com",
+				Transport: http.DefaultTransport,
+			},
+			out: true,
+		},
+		{
+			name: "AuthToken, and UnixDomainSocket specified",
+			opts: &api.ClientOptions{
+				AuthToken:        "token",
+				UnixDomainSocket: "socket",
+			},
+			out: true,
+		},
+		{
+			name: "AuthToken, and Transport specified",
+			opts: &api.ClientOptions{
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			},
+			out: true,
+		},
+		{
+			name: "Host specified",
+			opts: &api.ClientOptions{
+				Host: "test.com",
+			},
+			out: true,
+		},
+		{
+			name: "AuthToken specified",
+			opts: &api.ClientOptions{
+				AuthToken: "token",
+			},
+			out: true,
+		},
+		{
+			name: "UnixDomainSocket specified",
+			opts: &api.ClientOptions{
+				UnixDomainSocket: "socket",
+			},
+			out: true,
+		},
+		{
+			name: "Transport specified",
+			opts: &api.ClientOptions{
+				Transport: http.DefaultTransport,
+			},
+			out: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.out, optionsNeedResolution(tt.opts))
 		})
 	}
 }

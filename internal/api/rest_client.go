@@ -23,6 +23,31 @@ func NewRESTClient(host string, opts *api.ClientOptions) api.RESTClient {
 	}
 }
 
+func (c restClient) Raw(method string, path string, body io.Reader) (*http.Response, error) {
+	url := restURL(c.host, path)
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return resp, err
+	}
+
+	success := resp.StatusCode >= 200 && resp.StatusCode < 300
+	if !success {
+		err = api.HTTPError{
+			StatusCode:          resp.StatusCode,
+			RequestURL:          resp.Request.URL,
+			AcceptedOAuthScopes: resp.Header.Get("X-Accepted-Oauth-Scopes"),
+			OAuthScopes:         resp.Header.Get("X-Oauth-Scopes"),
+		}
+	}
+
+	return resp, err
+}
+
 func (c restClient) Do(method string, path string, body io.Reader, response interface{}) error {
 	url := restURL(c.host, path)
 	req, err := http.NewRequest(method, url, body)
@@ -38,7 +63,7 @@ func (c restClient) Do(method string, path string, body io.Reader, response inte
 
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if !success {
-		return handleHTTPError(resp)
+		return api.HandleHTTPError(resp)
 	}
 
 	if resp.StatusCode == http.StatusNoContent {

@@ -61,13 +61,15 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, err
-	}
-	err = resolveOptions(opts, cfg)
-	if err != nil {
-		return nil, err
+	if optionsNeedResolution(opts) {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, err
+		}
+		err = resolveOptions(opts, cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return iapi.NewRESTClient(opts.Host, opts), nil
 }
@@ -80,13 +82,15 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, err
-	}
-	err = resolveOptions(opts, cfg)
-	if err != nil {
-		return nil, err
+	if optionsNeedResolution(opts) {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, err
+		}
+		err = resolveOptions(opts, cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return iapi.NewGQLClient(opts.Host, opts), nil
 }
@@ -104,13 +108,15 @@ func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
 	if opts == nil {
 		opts = &api.ClientOptions{}
 	}
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, err
-	}
-	err = resolveOptions(opts, cfg)
-	if err != nil {
-		return nil, err
+	if optionsNeedResolution(opts) {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, err
+		}
+		err = resolveOptions(opts, cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 	client := iapi.NewHTTPClient(opts)
 	return &client, nil
@@ -149,6 +155,19 @@ func CurrentRepository() (repo.Repository, error) {
 
 	r := filteredRemotes[0]
 	return irepo.New(r.Host, r.Owner, r.Repo), nil
+}
+
+func optionsNeedResolution(opts *api.ClientOptions) bool {
+	if opts.Host == "" {
+		return true
+	}
+	if opts.AuthToken == "" {
+		return true
+	}
+	if opts.UnixDomainSocket == "" && opts.Transport == nil {
+		return true
+	}
+	return false
 }
 
 func resolveOptions(opts *api.ClientOptions, cfg config.Config) error {
