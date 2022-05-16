@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 
@@ -18,9 +17,9 @@ import (
 	"github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/internal/git"
 	irepo "github.com/cli/go-gh/internal/repository"
-	"github.com/cli/go-gh/internal/ssh"
 	"github.com/cli/go-gh/pkg/api"
 	repo "github.com/cli/go-gh/pkg/repository"
+	"github.com/cli/go-gh/pkg/ssh"
 	"github.com/cli/safeexec"
 )
 
@@ -128,8 +127,8 @@ func CurrentRepository() (repo.Repository, error) {
 		return nil, errors.New("unable to determine current repository, no git remotes configured for this repository")
 	}
 
-	sshConfig := ssh.ParseConfig()
-	translateRemotes(remotes, sshConfig.Translator())
+	translator := ssh.NewTranslator()
+	translateRemotes(remotes, translator)
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -163,13 +162,13 @@ func resolveOptions(opts *api.ClientOptions, cfg config.Config) error {
 	return nil
 }
 
-func translateRemotes(remotes git.RemoteSet, urlTranslate func(*url.URL) *url.URL) {
+func translateRemotes(remotes git.RemoteSet, translator ssh.Translator) {
 	for _, r := range remotes {
 		if r.FetchURL != nil {
-			r.FetchURL = urlTranslate(r.FetchURL)
+			r.FetchURL = translator.Translate(r.FetchURL)
 		}
 		if r.PushURL != nil {
-			r.PushURL = urlTranslate(r.PushURL)
+			r.PushURL = translator.Translate(r.PushURL)
 		}
 	}
 }

@@ -66,19 +66,19 @@ func Test_sshParser_read(t *testing.T) {
 		t.Fatalf("read(user config) = %v", err)
 	}
 
-	if got := p.config["gh"]; got != "github.com" {
+	if got := p.cfg.aliases["gh"]; got != "github.com" {
 		t.Errorf("expected alias %q to expand to %q, got %q", "gh", "github.com", got)
 	}
-	if got := p.config["gittyhubby"]; got != "github.com" {
+	if got := p.cfg.aliases["gittyhubby"]; got != "github.com" {
 		t.Errorf("expected alias %q to expand to %q, got %q", "gittyhubby", "github.com", got)
 	}
-	if got := p.config["example.com"]; got != "" {
+	if got := p.cfg.aliases["example.com"]; got != "" {
 		t.Errorf("expected alias %q to expand to %q, got %q", "example.com", "", got)
 	}
-	if got := p.config["ex"]; got != "example.com" {
+	if got := p.cfg.aliases["ex"]; got != "example.com" {
 		t.Errorf("expected alias %q to expand to %q, got %q", "ex", "example.com", got)
 	}
-	if got := p.config["s1"]; got != "site1.net" {
+	if got := p.cfg.aliases["s1"]; got != "site1.net" {
 		t.Errorf("expected alias %q to expand to %q, got %q", "s1", "site1.net", got)
 	}
 }
@@ -124,21 +124,23 @@ func Test_sshParser_absolutePath(t *testing.T) {
 	}
 }
 
-func Test_Translator(t *testing.T) {
-	m := Config{
-		"gh":         "github.com",
-		"github.com": "ssh.github.com",
+func Test_Translate(t *testing.T) {
+	m := config{
+		aliases: map[string]string{
+			"gh":         "github.com",
+			"github.com": "ssh.github.com",
+		},
 	}
-	tr := m.Translator()
 
 	cases := [][]string{
 		{"ssh://gh/o/r", "ssh://github.com/o/r"},
 		{"ssh://github.com/o/r", "ssh://github.com/o/r"},
 		{"https://gh/o/r", "https://gh/o/r"},
 	}
+
 	for _, c := range cases {
 		u, _ := url.Parse(c[0])
-		got := tr(u)
+		got := m.Translate(u)
 		if got.String() != c[1] {
 			t.Errorf("%q: expected %q, got %q", c[0], c[1], got)
 		}
