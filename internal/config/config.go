@@ -138,6 +138,7 @@ func defaultConfig() Config {
 	return config{global: configMap{Root: defaultGlobal().Content[0]}}
 }
 
+//TODO: Add caching so as not to load config multiple times.
 func Load() (Config, error) {
 	return load(configFile(), hostsConfigFile())
 }

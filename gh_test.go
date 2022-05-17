@@ -168,21 +168,25 @@ func TestResolveOptions(t *testing.T) {
 		opts          *api.ClientOptions
 		wantAuthToken string
 		wantHost      string
+		wantSocket    string
 	}{
 		{
 			name: "honors consumer provided ClientOptions",
 			opts: &api.ClientOptions{
-				Host:      "test.com",
-				AuthToken: "token_from_opts",
+				Host:             "test.com",
+				AuthToken:        "token_from_opts",
+				UnixDomainSocket: "socket_from_opts",
 			},
 			wantAuthToken: "token_from_opts",
 			wantHost:      "test.com",
+			wantSocket:    "socket_from_opts",
 		},
 		{
 			name:          "uses config values if there are no consumer provided ClientOptions",
 			opts:          &api.ClientOptions{},
 			wantAuthToken: "token",
 			wantHost:      "github.com",
+			wantSocket:    "socket",
 		},
 	}
 
@@ -192,6 +196,7 @@ func TestResolveOptions(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHost, tt.opts.Host)
 			assert.Equal(t, tt.wantAuthToken, tt.opts.AuthToken)
+			assert.Equal(t, tt.wantSocket, tt.opts.UnixDomainSocket)
 		})
 	}
 }
@@ -203,6 +208,7 @@ hosts:
     user: user1
     oauth_token: token
     git_protocol: ssh
+http_unix_socket: socket
 `
 	cfg, _ := config.FromString(data)
 	return cfg
