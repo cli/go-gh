@@ -14,11 +14,10 @@ import (
 	"os/exec"
 
 	iapi "github.com/cli/go-gh/internal/api"
-	"github.com/cli/go-gh/internal/config"
-	iconfig "github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/internal/git"
 	irepo "github.com/cli/go-gh/internal/repository"
 	"github.com/cli/go-gh/pkg/api"
+	"github.com/cli/go-gh/pkg/config"
 	repo "github.com/cli/go-gh/pkg/repository"
 	"github.com/cli/go-gh/pkg/ssh"
 	"github.com/cli/safeexec"
@@ -62,7 +61,7 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 		opts = &api.ClientOptions{}
 	}
 	if optionsNeedResolution(opts) {
-		cfg, err := config.Load()
+		cfg, err := config.Read()
 		if err != nil {
 			return nil, err
 		}
@@ -83,7 +82,7 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 		opts = &api.ClientOptions{}
 	}
 	if optionsNeedResolution(opts) {
-		cfg, err := config.Load()
+		cfg, err := config.Read()
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +108,7 @@ func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
 		opts = &api.ClientOptions{}
 	}
 	if optionsNeedResolution(opts) {
-		cfg, err := config.Load()
+		cfg, err := config.Read()
 		if err != nil {
 			return nil, err
 		}
@@ -141,12 +140,12 @@ func CurrentRepository() (repo.Repository, error) {
 	translator := ssh.NewTranslator()
 	translateRemotes(remotes, translator)
 
-	cfg, err := config.Load()
+	cfg, err := config.Read()
 	if err != nil {
 		return nil, err
 	}
 
-	hosts := cfg.Hosts()
+	hosts := cfg.Hosts().Keys()
 
 	filteredRemotes := remotes.FilterByHosts(hosts)
 	if len(filteredRemotes) == 0 {
@@ -171,26 +170,18 @@ func optionsNeedResolution(opts *api.ClientOptions) bool {
 }
 
 func resolveOptions(opts *api.ClientOptions, cfg config.Config) error {
-	var token string
-	var err error
 	if opts.Host == "" {
-		opts.Host = cfg.Host()
+		opts.Host = cfg.Hosts().DefaultHost().Value()
 	}
 	if opts.AuthToken == "" {
-		token, err = cfg.AuthToken(opts.Host)
-		if err != nil {
-			var notFoundError iconfig.NotFoundError
-			if errors.As(err, &notFoundError) {
-				return fmt.Errorf("authentication token not found for host %s", opts.Host)
-			} else {
-				return err
-			}
+		tokenEntry := cfg.Hosts().AuthToken(opts.Host)
+		if tokenEntry.NotFound() {
+			return fmt.Errorf("authentication token not found for host %s", opts.Host)
 		}
-		opts.AuthToken = token
+		opts.AuthToken = tokenEntry.Value()
 	}
 	if opts.UnixDomainSocket == "" {
-		unixSocket, _ := cfg.Get("http_unix_socket")
-		opts.UnixDomainSocket = unixSocket
+		opts.UnixDomainSocket = cfg.General().Get("http_unix_socket").Value()
 	}
 	return nil
 }

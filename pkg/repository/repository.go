@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/internal/git"
 	irepo "github.com/cli/go-gh/internal/repository"
+	"github.com/cli/go-gh/pkg/config"
 )
 
 // Repository is the interface that wraps repository information methods.
@@ -48,9 +48,9 @@ func Parse(s string) (Repository, error) {
 		return irepo.New(parts[0], parts[1], parts[2]), nil
 	case 2:
 		host := "github.com"
-		cfg, err := config.Load()
+		cfg, err := config.Read()
 		if err == nil {
-			host = cfg.Host()
+			host = cfg.Hosts().DefaultHost().Value()
 		}
 		return irepo.New(host, parts[0], parts[1]), nil
 	default:
