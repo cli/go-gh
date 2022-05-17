@@ -102,7 +102,10 @@ func TestParse_hostFromConfig(t *testing.T) {
 	tempDir := t.TempDir()
 	old := os.Getenv("GH_CONFIG_DIR")
 	os.Setenv("GH_CONFIG_DIR", tempDir)
-	defer os.Setenv("GH_CONFIG_DIR", old)
+	t.Cleanup(func() {
+		os.Setenv("GH_CONFIG_DIR", old)
+	})
+
 	var configData = `
 git_protocol: ssh
 editor:

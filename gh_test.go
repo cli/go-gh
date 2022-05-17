@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cli/go-gh/internal/config"
 	"github.com/cli/go-gh/pkg/api"
+	"github.com/cli/go-gh/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
 )
@@ -303,7 +303,7 @@ func TestOptionsNeedResolution(t *testing.T) {
 	}
 }
 
-func testConfig() config.Config {
+func testConfig() *config.Config {
 	var data = `
 hosts:
   github.com:
@@ -312,8 +312,7 @@ hosts:
     git_protocol: ssh
 http_unix_socket: socket
 `
-	cfg, _ := config.FromString(data)
-	return cfg
+	return config.ReadFromString(data)
 }
 
 func printPendingMocks(mocks []gock.Mock) string {
