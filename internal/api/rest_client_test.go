@@ -11,7 +11,7 @@ import (
 	"gopkg.in/h2non/gock.v1"
 )
 
-func TestRESTClientRaw(t *testing.T) {
+func TestRESTClientRequest(t *testing.T) {
 	tests := []struct {
 		name       string
 		host       string
@@ -104,7 +104,7 @@ func TestRESTClientRaw(t *testing.T) {
 				tt.httpMocks()
 			}
 			client := NewRESTClient(tt.host, nil)
-			resp, err := client.Raw("GET", tt.path, nil)
+			resp, err := client.Request("GET", tt.path, nil)
 			t.Cleanup(func() { resp.Body.Close() })
 			body, readErr := io.ReadAll(resp.Body)
 			assert.NoError(t, readErr)

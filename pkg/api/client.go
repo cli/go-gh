@@ -84,11 +84,11 @@ type RESTClient interface {
 	// The response is populated into the response argument.
 	Put(path string, body io.Reader, response interface{}) error
 
-	// Raw issues a request with type specified by method to the
+	// Request issues a request with type specified by method to the
 	// specified path with the specified body.
 	// The response is returned rather than being populated
 	// into a response argument.
-	Raw(method string, path string, body io.Reader) (*http.Response, error)
+	Request(method string, path string, body io.Reader) (*http.Response, error)
 }
 
 // GQLClient is the interface that wraps methods for the different types of

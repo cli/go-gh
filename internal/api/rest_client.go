@@ -23,7 +23,7 @@ func NewRESTClient(host string, opts *api.ClientOptions) api.RESTClient {
 	}
 }
 
-func (c restClient) Raw(method string, path string, body io.Reader) (*http.Response, error) {
+func (c restClient) Request(method string, path string, body io.Reader) (*http.Response, error) {
 	url := restURL(c.host, path)
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
