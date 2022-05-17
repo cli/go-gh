@@ -122,10 +122,9 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 // TODO: Export function in near future.
 func handleHTTPError(resp *http.Response) error {
 	httpError := api.HTTPError{
-		StatusCode:          resp.StatusCode,
-		RequestURL:          resp.Request.URL,
-		AcceptedOAuthScopes: resp.Header.Get("X-Accepted-Oauth-Scopes"),
-		OAuthScopes:         resp.Header.Get("X-Oauth-Scopes"),
+		StatusCode: resp.StatusCode,
+		RequestURL: resp.Request.URL,
+		Headers:    resp.Header,
 	}
 
 	if !jsonTypeRE.MatchString(resp.Header.Get(contentType)) {

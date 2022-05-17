@@ -2,18 +2,18 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 )
 
 // HTTPError represents an error response from the GitHub API.
 type HTTPError struct {
-	AcceptedOAuthScopes string
-	Errors              []HTTPErrorItem
-	Message             string
-	OAuthScopes         string
-	RequestURL          *url.URL
-	StatusCode          int
+	Errors     []HTTPErrorItem
+	Headers    http.Header
+	Message    string
+	RequestURL *url.URL
+	StatusCode int
 }
 
 // HTTPErrorItem stores additional information about an error response

@@ -163,7 +163,7 @@ func resolveOptions(opts *api.ClientOptions, cfg config.Config) error {
 		if err != nil {
 			var notFoundError iconfig.NotFoundError
 			if errors.As(err, &notFoundError) {
-				return fmt.Errorf("auth token not found for host %s", opts.Host)
+				return fmt.Errorf("authentication token not found for host %s", opts.Host)
 			} else {
 				return err
 			}
