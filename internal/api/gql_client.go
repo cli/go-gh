@@ -55,7 +55,7 @@ func (c gqlClient) Do(query string, variables map[string]interface{}, response i
 
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if !success {
-		return handleHTTPError(resp)
+		return api.HandleHTTPError(resp)
 	}
 
 	if resp.StatusCode == http.StatusNoContent {
@@ -67,14 +67,14 @@ func (c gqlClient) Do(query string, variables map[string]interface{}, response i
 		return err
 	}
 
-	gr := &gqlResponse{Data: response}
+	gr := gqlResponse{Data: response}
 	err = json.Unmarshal(body, &gr)
 	if err != nil {
 		return err
 	}
 
 	if len(gr.Errors) > 0 {
-		return &api.GQLError{Errors: gr.Errors}
+		return api.GQLError{Errors: gr.Errors}
 	}
 
 	return nil

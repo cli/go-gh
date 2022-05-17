@@ -2,10 +2,8 @@
 package api
 
 import (
-	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -85,6 +83,12 @@ type RESTClient interface {
 	// Put issues a PUT request to the specified path with the specified body.
 	// The response is populated into the response argument.
 	Put(path string, body io.Reader, response interface{}) error
+
+	// Request issues a request with type specified by method to the
+	// specified path with the specified body.
+	// The response is returned rather than being populated
+	// into a response argument.
+	Request(method string, path string, body io.Reader) (*http.Response, error)
 }
 
 // GQLClient is the interface that wraps methods for the different types of
@@ -108,24 +112,4 @@ type GQLClient interface {
 	// The query argument should be a pointer to struct that corresponds
 	// to the GitHub GraphQL schema.
 	Query(name string, query interface{}, variables map[string]interface{}) error
-}
-
-// GQLError contains GQLErrors from a GraphQL request.
-type GQLError struct {
-	Errors []GQLErrorItem
-}
-
-// GQLErrorItem contains error information from a GraphQL request.
-type GQLErrorItem struct {
-	Type    string
-	Message string
-}
-
-// Error formats all GQLError messages.
-func (gr GQLError) Error() string {
-	errorMessages := make([]string, 0, len(gr.Errors))
-	for _, e := range gr.Errors {
-		errorMessages = append(errorMessages, e.Message)
-	}
-	return fmt.Sprintf("GQL error: %s", strings.Join(errorMessages, "\n"))
 }

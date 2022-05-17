@@ -1,9 +1,7 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -29,6 +27,7 @@ const (
 )
 
 var jsonTypeRE = regexp.MustCompile(`[/+]json($|;)`)
+
 var timeZoneNames = map[int]string{
 	-39600: "Pacific/Niue",
 	-36000: "Pacific/Honolulu",
@@ -117,77 +116,6 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
 
 	return http.Client{Transport: transport, Timeout: opts.Timeout}
-}
-
-// TODO: Export function in near future.
-func handleHTTPError(resp *http.Response) error {
-	httpError := api.HTTPError{
-		StatusCode: resp.StatusCode,
-		RequestURL: resp.Request.URL,
-		Headers:    resp.Header,
-	}
-
-	if !jsonTypeRE.MatchString(resp.Header.Get(contentType)) {
-		httpError.Message = resp.Status
-		return httpError
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		httpError.Message = err.Error()
-		return httpError
-	}
-
-	var parsedBody struct {
-		Message string `json:"message"`
-		Errors  []json.RawMessage
-	}
-	if err := json.Unmarshal(body, &parsedBody); err != nil {
-		return httpError
-	}
-
-	var messages []string
-	if parsedBody.Message != "" {
-		messages = append(messages, parsedBody.Message)
-	}
-	for _, raw := range parsedBody.Errors {
-		switch raw[0] {
-		case '"':
-			var errString string
-			_ = json.Unmarshal(raw, &errString)
-			messages = append(messages, errString)
-			httpError.Errors = append(httpError.Errors, api.HTTPErrorItem{Message: errString})
-		case '{':
-			var errInfo api.HTTPErrorItem
-			_ = json.Unmarshal(raw, &errInfo)
-			msg := errInfo.Message
-			if errInfo.Code != "" && errInfo.Code != "custom" {
-				msg = fmt.Sprintf("%s.%s %s", errInfo.Resource, errInfo.Field, errorCodeToMessage(errInfo.Code))
-			}
-			if msg != "" {
-				messages = append(messages, msg)
-			}
-			httpError.Errors = append(httpError.Errors, errInfo)
-		}
-	}
-	httpError.Message = strings.Join(messages, "\n")
-
-	return httpError
-}
-
-// Convert common error codes to human readable messages
-// See https://docs.github.com/en/rest/overview/resources-in-the-rest-api#client-errors for more details.
-func errorCodeToMessage(code string) string {
-	switch code {
-	case "missing", "missing_field":
-		return "is missing"
-	case "invalid", "unprocessable":
-		return "is invalid"
-	case "already_exists":
-		return "already exists"
-	default:
-		return code
-	}
 }
 
 func inspectableMIMEType(t string) bool {
