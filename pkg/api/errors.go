@@ -18,12 +18,11 @@ var jsonTypeRE = regexp.MustCompile(`[/+]json($|;)`)
 
 // HTTPError represents an error response from the GitHub API.
 type HTTPError struct {
-	AcceptedOAuthScopes string
-	Errors              []HTTPErrorItem
-	Message             string
-	OAuthScopes         string
-	RequestURL          *url.URL
-	StatusCode          int
+	Errors     []HTTPErrorItem
+	Headers    http.Header
+	Message    string
+	RequestURL *url.URL
+	StatusCode int
 }
 
 // HTTPErrorItem stores additional information about an error response
@@ -103,10 +102,9 @@ func matchPath(p, expect string) bool {
 // HandleHTTPError parses a http.Response into a HTTPError.
 func HandleHTTPError(resp *http.Response) error {
 	httpError := HTTPError{
-		StatusCode:          resp.StatusCode,
-		RequestURL:          resp.Request.URL,
-		AcceptedOAuthScopes: resp.Header.Get("X-Accepted-Oauth-Scopes"),
-		OAuthScopes:         resp.Header.Get("X-Oauth-Scopes"),
+		Headers:    resp.Header,
+		RequestURL: resp.Request.URL,
+		StatusCode: resp.StatusCode,
 	}
 
 	if !jsonTypeRE.MatchString(resp.Header.Get(contentType)) {

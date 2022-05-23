@@ -38,10 +38,9 @@ func (c restClient) Request(method string, path string, body io.Reader) (*http.R
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if !success {
 		err = api.HTTPError{
-			StatusCode:          resp.StatusCode,
-			RequestURL:          resp.Request.URL,
-			AcceptedOAuthScopes: resp.Header.Get("X-Accepted-Oauth-Scopes"),
-			OAuthScopes:         resp.Header.Get("X-Oauth-Scopes"),
+			Headers:    resp.Header,
+			RequestURL: resp.Request.URL,
+			StatusCode: resp.StatusCode,
 		}
 	}
 
