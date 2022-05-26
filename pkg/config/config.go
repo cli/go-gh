@@ -1,5 +1,5 @@
 // Package config is a set of types for interacting with the gh configuration files.
-// Note: This package is intended for use only in `gh`, any other use cases are subject
+// Note: This package is intended for use only in gh, any other use cases are subject
 // to breakage and non-backwards compatible updates.
 package config
 
@@ -22,10 +22,19 @@ const (
 	xdgStateHome  = "XDG_STATE_HOME"
 )
 
+// Config is a in memory representation of the gh configuration files.
+// It can be thought of as map where entries consist of a key that
+// correspond to either a string value or a map value, allowing for
+// multi-level maps.
 type Config struct {
 	entries *yamlmap.Map
 }
 
+// Get a string value from a Config.
+// The keys argument is a sequence of key values so that nested
+// entries can be retrieved. A undefined string will be returned
+// if trying to retrieve a key that corresponds to a map value.
+// Returns "", KeyNotFoundError if any of the keys can not be found.
 func Get(c *Config, keys []string) (string, error) {
 	m := c.entries
 	for _, key := range keys {
@@ -38,6 +47,10 @@ func Get(c *Config, keys []string) (string, error) {
 	return m.Value, nil
 }
 
+// Keys enumerates a Configs keys.
+// The keys argument is a sequence of key values so that nested
+// map values can be have their keys enumerated.
+// Returns nil, KeyNotFoundError if any of the keys can not be found.
 func Keys(c *Config, keys []string) ([]string, error) {
 	m := c.entries
 	for _, key := range keys {
@@ -50,6 +63,11 @@ func Keys(c *Config, keys []string) ([]string, error) {
 	return m.Keys(), nil
 }
 
+// Remove an entry from a Config.
+// The keys argument is a sequence of key values so that nested
+// entries can be removed. Removing an entry that has nested
+// entries removes those also.
+// Returns "", KeyNotFoundError if any of the keys can not be found.
 func Remove(c *Config, keys []string) error {
 	m := c.entries
 	for i := 0; i < len(keys)-1; i++ {
@@ -67,6 +85,10 @@ func Remove(c *Config, keys []string) error {
 	return nil
 }
 
+// Set an string value in a Config.
+// The keys argument is a sequence of key values so that nested
+// entries can be set. If any of the keys do not exist they will
+// be created.
 func Set(c *Config, keys []string, value string) {
 	m := c.entries
 	for i := 0; i < len(keys)-1; i++ {
@@ -81,6 +103,8 @@ func Set(c *Config, keys []string, value string) {
 	m.SetEntry(keys[len(keys)-1], yamlmap.StringValue(value))
 }
 
+// Read gh configuration files from the local file system and
+// return a Config.
 func Read() (*Config, error) {
 	// TODO: Make global config singleton using sync.Once
 	// so as not to read from file every time.
@@ -98,6 +122,9 @@ func ReadFromString(str string) *Config {
 	return &Config{m}
 }
 
+// Write gh configuration files to the local file system.
+// It will only write gh configuration files that have been modified
+// since last being read.
 func Write(config *Config) error {
 	hosts, err := config.entries.FindEntry("hosts")
 	if err == nil && hosts.IsModified() {

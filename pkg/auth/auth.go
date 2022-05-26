@@ -1,3 +1,5 @@
+// Package auth is a set of functions for retrieving authentication tokens
+// and authenticated hosts.
 package auth
 
 import (
@@ -19,6 +21,10 @@ const (
 	hostsKey              = "hosts"
 )
 
+// TokenForHost retrieves an authentication token and the source of
+// that token for the specified host. The source can be either an
+// environment variable or the configuration file.
+// Returns blank strings if no applicable token is found.
 func TokenForHost(host string) (string, string) {
 	cfg, _ := config.Read()
 	return tokenForHost(cfg, host)
@@ -51,6 +57,10 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 	return "", ""
 }
 
+// KnownHosts retrieves a list of hosts that have corresponding
+// authentication tokens, either from environment variables
+// or the configuration file.
+// Returns an empty string slice if no hosts are found.
 func KnownHosts() []string {
 	cfg, _ := config.Read()
 	return knownHosts(cfg)
@@ -73,6 +83,10 @@ func knownHosts(cfg *config.Config) []string {
 	return hosts.ToSlice()
 }
 
+// DefaultHost retrieves an authenticated host and the source of host.
+// The source can be either an environment variable or the
+// configuration file.
+// Returns "github.com", "default" if no viable host is found.
 func DefaultHost() (string, string) {
 	cfg, _ := config.Read()
 	return defaultHost(cfg)
