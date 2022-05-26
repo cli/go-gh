@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cli/go-gh/pkg/api"
-	"github.com/cli/go-gh/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
 )
@@ -162,7 +162,18 @@ func TestHTTPClient(t *testing.T) {
 }
 
 func TestResolveOptions(t *testing.T) {
-	cfg := testConfig()
+	tempDir := t.TempDir()
+	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
+	t.Cleanup(func() {
+		os.Setenv("GH_CONFIG_DIR", orig_GH_CONFIG_DIR)
+	})
+	os.Setenv("GH_CONFIG_DIR", tempDir)
+	globalFilePath := filepath.Join(tempDir, "config.yml")
+	hostsFilePath := filepath.Join(tempDir, "hosts.yml")
+	err := os.WriteFile(globalFilePath, []byte(testGlobalData()), 0755)
+	assert.NoError(t, err)
+	err = os.WriteFile(hostsFilePath, []byte(testHostsData()), 0755)
+	assert.NoError(t, err)
 
 	tests := []struct {
 		name          string
@@ -193,7 +204,7 @@ func TestResolveOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := resolveOptions(tt.opts, cfg)
+			err := resolveOptions(tt.opts)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHost, tt.opts.Host)
 			assert.Equal(t, tt.wantAuthToken, tt.opts.AuthToken)
@@ -303,16 +314,21 @@ func TestOptionsNeedResolution(t *testing.T) {
 	}
 }
 
-func testConfig() *config.Config {
+func testGlobalData() string {
 	var data = `
-hosts:
-  github.com:
-    user: user1
-    oauth_token: token
-    git_protocol: ssh
 http_unix_socket: socket
 `
-	return config.ReadFromString(data)
+	return data
+}
+
+func testHostsData() string {
+	var data = `
+github.com:
+  user: user1
+  oauth_token: token
+  git_protocol: ssh
+`
+	return data
 }
 
 func printPendingMocks(mocks []gock.Mock) string {

@@ -104,7 +104,7 @@ func TestTokenForHost(t *testing.T) {
 			os.Setenv("GITHUB_ENTERPRISE_TOKEN", tt.githubEnterpriseToken)
 			os.Setenv("GH_TOKEN", tt.ghToken)
 			os.Setenv("GH_ENTERPRISE_TOKEN", tt.ghEnterpriseToken)
-			token, source := TokenForHost(tt.config, tt.host)
+			token, source := tokenForHost(tt.config, tt.host)
 			assert.Equal(t, tt.wantToken, token)
 			assert.Equal(t, tt.wantSource, source)
 		})
@@ -157,7 +157,7 @@ func TestDefaultHost(t *testing.T) {
 				os.Setenv(k, tt.ghHost)
 				defer os.Setenv(k, old)
 			}
-			host, source := DefaultHost(tt.config)
+			host, source := defaultHost(tt.config)
 			assert.Equal(t, tt.wantHost, host)
 			assert.Equal(t, tt.wantSource, source)
 		})
@@ -217,7 +217,7 @@ func TestKnownHosts(t *testing.T) {
 				os.Setenv(k, tt.ghToken)
 				defer os.Setenv(k, old)
 			}
-			hosts := KnownHosts(tt.config)
+			hosts := knownHosts(tt.config)
 			assert.Equal(t, tt.wantHosts, hosts)
 		})
 	}

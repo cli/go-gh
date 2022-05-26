@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/internal/yamlmap"
 )
 
@@ -33,7 +32,7 @@ func Get(c *Config, keys []string) (string, error) {
 		var err error
 		m, err = m.FindEntry(key)
 		if err != nil {
-			return "", NotFoundError{key}
+			return "", KeyNotFoundError{key}
 		}
 	}
 	return m.Value, nil
@@ -45,7 +44,7 @@ func Keys(c *Config, keys []string) ([]string, error) {
 		var err error
 		m, err = m.FindEntry(key)
 		if err != nil {
-			return nil, NotFoundError{key}
+			return nil, KeyNotFoundError{key}
 		}
 	}
 	return m.Keys(), nil
@@ -58,12 +57,12 @@ func Remove(c *Config, keys []string) error {
 		key := keys[i]
 		m, err = m.FindEntry(key)
 		if err != nil {
-			return NotFoundError{key}
+			return KeyNotFoundError{key}
 		}
 	}
 	err := m.RemoveEntry(keys[len(keys)-1])
 	if err != nil {
-		return NotFoundError{keys[len(keys)-1]}
+		return KeyNotFoundError{keys[len(keys)-1]}
 	}
 	return nil
 }
@@ -250,7 +249,7 @@ func writeFile(filename string, data []byte) error {
 	return err
 }
 
-var defaultGeneralEntries = heredoc.Doc(`
+var defaultGeneralEntries = `
 # What protocol to use when performing git operations. Supported values: ssh, https
 git_protocol: https
 # What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.
@@ -266,4 +265,4 @@ aliases:
 http_unix_socket:
 # What web browser gh should use when opening URLs. If blank, will refer to environment.
 browser:
-`)
+`

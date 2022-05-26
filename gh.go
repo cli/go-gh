@@ -62,11 +62,7 @@ func RESTClient(opts *api.ClientOptions) (api.RESTClient, error) {
 		opts = &api.ClientOptions{}
 	}
 	if optionsNeedResolution(opts) {
-		cfg, err := config.Read()
-		if err != nil {
-			return nil, err
-		}
-		err = resolveOptions(opts, cfg)
+		err := resolveOptions(opts)
 		if err != nil {
 			return nil, err
 		}
@@ -83,11 +79,7 @@ func GQLClient(opts *api.ClientOptions) (api.GQLClient, error) {
 		opts = &api.ClientOptions{}
 	}
 	if optionsNeedResolution(opts) {
-		cfg, err := config.Read()
-		if err != nil {
-			return nil, err
-		}
-		err = resolveOptions(opts, cfg)
+		err := resolveOptions(opts)
 		if err != nil {
 			return nil, err
 		}
@@ -109,11 +101,7 @@ func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
 		opts = &api.ClientOptions{}
 	}
 	if optionsNeedResolution(opts) {
-		cfg, err := config.Read()
-		if err != nil {
-			return nil, err
-		}
-		err = resolveOptions(opts, cfg)
+		err := resolveOptions(opts)
 		if err != nil {
 			return nil, err
 		}
@@ -141,12 +129,7 @@ func CurrentRepository() (repo.Repository, error) {
 	translator := ssh.NewTranslator()
 	translateRemotes(remotes, translator)
 
-	cfg, err := config.Read()
-	if err != nil {
-		return nil, err
-	}
-
-	hosts := auth.KnownHosts(cfg)
+	hosts := auth.KnownHosts()
 
 	filteredRemotes := remotes.FilterByHosts(hosts)
 	if len(filteredRemotes) == 0 {
@@ -170,17 +153,18 @@ func optionsNeedResolution(opts *api.ClientOptions) bool {
 	return false
 }
 
-func resolveOptions(opts *api.ClientOptions, cfg *config.Config) error {
+func resolveOptions(opts *api.ClientOptions) error {
+	cfg, _ := config.Read()
 	if opts.Host == "" {
-		opts.Host, _ = auth.DefaultHost(cfg)
+		opts.Host, _ = auth.DefaultHost()
 	}
 	if opts.AuthToken == "" {
-		opts.AuthToken, _ = auth.TokenForHost(cfg, opts.Host)
+		opts.AuthToken, _ = auth.TokenForHost(opts.Host)
 		if opts.AuthToken == "" {
 			return fmt.Errorf("authentication token not found for host %s", opts.Host)
 		}
 	}
-	if opts.UnixDomainSocket == "" {
+	if opts.UnixDomainSocket == "" && cfg != nil {
 		opts.UnixDomainSocket, _ = config.Get(cfg, []string{"http_unix_socket"})
 	}
 	return nil

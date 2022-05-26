@@ -15,13 +15,18 @@ func (e InvalidConfigFileError) Error() string {
 	return fmt.Sprintf("invalid config file %s: %s", e.Path, e.Err)
 }
 
-// NotFoundError represents an error when trying to find a config key
+// Allow InvalidConfigFileError to be unwrapped.
+func (e InvalidConfigFileError) Unwrap() error {
+	return e.Err
+}
+
+// KeyNotFoundError represents an error when trying to find a config key
 // that does not exist.
-type NotFoundError struct {
+type KeyNotFoundError struct {
 	Key string
 }
 
-// Allow NotFoundError to satisfy error interface.
-func (e NotFoundError) Error() string {
+// Allow KeyNotFoundError to satisfy error interface.
+func (e KeyNotFoundError) Error() string {
 	return fmt.Sprintf("could not find key %q", e.Key)
 }
