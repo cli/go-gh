@@ -380,7 +380,7 @@ func TestWrite(t *testing.T) {
 			cfg := tt.createConfig()
 			err := Write(cfg)
 			assert.NoError(t, err)
-			loadedCfg, err := Read()
+			loadedCfg, err := load(generalConfigFile(), hostsConfigFile())
 			assert.NoError(t, err)
 			wantCfg := cfg
 			if tt.wantConfig != nil {

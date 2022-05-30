@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cli/go-gh/pkg/api"
+	"github.com/cli/go-gh/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
 )
@@ -49,20 +49,12 @@ func TestRunError(t *testing.T) {
 }
 
 func TestRESTClient(t *testing.T) {
+	stubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
-	tempDir := t.TempDir()
-	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
-	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
-	t.Cleanup(func() {
-		os.Setenv("GH_CONFIG_DIR", orig_GH_CONFIG_DIR)
-		os.Setenv("GH_TOKEN", orig_GH_TOKEN)
-	})
-	os.Setenv("GH_CONFIG_DIR", tempDir)
-	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
 	gock.New("https://api.github.com").
 		Get("/some/test/path").
-		MatchHeader("Authorization", "token GH_TOKEN").
+		MatchHeader("Authorization", "token abc123").
 		Reply(200).
 		JSON(`{"message": "success"}`)
 
@@ -77,20 +69,12 @@ func TestRESTClient(t *testing.T) {
 }
 
 func TestGQLClient(t *testing.T) {
+	stubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
-	tempDir := t.TempDir()
-	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
-	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
-	t.Cleanup(func() {
-		os.Setenv("GH_CONFIG_DIR", orig_GH_CONFIG_DIR)
-		os.Setenv("GH_TOKEN", orig_GH_TOKEN)
-	})
-	os.Setenv("GH_CONFIG_DIR", tempDir)
-	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
 	gock.New("https://api.github.com").
 		Post("/graphql").
-		MatchHeader("Authorization", "token GH_TOKEN").
+		MatchHeader("Authorization", "token abc123").
 		BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
 		Reply(200).
 		JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
@@ -107,20 +91,12 @@ func TestGQLClient(t *testing.T) {
 }
 
 func TestGQLClientError(t *testing.T) {
+	stubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
-	tempDir := t.TempDir()
-	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
-	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
-	t.Cleanup(func() {
-		os.Setenv("GH_CONFIG_DIR", orig_GH_CONFIG_DIR)
-		os.Setenv("GH_TOKEN", orig_GH_TOKEN)
-	})
-	os.Setenv("GH_CONFIG_DIR", tempDir)
-	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
 	gock.New("https://api.github.com").
 		Post("/graphql").
-		MatchHeader("Authorization", "token GH_TOKEN").
+		MatchHeader("Authorization", "token abc123").
 		BodyString(`{"query":"QUERY","variables":null}`).
 		Reply(200).
 		JSON(`{"errors":[{"type":"NOT_FOUND","path":["organization"],"message":"Could not resolve to an Organization with the login of 'cli'."}]}`)
@@ -135,20 +111,12 @@ func TestGQLClientError(t *testing.T) {
 }
 
 func TestHTTPClient(t *testing.T) {
+	stubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
-	tempDir := t.TempDir()
-	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
-	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
-	t.Cleanup(func() {
-		os.Setenv("GH_CONFIG_DIR", orig_GH_CONFIG_DIR)
-		os.Setenv("GH_TOKEN", orig_GH_TOKEN)
-	})
-	os.Setenv("GH_CONFIG_DIR", tempDir)
-	os.Setenv("GH_TOKEN", "GH_TOKEN")
 
 	gock.New("https://api.github.com").
 		Get("/some/test/path").
-		MatchHeader("Authorization", "token GH_TOKEN").
+		MatchHeader("Authorization", "token abc123").
 		Reply(200).
 		JSON(`{"message": "success"}`)
 
@@ -162,18 +130,7 @@ func TestHTTPClient(t *testing.T) {
 }
 
 func TestResolveOptions(t *testing.T) {
-	tempDir := t.TempDir()
-	orig_GH_CONFIG_DIR := os.Getenv("GH_CONFIG_DIR")
-	t.Cleanup(func() {
-		os.Setenv("GH_CONFIG_DIR", orig_GH_CONFIG_DIR)
-	})
-	os.Setenv("GH_CONFIG_DIR", tempDir)
-	globalFilePath := filepath.Join(tempDir, "config.yml")
-	hostsFilePath := filepath.Join(tempDir, "hosts.yml")
-	err := os.WriteFile(globalFilePath, []byte(testGlobalData()), 0755)
-	assert.NoError(t, err)
-	err = os.WriteFile(hostsFilePath, []byte(testHostsData()), 0755)
-	assert.NoError(t, err)
+	stubConfig(t, testConfigWithSocket())
 
 	tests := []struct {
 		name          string
@@ -314,27 +271,42 @@ func TestOptionsNeedResolution(t *testing.T) {
 	}
 }
 
-func testGlobalData() string {
-	var data = `
-http_unix_socket: socket
-`
-	return data
-}
-
-func testHostsData() string {
-	var data = `
-github.com:
-  user: user1
-  oauth_token: token
-  git_protocol: ssh
-`
-	return data
-}
-
 func printPendingMocks(mocks []gock.Mock) string {
 	paths := []string{}
 	for _, mock := range mocks {
 		paths = append(paths, mock.Request().URLStruct.String())
 	}
 	return fmt.Sprintf("%d unmatched mocks: %s", len(paths), strings.Join(paths, ", "))
+}
+
+func stubConfig(t *testing.T, cfgStr string) {
+	t.Helper()
+	old := config.Read
+	config.Read = func() (*config.Config, error) {
+		return config.ReadFromString(cfgStr), nil
+	}
+	t.Cleanup(func() {
+		config.Read = old
+	})
+}
+
+func testConfig() string {
+	return `
+hosts:
+  github.com:
+    user: user1
+    oauth_token: abc123
+    git_protocol: ssh
+`
+}
+
+func testConfigWithSocket() string {
+	return `
+http_unix_socket: socket
+hosts:
+  github.com:
+    user: user1
+    oauth_token: token
+    git_protocol: ssh
+`
 }

@@ -2,13 +2,15 @@ package repository
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
+	"github.com/cli/go-gh/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestParse(t *testing.T) {
+	stubConfig(t, "")
+
 	tests := []struct {
 		name         string
 		input        string
@@ -102,29 +104,14 @@ func TestParse(t *testing.T) {
 }
 
 func TestParse_hostFromConfig(t *testing.T) {
-	tempDir := t.TempDir()
-	old := os.Getenv("GH_CONFIG_DIR")
-	os.Setenv("GH_CONFIG_DIR", tempDir)
-	t.Cleanup(func() {
-		os.Setenv("GH_CONFIG_DIR", old)
-	})
-
-	var configData = `
-git_protocol: ssh
-editor:
-prompt: enabled
-pager: less
+	var cfgStr = `
+hosts:
+  enterprise.com:
+    user: user2
+    oauth_token: yyyyyyyyyyyyyyyyyyyy
+    git_protocol: https
 `
-	var hostData = `
-enterprise.com:
-  user: user2
-  oauth_token: yyyyyyyyyyyyyyyyyyyy
-  git_protocol: https
-`
-	err := os.WriteFile(filepath.Join(tempDir, "config.yml"), []byte(configData), 0644)
-	assert.NoError(t, err)
-	err = os.WriteFile(filepath.Join(tempDir, "hosts.yml"), []byte(hostData), 0644)
-	assert.NoError(t, err)
+	stubConfig(t, cfgStr)
 	r, err := Parse("OWNER/REPO")
 	assert.NoError(t, err)
 	assert.Equal(t, "enterprise.com", r.Host())
@@ -206,4 +193,15 @@ func TestParseWithHost(t *testing.T) {
 			assert.Equal(t, tt.wantName, r.Name())
 		})
 	}
+}
+
+func stubConfig(t *testing.T, cfgStr string) {
+	t.Helper()
+	old := config.Read
+	config.Read = func() (*config.Config, error) {
+		return config.ReadFromString(cfgStr), nil
+	}
+	t.Cleanup(func() {
+		config.Read = old
+	})
 }

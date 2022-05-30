@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"github.com/cli/go-gh/internal/yamlmap"
 )
@@ -22,12 +23,18 @@ const (
 	xdgStateHome  = "XDG_STATE_HOME"
 )
 
+var (
+	cfg  *Config
+	once sync.Once
+)
+
 // Config is a in memory representation of the gh configuration files.
 // It can be thought of as map where entries consist of a key that
 // correspond to either a string value or a map value, allowing for
 // multi-level maps.
 type Config struct {
 	entries *yamlmap.Map
+	mu      sync.RWMutex
 }
 
 // Get a string value from a Config.
@@ -36,6 +43,8 @@ type Config struct {
 // if trying to retrieve a key that corresponds to a map value.
 // Returns "", KeyNotFoundError if any of the keys can not be found.
 func (c *Config) Get(keys []string) (string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	m := c.entries
 	for _, key := range keys {
 		var err error
@@ -52,6 +61,8 @@ func (c *Config) Get(keys []string) (string, error) {
 // map values can be have their keys enumerated.
 // Returns nil, KeyNotFoundError if any of the keys can not be found.
 func (c *Config) Keys(keys []string) ([]string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	m := c.entries
 	for _, key := range keys {
 		var err error
@@ -69,6 +80,8 @@ func (c *Config) Keys(keys []string) ([]string, error) {
 // entries removes those also.
 // Returns KeyNotFoundError if any of the keys can not be found.
 func (c *Config) Remove(keys []string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	m := c.entries
 	for i := 0; i < len(keys)-1; i++ {
 		var err error
@@ -90,6 +103,8 @@ func (c *Config) Remove(keys []string) error {
 // entries can be set. If any of the keys do not exist they will
 // be created.
 func (c *Config) Set(keys []string, value string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	m := c.entries
 	for i := 0; i < len(keys)-1; i++ {
 		key := keys[i]
@@ -105,10 +120,12 @@ func (c *Config) Set(keys []string, value string) {
 
 // Read gh configuration files from the local file system and
 // return a Config.
-func Read() (*Config, error) {
-	// TODO: Make global config singleton using sync.Once
-	// so as not to read from file every time.
-	return load(generalConfigFile(), hostsConfigFile())
+var Read = func() (*Config, error) {
+	var err error
+	once.Do(func() {
+		cfg, err = load(generalConfigFile(), hostsConfigFile())
+	})
+	return cfg, err
 }
 
 // ReadFromString takes a yaml string and returns a Config.
@@ -119,14 +136,16 @@ func ReadFromString(str string) *Config {
 	if m == nil {
 		m = yamlmap.MapValue()
 	}
-	return &Config{m}
+	return &Config{entries: m}
 }
 
 // Write gh configuration files to the local file system.
 // It will only write gh configuration files that have been modified
 // since last being read.
-func Write(config *Config) error {
-	hosts, err := config.entries.FindEntry("hosts")
+func Write(c *Config) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	hosts, err := c.entries.FindEntry("hosts")
 	if err == nil && hosts.IsModified() {
 		err := writeFile(hostsConfigFile(), []byte(hosts.String()))
 		if err != nil {
@@ -135,20 +154,20 @@ func Write(config *Config) error {
 		hosts.SetUnmodified()
 	}
 
-	if config.entries.IsModified() {
+	if c.entries.IsModified() {
 		// Hosts gets written to a different file above so remove it
 		// before writing and add it back in after writing.
-		hostsMap, hostsErr := config.entries.FindEntry("hosts")
+		hostsMap, hostsErr := c.entries.FindEntry("hosts")
 		if hostsErr == nil {
-			_ = config.entries.RemoveEntry("hosts")
+			_ = c.entries.RemoveEntry("hosts")
 		}
-		err := writeFile(generalConfigFile(), []byte(config.entries.String()))
+		err := writeFile(generalConfigFile(), []byte(c.entries.String()))
 		if err != nil {
 			return err
 		}
-		config.entries.SetUnmodified()
+		c.entries.SetUnmodified()
 		if hostsErr == nil {
-			config.entries.AddEntry("hosts", hostsMap)
+			c.entries.AddEntry("hosts", hostsMap)
 		}
 	}
 
@@ -182,7 +201,7 @@ func load(generalFilePath, hostsFilePath string) (*Config, error) {
 		generalMap.AddEntry("hosts", hostsMap)
 	}
 
-	return &Config{generalMap}, nil
+	return &Config{entries: generalMap}, nil
 }
 
 func generalConfigFile() string {
