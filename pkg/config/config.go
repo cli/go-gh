@@ -67,7 +67,7 @@ func (c *Config) Keys(keys []string) ([]string, error) {
 // The keys argument is a sequence of key values so that nested
 // entries can be removed. Removing an entry that has nested
 // entries removes those also.
-// Returns "", KeyNotFoundError if any of the keys can not be found.
+// Returns KeyNotFoundError if any of the keys can not be found.
 func (c *Config) Remove(keys []string) error {
 	m := c.entries
 	for i := 0; i < len(keys)-1; i++ {

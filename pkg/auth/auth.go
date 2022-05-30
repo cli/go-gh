@@ -11,20 +11,21 @@ import (
 )
 
 const (
-	github                = "github.com"
+	defaultSource         = "default"
 	ghEnterpriseToken     = "GH_ENTERPRISE_TOKEN"
 	ghHost                = "GH_HOST"
 	ghToken               = "GH_TOKEN"
+	github                = "github.com"
 	githubEnterpriseToken = "GITHUB_ENTERPRISE_TOKEN"
 	githubToken           = "GITHUB_TOKEN"
-	oauthToken            = "oauth_token"
 	hostsKey              = "hosts"
+	oauthToken            = "oauth_token"
 )
 
 // TokenForHost retrieves an authentication token and the source of
 // that token for the specified host. The source can be either an
-// environment variable or the configuration file.
-// Returns blank strings if no applicable token is found.
+// environment variable or from the configuration file.
+// Returns "", "default" if no applicable token is found.
 func TokenForHost(host string) (string, string) {
 	cfg, _ := config.Read()
 	return tokenForHost(cfg, host)
@@ -54,12 +55,12 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 		token, _ := cfg.Get([]string{hostsKey, host, oauthToken})
 		return token, oauthToken
 	}
-	return "", ""
+	return "", defaultSource
 }
 
 // KnownHosts retrieves a list of hosts that have corresponding
 // authentication tokens, either from environment variables
-// or the configuration file.
+// or from the configuration file.
 // Returns an empty string slice if no hosts are found.
 func KnownHosts() []string {
 	cfg, _ := config.Read()
@@ -84,7 +85,7 @@ func knownHosts(cfg *config.Config) []string {
 }
 
 // DefaultHost retrieves an authenticated host and the source of host.
-// The source can be either an environment variable or the
+// The source can be either an environment variable or from the
 // configuration file.
 // Returns "github.com", "default" if no viable host is found.
 func DefaultHost() (string, string) {
@@ -102,7 +103,7 @@ func defaultHost(cfg *config.Config) (string, string) {
 			return keys[0], hostsKey
 		}
 	}
-	return github, "default"
+	return github, defaultSource
 }
 
 func isEnterprise(host string) bool {
