@@ -35,7 +35,7 @@ type Config struct {
 // entries can be retrieved. A undefined string will be returned
 // if trying to retrieve a key that corresponds to a map value.
 // Returns "", KeyNotFoundError if any of the keys can not be found.
-func Get(c *Config, keys []string) (string, error) {
+func (c *Config) Get(keys []string) (string, error) {
 	m := c.entries
 	for _, key := range keys {
 		var err error
@@ -47,11 +47,11 @@ func Get(c *Config, keys []string) (string, error) {
 	return m.Value, nil
 }
 
-// Keys enumerates a Configs keys.
+// Keys enumerates a Config's keys.
 // The keys argument is a sequence of key values so that nested
 // map values can be have their keys enumerated.
 // Returns nil, KeyNotFoundError if any of the keys can not be found.
-func Keys(c *Config, keys []string) ([]string, error) {
+func (c *Config) Keys(keys []string) ([]string, error) {
 	m := c.entries
 	for _, key := range keys {
 		var err error
@@ -68,7 +68,7 @@ func Keys(c *Config, keys []string) ([]string, error) {
 // entries can be removed. Removing an entry that has nested
 // entries removes those also.
 // Returns "", KeyNotFoundError if any of the keys can not be found.
-func Remove(c *Config, keys []string) error {
+func (c *Config) Remove(keys []string) error {
 	m := c.entries
 	for i := 0; i < len(keys)-1; i++ {
 		var err error
@@ -85,11 +85,11 @@ func Remove(c *Config, keys []string) error {
 	return nil
 }
 
-// Set an string value in a Config.
+// Set a string value in a Config.
 // The keys argument is a sequence of key values so that nested
 // entries can be set. If any of the keys do not exist they will
 // be created.
-func Set(c *Config, keys []string, value string) {
+func (c *Config) Set(keys []string, value string) {
 	m := c.entries
 	for i := 0; i < len(keys)-1; i++ {
 		key := keys[i]

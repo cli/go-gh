@@ -294,10 +294,10 @@ func TestLoad(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			protocol, err := Get(cfg, []string{"git_protocol"})
+			protocol, err := cfg.Get([]string{"git_protocol"})
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantGitProtocol, protocol)
-			token, err := Get(cfg, []string{"hosts", "enterprise.com", "oauth_token"})
+			token, err := cfg.Get([]string{"hosts", "enterprise.com", "oauth_token"})
 			if tt.wantGetErr {
 				assert.EqualError(t, err, `could not find key "hosts"`)
 			} else {
@@ -320,8 +320,8 @@ func TestWrite(t *testing.T) {
 			name: "writes config and hosts files",
 			createConfig: func() *Config {
 				cfg := ReadFromString(testFullConfig())
-				Set(cfg, []string{"editor"}, "vim")
-				Set(cfg, []string{"hosts", "github.com", "git_protocol"}, "https")
+				cfg.Set([]string{"editor"}, "vim")
+				cfg.Set([]string{"hosts", "github.com", "git_protocol"}, "https")
 				return cfg
 			},
 		},
@@ -329,19 +329,19 @@ func TestWrite(t *testing.T) {
 			name: "only writes hosts file",
 			createConfig: func() *Config {
 				cfg := ReadFromString(testFullConfig())
-				Set(cfg, []string{"hosts", "enterprise.com", "git_protocol"}, "ssh")
+				cfg.Set([]string{"hosts", "enterprise.com", "git_protocol"}, "ssh")
 				return cfg
 			},
 			wantConfig: func() *Config {
 				// The hosts file is writen but not the general config file.
 				// When we use Read in the test the defaultGeneralEntries are used.
 				cfg := ReadFromString(defaultGeneralEntries)
-				Set(cfg, []string{"hosts", "github.com", "user"}, "user1")
-				Set(cfg, []string{"hosts", "github.com", "oauth_token"}, "xxxxxxxxxxxxxxxxxxxx")
-				Set(cfg, []string{"hosts", "github.com", "git_protocol"}, "ssh")
-				Set(cfg, []string{"hosts", "enterprise.com", "user"}, "user2")
-				Set(cfg, []string{"hosts", "enterprise.com", "oauth_token"}, "yyyyyyyyyyyyyyyyyyyy")
-				Set(cfg, []string{"hosts", "enterprise.com", "git_protocol"}, "ssh")
+				cfg.Set([]string{"hosts", "github.com", "user"}, "user1")
+				cfg.Set([]string{"hosts", "github.com", "oauth_token"}, "xxxxxxxxxxxxxxxxxxxx")
+				cfg.Set([]string{"hosts", "github.com", "git_protocol"}, "ssh")
+				cfg.Set([]string{"hosts", "enterprise.com", "user"}, "user2")
+				cfg.Set([]string{"hosts", "enterprise.com", "oauth_token"}, "yyyyyyyyyyyyyyyyyyyy")
+				cfg.Set([]string{"hosts", "enterprise.com", "git_protocol"}, "ssh")
 				return cfg
 			},
 		},
@@ -349,15 +349,15 @@ func TestWrite(t *testing.T) {
 			name: "only writes config file",
 			createConfig: func() *Config {
 				cfg := ReadFromString(testFullConfig())
-				Set(cfg, []string{"editor"}, "vim")
+				cfg.Set([]string{"editor"}, "vim")
 				return cfg
 			},
 			wantConfig: func() *Config {
 				// The general config file is written but not the hosts config file.
 				// When we use Read in the test there will not be any hosts entries.
 				cfg := ReadFromString(testFullConfig())
-				Set(cfg, []string{"editor"}, "vim")
-				_ = Remove(cfg, []string{"hosts"})
+				cfg.Set([]string{"editor"}, "vim")
+				_ = cfg.Remove([]string{"hosts"})
 				return cfg
 			},
 		},
@@ -448,7 +448,7 @@ func TestGet(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
-			value, err := Get(cfg, tt.keys)
+			value, err := cfg.Get(tt.keys)
 			if tt.wantErr {
 				assert.EqualError(t, err, tt.wantErrMsg)
 			} else {
@@ -490,7 +490,7 @@ func TestKeys(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
-			ks, err := Keys(cfg, tt.findKeys)
+			ks, err := cfg.Keys(tt.findKeys)
 			if tt.wantErr {
 				assert.EqualError(t, err, tt.wantErrMsg)
 			} else {
@@ -538,7 +538,7 @@ func TestRemove(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
-			err := Remove(cfg, tt.keys)
+			err := cfg.Remove(tt.keys)
 			if tt.wantErr {
 				assert.EqualError(t, err, tt.wantErrMsg)
 				assert.False(t, cfg.entries.IsModified())
@@ -546,7 +546,7 @@ func TestRemove(t *testing.T) {
 				assert.NoError(t, err)
 				assert.True(t, cfg.entries.IsModified())
 			}
-			_, getErr := Get(cfg, tt.keys)
+			_, getErr := cfg.Get(tt.keys)
 			assert.Error(t, getErr)
 		})
 	}
@@ -593,9 +593,9 @@ func TestSet(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
-			Set(cfg, tt.keys, tt.value)
+			cfg.Set(tt.keys, tt.value)
 			assert.True(t, cfg.entries.IsModified())
-			value, err := Get(cfg, tt.keys)
+			value, err := cfg.Get(tt.keys)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.value, value)
 		})
@@ -605,31 +605,31 @@ func TestSet(t *testing.T) {
 func TestDefaultGeneralEntries(t *testing.T) {
 	cfg := ReadFromString(defaultGeneralEntries)
 
-	protocol, err := Get(cfg, []string{"git_protocol"})
+	protocol, err := cfg.Get([]string{"git_protocol"})
 	assert.NoError(t, err)
 	assert.Equal(t, "https", protocol)
 
-	editor, err := Get(cfg, []string{"editor"})
+	editor, err := cfg.Get([]string{"editor"})
 	assert.NoError(t, err)
 	assert.Equal(t, "", editor)
 
-	prompt, err := Get(cfg, []string{"prompt"})
+	prompt, err := cfg.Get([]string{"prompt"})
 	assert.NoError(t, err)
 	assert.Equal(t, "enabled", prompt)
 
-	pager, err := Get(cfg, []string{"pager"})
+	pager, err := cfg.Get([]string{"pager"})
 	assert.NoError(t, err)
 	assert.Equal(t, "", pager)
 
-	socket, err := Get(cfg, []string{"http_unix_socket"})
+	socket, err := cfg.Get([]string{"http_unix_socket"})
 	assert.NoError(t, err)
 	assert.Equal(t, "", socket)
 
-	browser, err := Get(cfg, []string{"browser"})
+	browser, err := cfg.Get([]string{"browser"})
 	assert.NoError(t, err)
 	assert.Equal(t, "", browser)
 
-	unknown, err := Get(cfg, []string{"unknown"})
+	unknown, err := cfg.Get([]string{"unknown"})
 	assert.EqualError(t, err, `could not find key "unknown"`)
 	assert.Equal(t, "", unknown)
 }

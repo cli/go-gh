@@ -165,7 +165,7 @@ func resolveOptions(opts *api.ClientOptions) error {
 		}
 	}
 	if opts.UnixDomainSocket == "" && cfg != nil {
-		opts.UnixDomainSocket, _ = config.Get(cfg, []string{"http_unix_socket"})
+		opts.UnixDomainSocket, _ = cfg.Get([]string{"http_unix_socket"})
 	}
 	return nil
 }

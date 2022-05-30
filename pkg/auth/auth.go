@@ -40,7 +40,7 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 			return token, githubEnterpriseToken
 		}
 		if cfg != nil {
-			token, _ := config.Get(cfg, []string{hostsKey, host, oauthToken})
+			token, _ := cfg.Get([]string{hostsKey, host, oauthToken})
 			return token, oauthToken
 		}
 	}
@@ -51,7 +51,7 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 		return token, githubToken
 	}
 	if cfg != nil {
-		token, _ := config.Get(cfg, []string{hostsKey, host, oauthToken})
+		token, _ := cfg.Get([]string{hostsKey, host, oauthToken})
 		return token, oauthToken
 	}
 	return "", ""
@@ -75,7 +75,7 @@ func knownHosts(cfg *config.Config) []string {
 		hosts.Add(github)
 	}
 	if cfg != nil {
-		keys, err := config.Keys(cfg, []string{hostsKey})
+		keys, err := cfg.Keys([]string{hostsKey})
 		if err == nil {
 			hosts.AddValues(keys)
 		}
@@ -97,7 +97,7 @@ func defaultHost(cfg *config.Config) (string, string) {
 		return host, ghHost
 	}
 	if cfg != nil {
-		keys, err := config.Keys(cfg, []string{hostsKey})
+		keys, err := cfg.Keys([]string{hostsKey})
 		if err == nil && len(keys) == 1 {
 			return keys[0], hostsKey
 		}
