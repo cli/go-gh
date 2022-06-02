@@ -92,7 +92,7 @@ func TestConfigDir(t *testing.T) {
 					defer os.Setenv(k, old)
 				}
 			}
-			assert.Equal(t, tt.output, configDir())
+			assert.Equal(t, tt.output, ConfigDir())
 		})
 	}
 }
@@ -156,7 +156,7 @@ func TestStateDir(t *testing.T) {
 					defer os.Setenv(k, old)
 				}
 			}
-			assert.Equal(t, tt.output, stateDir())
+			assert.Equal(t, tt.output, StateDir())
 		})
 	}
 }
@@ -220,7 +220,7 @@ func TestDataDir(t *testing.T) {
 					defer os.Setenv(k, old)
 				}
 			}
-			assert.Equal(t, tt.output, dataDir())
+			assert.Equal(t, tt.output, DataDir())
 		})
 	}
 }

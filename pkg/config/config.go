@@ -205,11 +205,11 @@ func load(generalFilePath, hostsFilePath string) (*Config, error) {
 }
 
 func generalConfigFile() string {
-	return filepath.Join(configDir(), "config.yml")
+	return filepath.Join(ConfigDir(), "config.yml")
 }
 
 func hostsConfigFile() string {
-	return filepath.Join(configDir(), "hosts.yml")
+	return filepath.Join(ConfigDir(), "hosts.yml")
 }
 
 func mapFromFile(filename string) (*yamlmap.Map, error) {
@@ -225,7 +225,7 @@ func mapFromString(str string) (*yamlmap.Map, error) {
 }
 
 // Config path precedence: GH_CONFIG_DIR, XDG_CONFIG_HOME, AppData (windows only), HOME.
-func configDir() string {
+func ConfigDir() string {
 	var path string
 	if a := os.Getenv(ghConfigDir); a != "" {
 		path = a
@@ -241,7 +241,7 @@ func configDir() string {
 }
 
 // State path precedence: XDG_STATE_HOME, LocalAppData (windows only), HOME.
-func stateDir() string {
+func StateDir() string {
 	var path string
 	if a := os.Getenv(xdgStateHome); a != "" {
 		path = filepath.Join(a, "gh")
@@ -255,7 +255,7 @@ func stateDir() string {
 }
 
 // Data path precedence: XDG_DATA_HOME, LocalAppData (windows only), HOME.
-func dataDir() string {
+func DataDir() string {
 	var path string
 	if a := os.Getenv(xdgDataHome); a != "" {
 		path = filepath.Join(a, "gh")
