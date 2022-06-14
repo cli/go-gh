@@ -80,6 +80,9 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			oldDir := os.Getenv("GH_CONFIG_DIR")
+			os.Setenv("GH_CONFIG_DIR", "nonexistant")
+			defer os.Setenv("GH_CONFIG_DIR", oldDir)
 			if tt.hostOverride != "" {
 				old := os.Getenv("GH_HOST")
 				os.Setenv("GH_HOST", tt.hostOverride)
