@@ -37,7 +37,7 @@ func TestGQLClientDo(t *testing.T) {
 					JSON(`{"errors":[{"message":"OH NO"},{"message":"this is fine"}]}`)
 			},
 			wantErr:    true,
-			wantErrMsg: "GQL: OH NO, this is fine",
+			wantErrMsg: "GraphQL: OH NO, this is fine",
 		},
 		{
 			name: "http fail request empty response",

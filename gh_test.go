@@ -130,7 +130,7 @@ func TestGQLClientError(t *testing.T) {
 
 	res := struct{ Organization struct{ Name string } }{}
 	err = client.Do("QUERY", nil, &res)
-	assert.EqualError(t, err, "GQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
+	assert.EqualError(t, err, "GraphQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
