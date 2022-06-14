@@ -83,16 +83,14 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 		transport = opts.Transport
 	}
 
-	if opts.EnableCache {
-		if opts.CacheDir == "" {
-			opts.CacheDir = filepath.Join(os.TempDir(), "gh-cli-cache")
-		}
-		if opts.CacheTTL == 0 {
-			opts.CacheTTL = time.Hour * 24
-		}
-		c := cache{dir: opts.CacheDir, ttl: opts.CacheTTL}
-		transport = c.RoundTripper(transport)
+	if opts.CacheDir == "" {
+		opts.CacheDir = filepath.Join(os.TempDir(), "gh-cli-cache")
 	}
+	if opts.EnableCache && opts.CacheTTL == 0 {
+		opts.CacheTTL = time.Hour * 24
+	}
+	c := cache{dir: opts.CacheDir, ttl: opts.CacheTTL}
+	transport = c.RoundTripper(transport)
 
 	if opts.Log != nil {
 		logger := &httpretty.Logger{
