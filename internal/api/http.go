@@ -83,16 +83,14 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 		transport = opts.Transport
 	}
 
-	if opts.EnableCache {
-		if opts.CacheDir == "" {
-			opts.CacheDir = filepath.Join(os.TempDir(), "gh-cli-cache")
-		}
-		if opts.CacheTTL == 0 {
-			opts.CacheTTL = time.Hour * 24
-		}
-		c := cache{dir: opts.CacheDir, ttl: opts.CacheTTL}
-		transport = c.RoundTripper(transport)
+	if opts.CacheDir == "" {
+		opts.CacheDir = filepath.Join(os.TempDir(), "gh-cli-cache")
 	}
+	if opts.EnableCache && opts.CacheTTL == 0 {
+		opts.CacheTTL = time.Hour * 24
+	}
+	c := cache{dir: opts.CacheDir, ttl: opts.CacheTTL}
+	transport = c.RoundTripper(transport)
 
 	if opts.Log != nil {
 		logger := &httpretty.Logger{
@@ -168,10 +166,6 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 		a := "application/vnd.github.merge-info-preview+json"
 		// Preview for visibility when RESTing repos into an org.
 		a += ", application/vnd.github.nebula-preview"
-		// Preview for Commit.statusCheckRollup for old GHES versions.
-		a += ", application/vnd.github.antiope-preview"
-		// Preview for // PullRequest.isDraft for old GHES versions.
-		a += ", application/vnd.github.shadow-cat-preview"
 		headers[accept] = a
 	}
 	return headerRoundTripper{host: host, headers: headers, rt: rt}

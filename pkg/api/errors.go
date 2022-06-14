@@ -67,7 +67,7 @@ func (gr GQLError) Error() string {
 		}
 		errorMessages = append(errorMessages, msg)
 	}
-	return fmt.Sprintf("GQL: %s", strings.Join(errorMessages, ", "))
+	return fmt.Sprintf("GraphQL: %s", strings.Join(errorMessages, ", "))
 }
 
 // Match determines if the GQLError is about a specific type on a specific path.
