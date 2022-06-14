@@ -168,10 +168,6 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 		a := "application/vnd.github.merge-info-preview+json"
 		// Preview for visibility when RESTing repos into an org.
 		a += ", application/vnd.github.nebula-preview"
-		// Preview for Commit.statusCheckRollup for old GHES versions.
-		a += ", application/vnd.github.antiope-preview"
-		// Preview for // PullRequest.isDraft for old GHES versions.
-		a += ", application/vnd.github.shadow-cat-preview"
 		headers[accept] = a
 	}
 	return headerRoundTripper{host: host, headers: headers, rt: rt}
