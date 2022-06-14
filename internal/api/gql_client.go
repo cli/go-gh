@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/cli/go-gh/pkg/api"
+
 	graphql "github.com/cli/shurcooL-graphql"
 )
 
@@ -35,14 +36,14 @@ func NewGQLClient(host string, opts *api.ClientOptions) api.GQLClient {
 	}
 }
 
-// Do executes a single GraphQL query request and populates the response into the data argument.
-func (c gqlClient) Do(query string, variables map[string]interface{}, response interface{}) error {
+// DoWithContext executes a single GraphQL query request and populates the response into the data argument.
+func (c gqlClient) DoWithContext(ctx context.Context, query string, variables map[string]interface{}, response interface{}) error {
 	reqBody, err := json.Marshal(map[string]interface{}{"query": query, "variables": variables})
 	if err != nil {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", c.host, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.host, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return err
 	}
@@ -80,18 +81,33 @@ func (c gqlClient) Do(query string, variables map[string]interface{}, response i
 	return nil
 }
 
-// Mutate executes a single GraphQL mutation request,
-// with a mutation derived from m, populating the response into it.
-// "m" should be a pointer to struct that corresponds to the GitHub GraphQL schema.
-func (c gqlClient) Mutate(name string, m interface{}, variables map[string]interface{}) error {
-	return c.client.MutateNamed(context.Background(), name, m, variables)
+// Do wraps DoWithContext using context.Background.
+func (c gqlClient) Do(query string, variables map[string]interface{}, response interface{}) error {
+	return c.DoWithContext(context.Background(), query, variables, response)
 }
 
-// Query executes a single GraphQL query request,
+// MutateWithContext executes a single GraphQL mutation request,
+// with a mutation derived from m, populating the response into it.
+// "m" should be a pointer to struct that corresponds to the GitHub GraphQL schema.
+func (c gqlClient) MutateWithContext(ctx context.Context, name string, m interface{}, variables map[string]interface{}) error {
+	return c.client.MutateNamed(ctx, name, m, variables)
+}
+
+// Mutate wraps MutateWithContext using context.Background.
+func (c gqlClient) Mutate(name string, m interface{}, variables map[string]interface{}) error {
+	return c.MutateWithContext(context.Background(), name, m, variables)
+}
+
+// QueryWithContext executes a single GraphQL query request,
 // with a query derived from q, populating the response into it.
 // "q" should be a pointer to struct that corresponds to the GitHub GraphQL schema.
+func (c gqlClient) QueryWithContext(ctx context.Context, name string, q interface{}, variables map[string]interface{}) error {
+	return c.client.QueryNamed(ctx, name, q, variables)
+}
+
+// Query wraps QueryWithContext using context.Background.
 func (c gqlClient) Query(name string, q interface{}, variables map[string]interface{}) error {
-	return c.client.QueryNamed(context.Background(), name, q, variables)
+	return c.QueryWithContext(context.Background(), name, q, variables)
 }
 
 type gqlResponse struct {
