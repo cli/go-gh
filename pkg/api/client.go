@@ -60,10 +60,13 @@ type ClientOptions struct {
 // RESTClient is the interface that wraps methods for the different types of
 // API requests that are supported by the server.
 type RESTClient interface {
-	// Do issues a request with type specified by method to the
+	// Do wraps DoWithContext with context.Background.
+	Do(method string, path string, body io.Reader, response interface{}) error
+
+	// DoWithContext issues a request with type specified by method to the
 	// specified path with the specified body.
 	// The response is populated into the response argument.
-	Do(method string, path string, body io.Reader, response interface{}) error
+	DoWithContext(ctx context.Context, method string, path string, body io.Reader, response interface{}) error
 
 	// Delete issues a DELETE request to the specified path.
 	// The response is populated into the response argument.
@@ -85,11 +88,14 @@ type RESTClient interface {
 	// The response is populated into the response argument.
 	Put(path string, body io.Reader, response interface{}) error
 
-	// Request issues a request with type specified by method to the
+	// Request wraps RequestWithContext with context.Background.
+	Request(method string, path string, body io.Reader) (*http.Response, error)
+
+	// RequestWithContext issues a request with type specified by method to the
 	// specified path with the specified body.
 	// The response is returned rather than being populated
 	// into a response argument.
-	Request(method string, path string, body io.Reader) (*http.Response, error)
+	RequestWithContext(ctx context.Context, method string, path string, body io.Reader) (*http.Response, error)
 }
 
 // GQLClient is the interface that wraps methods for the different types of

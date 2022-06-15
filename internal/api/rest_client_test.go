@@ -2,10 +2,13 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
@@ -284,6 +287,107 @@ func TestRESTClientPut(t *testing.T) {
 	err := client.Put("some/path/here", r, nil)
 	assert.NoError(t, err)
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestRESTClientDoWithContext(t *testing.T) {
+	tests := []struct {
+		name       string
+		wantErrMsg string
+		getCtx     func() context.Context
+	}{
+		{
+			name: "http fail request canceled",
+			getCtx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				// call 'cancel' to ensure that context is already canceled
+				cancel()
+				return ctx
+			},
+			wantErrMsg: `Get "https://api.github.com/some/path": context canceled`,
+		},
+		{
+			name: "http fail request timed out",
+			getCtx: func() context.Context {
+				// pass current time to ensure that deadline has already passed
+				ctx, cancel := context.WithDeadline(context.Background(), time.Now())
+				cancel()
+				return ctx
+			},
+			wantErrMsg: `Get "https://api.github.com/some/path": context deadline exceeded`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// given
+			t.Cleanup(gock.Off)
+			gock.New("https://api.github.com").
+				Get("/some/path").
+				Reply(204).
+				JSON(`{}`)
+
+			client := NewRESTClient("github.com", nil)
+			res := struct{ Message string }{}
+
+			// when
+			ctx := tt.getCtx()
+			gotErr := client.DoWithContext(ctx, http.MethodGet, "some/path", nil, &res)
+
+			// then
+			assert.EqualError(t, gotErr, tt.wantErrMsg)
+			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+		})
+	}
+}
+
+func TestRESTClientRequestWithContext(t *testing.T) {
+	tests := []struct {
+		name       string
+		wantErrMsg string
+		getCtx     func() context.Context
+	}{
+		{
+			name: "http fail request canceled",
+			getCtx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				// call 'cancel' to ensure that context is already canceled
+				cancel()
+				return ctx
+			},
+			wantErrMsg: `Get "https://api.github.com/some/path": context canceled`,
+		},
+		{
+			name: "http fail request timed out",
+			getCtx: func() context.Context {
+				// pass current time to ensure that deadline has already passed
+				ctx, cancel := context.WithDeadline(context.Background(), time.Now())
+				cancel()
+				return ctx
+			},
+			wantErrMsg: `Get "https://api.github.com/some/path": context deadline exceeded`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// given
+			t.Cleanup(gock.Off)
+			gock.New("https://api.github.com").
+				Get("/some/path").
+				Reply(204).
+				JSON(`{}`)
+
+			client := NewRESTClient("github.com", nil)
+
+			// when
+			ctx := tt.getCtx()
+			_, gotErr := client.RequestWithContext(ctx, http.MethodGet, "some/path", nil)
+
+			// then
+			assert.EqualError(t, gotErr, tt.wantErrMsg)
+			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+		})
+	}
 }
 
 func printPendingMocks(mocks []gock.Mock) string {

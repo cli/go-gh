@@ -118,7 +118,6 @@ func TestGQLClientDo(t *testing.T) {
 func TestGQLClientDoWithContext(t *testing.T) {
 	tests := []struct {
 		name       string
-		httpMocks  func()
 		wantErrMsg string
 		getCtx     func() context.Context
 	}{
