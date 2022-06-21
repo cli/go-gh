@@ -92,7 +92,7 @@ func TestConfigDir(t *testing.T) {
 					defer os.Setenv(k, old)
 				}
 			}
-			assert.Equal(t, tt.output, configDir())
+			assert.Equal(t, tt.output, ConfigDir())
 		})
 	}
 }
@@ -156,7 +156,7 @@ func TestStateDir(t *testing.T) {
 					defer os.Setenv(k, old)
 				}
 			}
-			assert.Equal(t, tt.output, stateDir())
+			assert.Equal(t, tt.output, StateDir())
 		})
 	}
 }
@@ -220,7 +220,7 @@ func TestDataDir(t *testing.T) {
 					defer os.Setenv(k, old)
 				}
 			}
-			assert.Equal(t, tt.output, dataDir())
+			assert.Equal(t, tt.output, DataDir())
 		})
 	}
 }
@@ -380,7 +380,7 @@ func TestWrite(t *testing.T) {
 			cfg := tt.createConfig()
 			err := Write(cfg)
 			assert.NoError(t, err)
-			loadedCfg, err := Read()
+			loadedCfg, err := load(generalConfigFile(), hostsConfigFile())
 			assert.NoError(t, err)
 			wantCfg := cfg
 			if tt.wantConfig != nil {

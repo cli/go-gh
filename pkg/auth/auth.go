@@ -4,6 +4,7 @@ package auth
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/cli/go-gh/internal/set"
@@ -11,6 +12,7 @@ import (
 )
 
 const (
+	codespaces            = "CODESPACES"
 	defaultSource         = "default"
 	ghEnterpriseToken     = "GH_ENTERPRISE_TOKEN"
 	ghHost                = "GH_HOST"
@@ -39,6 +41,11 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 		}
 		if token := os.Getenv(githubEnterpriseToken); token != "" {
 			return token, githubEnterpriseToken
+		}
+		if isCodespaces, _ := strconv.ParseBool(os.Getenv(codespaces)); isCodespaces {
+			if token := os.Getenv(githubToken); token != "" {
+				return token, githubToken
+			}
 		}
 		if cfg != nil {
 			token, _ := cfg.Get([]string{hostsKey, host, oauthToken})

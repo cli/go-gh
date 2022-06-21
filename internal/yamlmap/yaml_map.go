@@ -147,6 +147,10 @@ func (m *Map) SetEntry(key string, value *Map) {
 // has no impact for our purposes.
 func (m *Map) SetModified() {
 	// Can not mark a non-mapping node as modified
+	if m.Node.Kind != yaml.MappingNode && m.Node.Tag == "!!null" {
+		m.Node.Kind = yaml.MappingNode
+		m.Node.Tag = "!!map"
+	}
 	if m.Node.Kind == yaml.MappingNode {
 		m.Node.Value = modified
 	}
