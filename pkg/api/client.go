@@ -2,12 +2,13 @@
 package api
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"time"
 )
 
-// Available options to configure API clients.
+// ClientOptions holds available options to configure API clients.
 type ClientOptions struct {
 	// AuthToken is the authorization token that will be used
 	// to authenticate against API endpoints.
@@ -59,16 +60,19 @@ type ClientOptions struct {
 // RESTClient is the interface that wraps methods for the different types of
 // API requests that are supported by the server.
 type RESTClient interface {
-	// Do issues a request with type specified by method to the
+	// Do wraps DoWithContext with context.Background.
+	Do(method string, path string, body io.Reader, response interface{}) error
+
+	// DoWithContext issues a request with type specified by method to the
 	// specified path with the specified body.
 	// The response is populated into the response argument.
-	Do(method string, path string, body io.Reader, response interface{}) error
+	DoWithContext(ctx context.Context, method string, path string, body io.Reader, response interface{}) error
 
 	// Delete issues a DELETE request to the specified path.
 	// The response is populated into the response argument.
 	Delete(path string, response interface{}) error
 
-	// GET issues a GET request to the specified path.
+	// Get issues a GET request to the specified path.
 	// The response is populated into the response argument.
 	Get(path string, response interface{}) error
 
@@ -84,32 +88,44 @@ type RESTClient interface {
 	// The response is populated into the response argument.
 	Put(path string, body io.Reader, response interface{}) error
 
-	// Request issues a request with type specified by method to the
+	// Request wraps RequestWithContext with context.Background.
+	Request(method string, path string, body io.Reader) (*http.Response, error)
+
+	// RequestWithContext issues a request with type specified by method to the
 	// specified path with the specified body.
 	// The response is returned rather than being populated
 	// into a response argument.
-	Request(method string, path string, body io.Reader) (*http.Response, error)
+	RequestWithContext(ctx context.Context, method string, path string, body io.Reader) (*http.Response, error)
 }
 
 // GQLClient is the interface that wraps methods for the different types of
 // API requests that are supported by the server.
 type GQLClient interface {
-	// Do executes a GraphQL query request.
-	// The response is populated into the response argument.
+	// Do wraps DoWithContext using context.Background.
 	Do(query string, variables map[string]interface{}, response interface{}) error
 
-	// Mutate executes a GraphQL mutation request.
+	// DoWithContext executes a GraphQL query request.
+	// The response is populated into the response argument.
+	DoWithContext(ctx context.Context, query string, variables map[string]interface{}, response interface{}) error
+
+	// Mutate wraps MutateWithContext using context.Background.
+	Mutate(name string, mutation interface{}, variables map[string]interface{}) error
+
+	// MutateWithContext executes a GraphQL mutation request.
 	// The mutation string is derived from the mutation argument, and the
 	// response is populated into it.
 	// The mutation argument should be a pointer to struct that corresponds
 	// to the GitHub GraphQL schema.
 	// Provided input will be set as a variable named input.
-	Mutate(name string, mutation interface{}, variables map[string]interface{}) error
+	MutateWithContext(ctx context.Context, name string, mutation interface{}, variables map[string]interface{}) error
 
-	// Query executes a GraphQL query request,
+	// Query wraps QueryWithContext using context.Background.
+	Query(name string, query interface{}, variables map[string]interface{}) error
+
+	// QueryWithContext executes a GraphQL query request,
 	// The query string is derived from the query argument, and the
 	// response is populated into it.
 	// The query argument should be a pointer to struct that corresponds
 	// to the GitHub GraphQL schema.
-	Query(name string, query interface{}, variables map[string]interface{}) error
+	QueryWithContext(ctx context.Context, name string, query interface{}, variables map[string]interface{}) error
 }

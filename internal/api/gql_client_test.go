@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
@@ -109,6 +111,59 @@ func TestGQLClientDo(t *testing.T) {
 			}
 			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 			assert.Equal(t, tt.wantLogin, res.Viewer.Login)
+		})
+	}
+}
+
+func TestGQLClientDoWithContext(t *testing.T) {
+	tests := []struct {
+		name       string
+		wantErrMsg string
+		getCtx     func() context.Context
+	}{
+		{
+			name: "http fail request canceled",
+			getCtx: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				// call 'cancel' to ensure that context is already canceled
+				cancel()
+				return ctx
+			},
+			wantErrMsg: `Post "https://api.github.com/graphql": context canceled`,
+		},
+		{
+			name: "http fail request timed out",
+			getCtx: func() context.Context {
+				// pass current time to ensure that deadline has already passed
+				ctx, cancel := context.WithDeadline(context.Background(), time.Now())
+				cancel()
+				return ctx
+			},
+			wantErrMsg: `Post "https://api.github.com/graphql": context deadline exceeded`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// given
+			t.Cleanup(gock.Off)
+			gock.New("https://api.github.com").
+				Post("/graphql").
+				BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
+				Reply(200).
+				JSON(`{}`)
+
+			client := NewGQLClient("github.com", nil)
+			vars := map[string]interface{}{"var": "test"}
+			res := struct{ Viewer struct{ Login string } }{}
+
+			// when
+			ctx := tt.getCtx()
+			gotErr := client.DoWithContext(ctx, "QUERY", vars, &res)
+
+			// then
+			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+			assert.EqualError(t, gotErr, tt.wantErrMsg)
 		})
 	}
 }

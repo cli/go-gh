@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,9 +24,9 @@ func NewRESTClient(host string, opts *api.ClientOptions) api.RESTClient {
 	}
 }
 
-func (c restClient) Request(method string, path string, body io.Reader) (*http.Response, error) {
+func (c restClient) RequestWithContext(ctx context.Context, method string, path string, body io.Reader) (*http.Response, error) {
 	url := restURL(c.host, path)
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -47,9 +48,13 @@ func (c restClient) Request(method string, path string, body io.Reader) (*http.R
 	return resp, err
 }
 
-func (c restClient) Do(method string, path string, body io.Reader, response interface{}) error {
+func (c restClient) Request(method string, path string, body io.Reader) (*http.Response, error) {
+	return c.RequestWithContext(context.Background(), method, path, body)
+}
+
+func (c restClient) DoWithContext(ctx context.Context, method string, path string, body io.Reader, response interface{}) error {
 	url := restURL(c.host, path)
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return err
 	}
@@ -80,6 +85,10 @@ func (c restClient) Do(method string, path string, body io.Reader, response inte
 	}
 
 	return nil
+}
+
+func (c restClient) Do(method string, path string, body io.Reader, response interface{}) error {
+	return c.DoWithContext(context.Background(), method, path, body, response)
 }
 
 func (c restClient) Delete(path string, resp interface{}) error {
