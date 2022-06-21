@@ -390,6 +390,37 @@ func TestRESTClientRequestWithContext(t *testing.T) {
 	}
 }
 
+func TestRestPrefix(t *testing.T) {
+	tests := []struct {
+		name         string
+		host         string
+		wantEndpoint string
+	}{
+		{
+			name:         "github",
+			host:         "github.com",
+			wantEndpoint: "https://api.github.com/",
+		},
+		{
+			name:         "localhost",
+			host:         "github.localhost",
+			wantEndpoint: "http://api.github.localhost/",
+		},
+		{
+			name:         "enterprise",
+			host:         "enterprise.com",
+			wantEndpoint: "https://enterprise.com/api/v3/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			endpoint := restPrefix(tt.host)
+			assert.Equal(t, tt.wantEndpoint, endpoint)
+		})
+	}
+}
+
 func printPendingMocks(mocks []gock.Mock) string {
 	paths := []string{}
 	for _, mock := range mocks {

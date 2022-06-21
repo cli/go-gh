@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/cli/go-gh/pkg/api"
 
@@ -23,15 +24,9 @@ type gqlClient struct {
 func NewGQLClient(host string, opts *api.ClientOptions) api.GQLClient {
 	httpClient := NewHTTPClient(opts)
 
-	if isEnterprise(host) {
-		host = fmt.Sprintf("https://%s/api/graphql", host)
-	} else {
-		host = "https://api.github.com/graphql"
-	}
-
 	return gqlClient{
 		client:     graphql.NewClient(host, &httpClient),
-		host:       host,
+		host:       gqlEndpoint(host),
 		httpClient: &httpClient,
 	}
 }
@@ -113,4 +108,15 @@ func (c gqlClient) Query(name string, q interface{}, variables map[string]interf
 type gqlResponse struct {
 	Data   interface{}
 	Errors []api.GQLErrorItem
+}
+
+func gqlEndpoint(host string) string {
+	host = normalizeHostname(host)
+	if isEnterprise(host) {
+		return fmt.Sprintf("https://%s/api/graphql", host)
+	}
+	if strings.EqualFold(host, localhost) {
+		return fmt.Sprintf("http://api.%s/graphql", host)
+	}
+	return fmt.Sprintf("https://api.%s/graphql", host)
 }
