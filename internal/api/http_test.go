@@ -121,6 +121,73 @@ func TestNewHTTPClient(t *testing.T) {
 	}
 }
 
+func TestIsEnterprise(t *testing.T) {
+	tests := []struct {
+		name    string
+		host    string
+		wantOut bool
+	}{
+		{
+			name:    "github",
+			host:    "github.com",
+			wantOut: false,
+		},
+		{
+			name:    "localhost",
+			host:    "github.localhost",
+			wantOut: false,
+		},
+		{
+			name:    "enterprise",
+			host:    "mygithub.com",
+			wantOut: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := isEnterprise(tt.host)
+			assert.Equal(t, tt.wantOut, out)
+		})
+	}
+}
+
+func TestNormalizeHostname(t *testing.T) {
+	tests := []struct {
+		name     string
+		host     string
+		wantHost string
+	}{
+		{
+			name:     "github domain",
+			host:     "test.github.com",
+			wantHost: "github.com",
+		},
+		{
+			name:     "capitalized",
+			host:     "GitHub.com",
+			wantHost: "github.com",
+		},
+		{
+			name:     "localhost domain",
+			host:     "test.github.localhost",
+			wantHost: "github.localhost",
+		},
+		{
+			name:     "enterprise domain",
+			host:     "mygithub.com",
+			wantHost: "mygithub.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			normalized := normalizeHostname(tt.host)
+			assert.Equal(t, tt.wantHost, normalized)
+		})
+	}
+}
+
 type tripper struct {
 	roundTrip func(*http.Request) (*http.Response, error)
 }

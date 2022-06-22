@@ -19,8 +19,9 @@ const (
 	accept          = "Accept"
 	authorization   = "Authorization"
 	contentType     = "Content-Type"
-	defaultHostname = "github.com"
+	github          = "github.com"
 	jsonContentType = "application/json; charset=utf-8"
+	localhost       = "github.localhost"
 	modulePath      = "github.com/cli/go-gh"
 	timeZone        = "Time-Zone"
 	userAgent       = "User-Agent"
@@ -127,7 +128,18 @@ func isSameDomain(requestHost, domain string) bool {
 }
 
 func isEnterprise(host string) bool {
-	return host != defaultHostname
+	return host != github && host != localhost
+}
+
+func normalizeHostname(hostname string) string {
+	hostname = strings.ToLower(hostname)
+	if strings.HasSuffix(hostname, "."+github) {
+		return github
+	}
+	if strings.HasSuffix(hostname, "."+localhost) {
+		return localhost
+	}
+	return hostname
 }
 
 type headerRoundTripper struct {

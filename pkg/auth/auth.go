@@ -21,6 +21,7 @@ const (
 	githubEnterpriseToken = "GITHUB_ENTERPRISE_TOKEN"
 	githubToken           = "GITHUB_TOKEN"
 	hostsKey              = "hosts"
+	localhost             = "github.localhost"
 	oauthToken            = "oauth_token"
 )
 
@@ -114,13 +115,16 @@ func defaultHost(cfg *config.Config) (string, string) {
 }
 
 func isEnterprise(host string) bool {
-	return host != github
+	return host != github && host != localhost
 }
 
 func normalizeHostname(host string) string {
 	hostname := strings.ToLower(host)
 	if strings.HasSuffix(hostname, "."+github) {
 		return github
+	}
+	if strings.HasSuffix(hostname, "."+localhost) {
+		return localhost
 	}
 	return hostname
 }

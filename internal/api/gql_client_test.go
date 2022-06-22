@@ -167,3 +167,34 @@ func TestGQLClientDoWithContext(t *testing.T) {
 		})
 	}
 }
+
+func TestGQLEndpoint(t *testing.T) {
+	tests := []struct {
+		name         string
+		host         string
+		wantEndpoint string
+	}{
+		{
+			name:         "github",
+			host:         "github.com",
+			wantEndpoint: "https://api.github.com/graphql",
+		},
+		{
+			name:         "localhost",
+			host:         "github.localhost",
+			wantEndpoint: "http://api.github.localhost/graphql",
+		},
+		{
+			name:         "enterprise",
+			host:         "enterprise.com",
+			wantEndpoint: "https://enterprise.com/api/graphql",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			endpoint := gqlEndpoint(tt.host)
+			assert.Equal(t, tt.wantEndpoint, endpoint)
+		})
+	}
+}

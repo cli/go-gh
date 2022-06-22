@@ -119,8 +119,12 @@ func restURL(hostname string, pathOrURL string) string {
 }
 
 func restPrefix(hostname string) string {
+	hostname = normalizeHostname(hostname)
 	if isEnterprise(hostname) {
 		return fmt.Sprintf("https://%s/api/v3/", hostname)
 	}
-	return "https://api.github.com/"
+	if strings.EqualFold(hostname, localhost) {
+		return fmt.Sprintf("http://api.%s/", hostname)
+	}
+	return fmt.Sprintf("https://api.%s/", hostname)
 }
