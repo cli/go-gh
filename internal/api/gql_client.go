@@ -23,10 +23,10 @@ type gqlClient struct {
 
 func NewGQLClient(host string, opts *api.ClientOptions) api.GQLClient {
 	httpClient := NewHTTPClient(opts)
-
+	endpoint := gqlEndpoint(host)
 	return gqlClient{
-		client:     graphql.NewClient(host, &httpClient),
-		host:       gqlEndpoint(host),
+		client:     graphql.NewClient(endpoint, &httpClient),
+		host:       endpoint,
 		httpClient: &httpClient,
 	}
 }
