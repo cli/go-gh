@@ -2,6 +2,7 @@ package gh
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -54,6 +55,42 @@ func ExampleRESTClient_advanced() {
 		log.Fatal(err)
 	}
 	fmt.Println(response)
+}
+
+// Get release asset from cli/cli repository using REST API.
+func ExampleRESTClient_request() {
+	opts := api.ClientOptions{
+		Headers: map[string]string{"Accept": "application/octet-stream"},
+	}
+	client, err := RESTClient(&opts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// URL to cli/cli release v2.14.2 checksums.txt
+	assetURL := "repos/cli/cli/releases/assets/71589494"
+	resp, err := client.Request("GET", assetURL, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode > 299 {
+		log.Fatal("server error")
+	}
+
+	f, err := os.CreateTemp("", "*_checksums.txt")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, resp.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Asset downloaded to %s\n", f.Name())
 }
 
 // Query tags from cli/cli repository using GQL API.
