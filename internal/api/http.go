@@ -115,7 +115,7 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 	if opts.Headers == nil {
 		opts.Headers = map[string]string{}
 	}
-	if !opts.SkipResolution {
+	if !opts.SkipDefaultHeaders {
 		resolveHeaders(opts.Headers)
 	}
 	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)

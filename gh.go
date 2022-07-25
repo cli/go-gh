@@ -141,9 +141,6 @@ func CurrentRepository() (repo.Repository, error) {
 }
 
 func optionsNeedResolution(opts *api.ClientOptions) bool {
-	if opts.SkipResolution {
-		return false
-	}
 	if opts.Host == "" {
 		return true
 	}

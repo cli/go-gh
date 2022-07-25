@@ -25,13 +25,13 @@ func TestNewHTTPClient(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		enableLog      bool
-		log            *bytes.Buffer
-		host           string
-		headers        map[string]string
-		skipResolution bool
-		wantHeaders    http.Header
+		name        string
+		enableLog   bool
+		log         *bytes.Buffer
+		host        string
+		headers     map[string]string
+		skipHeaders bool
+		wantHeaders http.Header
 	}{
 		{
 			name:        "sets default headers",
@@ -96,8 +96,8 @@ func TestNewHTTPClient(t *testing.T) {
 			wantHeaders: defaultHeaders(),
 		},
 		{
-			name:           "skips resolving headers",
-			skipResolution: true,
+			name:        "skips default headers",
+			skipHeaders: true,
 			wantHeaders: func() http.Header {
 				h := defaultHeaders()
 				h.Del(accept)
@@ -115,11 +115,11 @@ func TestNewHTTPClient(t *testing.T) {
 				tt.host = "test.com"
 			}
 			opts := api.ClientOptions{
-				Host:           tt.host,
-				AuthToken:      "oauth_token",
-				Headers:        tt.headers,
-				SkipResolution: tt.skipResolution,
-				Transport:      reflectHTTP,
+				Host:               tt.host,
+				AuthToken:          "oauth_token",
+				Headers:            tt.headers,
+				SkipDefaultHeaders: tt.skipHeaders,
+				Transport:          reflectHTTP,
 			}
 			if tt.enableLog {
 				opts.Log = tt.log
