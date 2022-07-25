@@ -13,6 +13,7 @@ import (
 
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/henvic/httpretty"
+	"github.com/thlib/go-timezone-local/tzlocal"
 )
 
 const (
@@ -28,46 +29,6 @@ const (
 )
 
 var jsonTypeRE = regexp.MustCompile(`[/+]json($|;)`)
-
-var timeZoneNames = map[int]string{
-	-39600: "Pacific/Niue",
-	-36000: "Pacific/Honolulu",
-	-34200: "Pacific/Marquesas",
-	-32400: "America/Anchorage",
-	-28800: "America/Los_Angeles",
-	-25200: "America/Chihuahua",
-	-21600: "America/Chicago",
-	-18000: "America/Bogota",
-	-14400: "America/Caracas",
-	-12600: "America/St_Johns",
-	-10800: "America/Argentina/Buenos_Aires",
-	-7200:  "Atlantic/South_Georgia",
-	-3600:  "Atlantic/Cape_Verde",
-	0:      "Europe/London",
-	3600:   "Europe/Amsterdam",
-	7200:   "Europe/Athens",
-	10800:  "Europe/Istanbul",
-	12600:  "Asia/Tehran",
-	14400:  "Asia/Dubai",
-	16200:  "Asia/Kabul",
-	18000:  "Asia/Tashkent",
-	19800:  "Asia/Kolkata",
-	20700:  "Asia/Kathmandu",
-	21600:  "Asia/Dhaka",
-	23400:  "Asia/Rangoon",
-	25200:  "Asia/Bangkok",
-	28800:  "Asia/Manila",
-	31500:  "Australia/Eucla",
-	32400:  "Asia/Tokyo",
-	34200:  "Australia/Darwin",
-	36000:  "Australia/Brisbane",
-	37800:  "Australia/Adelaide",
-	39600:  "Pacific/Guadalcanal",
-	43200:  "Pacific/Nauru",
-	46800:  "Pacific/Auckland",
-	49500:  "Pacific/Chatham",
-	50400:  "Pacific/Kiritimati",
-}
 
 func NewHTTPClient(opts *api.ClientOptions) http.Client {
 	if opts == nil {
@@ -214,10 +175,9 @@ func newUnixDomainSocketRoundTripper(socketPath string) http.RoundTripper {
 }
 
 func currentTimeZone() string {
-	tz := time.Local.String()
-	if tz == "Local" {
-		_, offset := time.Now().Zone()
-		tz = timeZoneNames[offset]
+	tz, err := tzlocal.RuntimeTZ()
+	if err != nil {
+		return ""
 	}
 	return tz
 }
