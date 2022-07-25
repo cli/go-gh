@@ -30,6 +30,7 @@ func TestNewHTTPClient(t *testing.T) {
 		log         *bytes.Buffer
 		host        string
 		headers     map[string]string
+		skipHeaders bool
 		wantHeaders http.Header
 	}{
 		{
@@ -94,6 +95,18 @@ func TestNewHTTPClient(t *testing.T) {
 			host:        "TeSt.CoM",
 			wantHeaders: defaultHeaders(),
 		},
+		{
+			name:        "skips default headers",
+			skipHeaders: true,
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(accept)
+				h.Del(contentType)
+				h.Del(timeZone)
+				h.Del(userAgent)
+				return h
+			}(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -102,10 +115,11 @@ func TestNewHTTPClient(t *testing.T) {
 				tt.host = "test.com"
 			}
 			opts := api.ClientOptions{
-				Host:      tt.host,
-				AuthToken: "oauth_token",
-				Headers:   tt.headers,
-				Transport: reflectHTTP,
+				Host:               tt.host,
+				AuthToken:          "oauth_token",
+				Headers:            tt.headers,
+				SkipDefaultHeaders: tt.skipHeaders,
+				Transport:          reflectHTTP,
 			}
 			if tt.enableLog {
 				opts.Log = tt.log

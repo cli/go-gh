@@ -112,6 +112,12 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 		transport = logger.RoundTripper(transport)
 	}
 
+	if opts.Headers == nil {
+		opts.Headers = map[string]string{}
+	}
+	if !opts.SkipDefaultHeaders {
+		resolveHeaders(opts.Headers)
+	}
 	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
 
 	return http.Client{Transport: transport, Timeout: opts.Timeout}
@@ -148,10 +154,7 @@ type headerRoundTripper struct {
 	rt      http.RoundTripper
 }
 
-func newHeaderRoundTripper(host string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
-	if headers == nil {
-		headers = map[string]string{}
-	}
+func resolveHeaders(headers map[string]string) {
 	if _, ok := headers[contentType]; !ok {
 		headers[contentType] = jsonContentType
 	}
@@ -167,11 +170,11 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 			}
 		}
 	}
-	if _, ok := headers[authorization]; !ok && authToken != "" {
-		headers[authorization] = fmt.Sprintf("token %s", authToken)
-	}
 	if _, ok := headers[timeZone]; !ok {
-		headers[timeZone] = currentTimeZone()
+		tz := currentTimeZone()
+		if tz != "" {
+			headers[timeZone] = tz
+		}
 	}
 	if _, ok := headers[accept]; !ok {
 		// Preview for PullRequest.mergeStateStatus.
@@ -179,6 +182,15 @@ func newHeaderRoundTripper(host string, authToken string, headers map[string]str
 		// Preview for visibility when RESTing repos into an org.
 		a += ", application/vnd.github.nebula-preview"
 		headers[accept] = a
+	}
+}
+
+func newHeaderRoundTripper(host string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
+	if _, ok := headers[authorization]; !ok && authToken != "" {
+		headers[authorization] = fmt.Sprintf("token %s", authToken)
+	}
+	if len(headers) == 0 {
+		return rt
 	}
 	return headerRoundTripper{host: host, headers: headers, rt: rt}
 }

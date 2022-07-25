@@ -27,7 +27,7 @@ type ClientOptions struct {
 	EnableCache bool
 
 	// Headers are the headers that will be sent with every API request.
-	// Default headers set are Accept, Authorization, Content-Type, Time-Zone, and User-Agent.
+	// Default headers set are Accept, Content-Type, Time-Zone, and User-Agent.
 	// Default headers will be overridden by keys specified in Headers.
 	Headers map[string]string
 
@@ -37,6 +37,9 @@ type ClientOptions struct {
 	// Log specifies a writer to write API request logs to.
 	// Default is no logging.
 	Log io.Writer
+
+	// SkipDefaultHeaders disables setting of the default headers.
+	SkipDefaultHeaders bool
 
 	// Timeout specifies a time limit for each API request.
 	// Default is no timeout.
