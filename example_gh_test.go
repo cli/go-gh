@@ -125,3 +125,32 @@ func ExampleCurrentRepository() {
 	}
 	fmt.Printf("%s/%s/%s\n", repo.Host(), repo.Owner(), repo.Name())
 }
+
+// Use SkipResolution ClientOption to change a http.Client into a api.RESTClient.
+func ExampleHTTPClient_skipResolution() {
+	host := "github.com"
+	httpOpts := api.ClientOptions{
+		Host: host,
+	}
+	httpClient, err := HTTPClient(&httpOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Use SkipResolution as our http.Client does the handling of
+	// options and headers.
+	restOpts := api.ClientOptions{
+		SkipResolution: true,
+		Host:           host,
+		Transport:      httpClient.Transport,
+	}
+	restClient, err := RESTClient(&restOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	response := []struct{ Name string }{}
+	err = restClient.Get("repos/cli/cli/tags", &response)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(response)
+}

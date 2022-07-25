@@ -262,6 +262,13 @@ func TestOptionsNeedResolution(t *testing.T) {
 			},
 			out: true,
 		},
+		{
+			name: "SkipResolution specified",
+			opts: &api.ClientOptions{
+				SkipResolution: true,
+			},
+			out: false,
+		},
 	}
 
 	for _, tt := range tests {

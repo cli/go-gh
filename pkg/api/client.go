@@ -38,6 +38,12 @@ type ClientOptions struct {
 	// Default is no logging.
 	Log io.Writer
 
+	// SkipResolution disables all automatic resolution of options and headers.
+	// This option is best used in conjunction with the Transport option,
+	// where the Transport mechanism already provides the necessary information
+	// for interacting with the API.
+	SkipResolution bool
+
 	// Timeout specifies a time limit for each API request.
 	// Default is no timeout.
 	Timeout time.Duration
