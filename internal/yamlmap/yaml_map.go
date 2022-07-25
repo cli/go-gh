@@ -41,7 +41,10 @@ func Unmarshal(data []byte) (*Map, error) {
 	if err != nil {
 		return nil, ErrInvalidYaml
 	}
-	if len(root.Content) == 0 || root.Content[0].Kind != yaml.MappingNode {
+	if len(root.Content) == 0 {
+		return MapValue(), nil
+	}
+	if root.Content[0].Kind != yaml.MappingNode {
 		return nil, ErrInvalidFormat
 	}
 	return &Map{root.Content[0]}, nil
