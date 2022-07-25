@@ -209,6 +209,47 @@ func TestMapSetEntry(t *testing.T) {
 	}
 }
 
+func TestUnmarshal(t *testing.T) {
+	tests := []struct {
+		name      string
+		data      []byte
+		wantErr   string
+		wantEmpty bool
+	}{
+		{
+			name: "valid yaml",
+			data: []byte(`{test: "data"}`),
+		},
+		{
+			name:      "empty yaml",
+			data:      []byte(``),
+			wantEmpty: true,
+		},
+		{
+			name:    "invalid yaml",
+			data:    []byte(`{test: `),
+			wantErr: "invalid yaml",
+		},
+		{
+			name:    "invalid format",
+			data:    []byte(`data`),
+			wantErr: "invalid format",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := Unmarshal(tt.data)
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+				assert.Nil(t, m)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantEmpty, m.Empty())
+		})
+	}
+}
+
 func testMap() *Map {
 	var data = `
 valid: present

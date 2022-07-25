@@ -91,7 +91,6 @@ func Test_sshParser_absolutePath(t *testing.T) {
 		parentFile string
 		arg        string
 		want       string
-		wantErr    bool
 	}{
 		"absolute path": {
 			parentFile: "/etc/ssh/ssh_config",
