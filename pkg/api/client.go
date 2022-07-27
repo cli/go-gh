@@ -38,6 +38,15 @@ type ClientOptions struct {
 	// Default is no logging.
 	Log io.Writer
 
+	// LogIgnoreEnv disables respecting the GH_DEBUG environment variable for logging.
+	LogIgnoreEnv bool
+
+	// LogColorize enables colorized logging to Log for display in a terminal.
+	LogColorize bool
+
+	// LogVerboseHTTP enables logging HTTP headers and bodies.
+	LogVerboseHTTP bool
+
 	// SkipDefaultHeaders disables setting of the default headers.
 	SkipDefaultHeaders bool
 

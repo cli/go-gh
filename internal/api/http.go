@@ -14,6 +14,7 @@ import (
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/henvic/httpretty"
 	"github.com/thlib/go-timezone-local/tzlocal"
+	"golang.org/x/term"
 )
 
 const (
@@ -54,17 +55,29 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 	c := cache{dir: opts.CacheDir, ttl: opts.CacheTTL}
 	transport = c.RoundTripper(transport)
 
+	if opts.Log == nil && !opts.LogIgnoreEnv {
+		ghDebug := os.Getenv("GH_DEBUG")
+		switch ghDebug {
+		case "", "0", "false", "no":
+			// no logging
+		default:
+			opts.Log = os.Stderr
+			opts.LogColorize = !colorDisabled() && isTerminal(os.Stderr)
+			opts.LogVerboseHTTP = strings.Contains(ghDebug, "api")
+		}
+	}
+
 	if opts.Log != nil {
 		logger := &httpretty.Logger{
 			Time:            true,
 			TLS:             false,
-			Colors:          false,
-			RequestHeader:   true,
-			RequestBody:     true,
-			ResponseHeader:  true,
-			ResponseBody:    true,
-			Formatters:      []httpretty.Formatter{&httpretty.JSONFormatter{}},
-			MaxResponseBody: 10000,
+			Colors:          opts.LogColorize,
+			RequestHeader:   opts.LogVerboseHTTP,
+			RequestBody:     opts.LogVerboseHTTP,
+			ResponseHeader:  opts.LogVerboseHTTP,
+			ResponseBody:    opts.LogVerboseHTTP,
+			Formatters:      []httpretty.Formatter{&jsonFormatter{colorize: opts.LogColorize}},
+			MaxResponseBody: 100000,
 		}
 		logger.SetOutput(opts.Log)
 		logger.SetBodyFilter(func(h http.Header) (skip bool, err error) {
@@ -85,7 +98,9 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 }
 
 func inspectableMIMEType(t string) bool {
-	return strings.HasPrefix(t, "text/") || jsonTypeRE.MatchString(t)
+	return strings.HasPrefix(t, "text/") ||
+		strings.HasPrefix(t, "application/x-www-form-urlencoded") ||
+		jsonTypeRE.MatchString(t)
 }
 
 func isSameDomain(requestHost, domain string) bool {
@@ -192,4 +207,12 @@ func currentTimeZone() string {
 		return ""
 	}
 	return tz
+}
+
+func isTerminal(f *os.File) bool {
+	return term.IsTerminal(int(f.Fd()))
+}
+
+func colorDisabled() bool {
+	return os.Getenv("NO_COLOR") != "" || os.Getenv("CLICOLOR") == "0"
 }
