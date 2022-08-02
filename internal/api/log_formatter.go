@@ -16,7 +16,7 @@ type graphqlBody struct {
 	Variables     json.RawMessage `json:"variables"`
 }
 
-// jsonFormatter is a httpretty.Formatter that prettifies JSON payloads and GraphQL queries
+// jsonFormatter is a httpretty.Formatter that prettifies JSON payloads and GraphQL queries.
 type jsonFormatter struct {
 	colorize bool
 }

@@ -126,7 +126,7 @@ func Format(w io.Writer, r io.Reader, indent string, colorize bool) error {
 	return nil
 }
 
-// marshalJSON works like json.Marshal but with HTML-escaping disabled
+// marshalJSON works like json.Marshal, but with HTML-escaping disabled.
 func marshalJSON(v interface{}) ([]byte, error) {
 	buf := bytes.Buffer{}
 	enc := json.NewEncoder(&buf)
