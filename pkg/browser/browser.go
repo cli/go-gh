@@ -19,7 +19,7 @@ type Browser struct {
 	stdout   io.Writer
 }
 
-// NewBrowser initializes a Browser. If a launcher is not specified
+// New initializes a Browser. If a launcher is not specified
 // one is determined based on environment variables or from the
 // configuration file.
 // The order of precedence for determining a launcher is:
@@ -27,7 +27,7 @@ type Browser struct {
 // - GH_BROWSER environment variable;
 // - browser option from configuration file;
 // - BROWSER environment variable.
-func NewBrowser(launcher string, stdout, stderr io.Writer) Browser {
+func New(launcher string, stdout, stderr io.Writer) Browser {
 	if launcher == "" {
 		launcher = resolveLauncher()
 	}
@@ -45,25 +45,25 @@ func (b *Browser) Browse(url string) error {
 }
 
 func (b *Browser) browse(url string, env []string) error {
-	if b.launcher != "" {
-		launcherArgs, err := shlex.Split(b.launcher)
-		if err != nil {
-			return err
-		}
-		launcherExe, err := safeexec.LookPath(launcherArgs[0])
-		if err != nil {
-			return err
-		}
-		args := append(launcherArgs[1:], url)
-		cmd := exec.Command(launcherExe, args...)
-		cmd.Stdout = b.stdout
-		cmd.Stderr = b.stderr
-		if env != nil {
-			cmd.Env = env
-		}
-		return cmd.Run()
+	if b.launcher == "" {
+		return cliBrowser.OpenURL(url)
 	}
-	return cliBrowser.OpenURL(url)
+	launcherArgs, err := shlex.Split(b.launcher)
+	if err != nil {
+		return err
+	}
+	launcherExe, err := safeexec.LookPath(launcherArgs[0])
+	if err != nil {
+		return err
+	}
+	args := append(launcherArgs[1:], url)
+	cmd := exec.Command(launcherExe, args...)
+	cmd.Stdout = b.stdout
+	cmd.Stderr = b.stderr
+	if env != nil {
+		cmd.Env = env
+	}
+	return cmd.Run()
 }
 
 func resolveLauncher() string {
