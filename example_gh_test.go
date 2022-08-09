@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/cli/go-gh/pkg/api"
+	"github.com/cli/go-gh/pkg/tableprinter"
+	"github.com/cli/go-gh/pkg/term"
 	graphql "github.com/cli/shurcooL-graphql"
 )
 
@@ -161,4 +163,26 @@ func ExampleCurrentRepository() {
 		log.Fatal(err)
 	}
 	fmt.Printf("%s/%s/%s\n", repo.Host(), repo.Owner(), repo.Name())
+}
+
+// Print tabular data to a terminal or in machine-readable format for scripts.
+func ExampleTablePrinter() {
+	terminal := term.FromEnv()
+	termWidth, _, _ := terminal.Size()
+	t := tableprinter.New(terminal.Out(), terminal.IsTerminalOutput(), termWidth)
+
+	red := func(s string) string {
+		return "\x1b[31m" + s + "\x1b[m"
+	}
+
+	// add a field that will render with color and will not be auto-truncated
+	t.AddField("1", tableprinter.WithColor(red), tableprinter.WithTruncate(nil))
+	t.AddField("hello")
+	t.EndRow()
+	t.AddField("2")
+	t.AddField("world")
+	t.EndRow()
+	if err := t.Render(); err != nil {
+		log.Fatal(err)
+	}
 }
