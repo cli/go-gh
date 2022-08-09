@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/cli/go-gh/pkg/api"
+	"github.com/cli/go-gh/pkg/term"
 	"github.com/henvic/httpretty"
 	"github.com/thlib/go-timezone-local/tzlocal"
-	"golang.org/x/term"
 )
 
 const (
@@ -62,7 +62,7 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 			// no logging
 		default:
 			opts.Log = os.Stderr
-			opts.LogColorize = !colorDisabled() && isTerminal(os.Stderr)
+			opts.LogColorize = !term.IsColorDisabled() && term.IsTerminal(os.Stderr)
 			opts.LogVerboseHTTP = strings.Contains(ghDebug, "api")
 		}
 	}
@@ -207,12 +207,4 @@ func currentTimeZone() string {
 		return ""
 	}
 	return tz
-}
-
-func isTerminal(f *os.File) bool {
-	return term.IsTerminal(int(f.Fd()))
-}
-
-func colorDisabled() bool {
-	return os.Getenv("NO_COLOR") != "" || os.Getenv("CLICOLOR") == "0"
 }

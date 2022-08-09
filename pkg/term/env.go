@@ -38,7 +38,7 @@ func FromEnv() Term {
 	spec := os.Getenv("GH_FORCE_TTY")
 	if spec != "" {
 		stdoutIsTTY = true
-		isColorEnabled = !envColorDisabled()
+		isColorEnabled = !IsColorDisabled()
 
 		if w, err := strconv.Atoi(spec); err == nil {
 			termWidthOverride = w
@@ -48,8 +48,8 @@ func FromEnv() Term {
 			}
 		}
 	} else {
-		stdoutIsTTY = isTerminal(os.Stdout)
-		isColorEnabled = envColorForced() || (!envColorDisabled() && stdoutIsTTY)
+		stdoutIsTTY = IsTerminal(os.Stdout)
+		isColorEnabled = envColorForced() || (!IsColorDisabled() && stdoutIsTTY)
 	}
 
 	isVirtualTerminal := false
@@ -121,7 +121,8 @@ func (t Term) Size() (int, int, error) {
 	return width, height, err
 }
 
-func isTerminal(f *os.File) bool {
+// IsTerminal reports whether a file descriptor is connected to a terminal.
+func IsTerminal(f *os.File) bool {
 	return term.IsTerminal(int(f.Fd()))
 }
 
@@ -129,7 +130,9 @@ func terminalSize(f *os.File) (int, int, error) {
 	return term.GetSize(int(f.Fd()))
 }
 
-func envColorDisabled() bool {
+// IsColorDisabled returns true if environment variables NO_COLOR or CLICOLOR prohibit usage of color codes
+// in terminal output.
+func IsColorDisabled() bool {
 	return os.Getenv("NO_COLOR") != "" || os.Getenv("CLICOLOR") == "0"
 }
 

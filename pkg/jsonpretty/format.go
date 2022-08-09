@@ -1,3 +1,4 @@
+// Package jsonpretty implements a terminal pretty-printer for JSON.
 package jsonpretty
 
 import (
