@@ -45,6 +45,7 @@ type ClientOptions struct {
 	LogColorize bool
 
 	// LogVerboseHTTP enables logging HTTP headers and bodies.
+	// Default is only logging request URLs and response statuses.
 	LogVerboseHTTP bool
 
 	// SkipDefaultHeaders disables setting of the default headers.
