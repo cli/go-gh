@@ -84,9 +84,7 @@ func TestResolveLauncher(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.env != nil {
 				for k, v := range tt.env {
-					old := os.Getenv(k)
-					os.Setenv(k, v)
-					defer os.Setenv(k, old)
+					t.Setenv(k, v)
 				}
 			}
 			if tt.config != nil {

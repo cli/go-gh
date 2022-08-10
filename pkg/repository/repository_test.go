@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"os"
 	"testing"
 
 	"github.com/cli/go-gh/pkg/config"
@@ -82,13 +81,9 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			oldDir := os.Getenv("GH_CONFIG_DIR")
-			os.Setenv("GH_CONFIG_DIR", "nonexistant")
-			defer os.Setenv("GH_CONFIG_DIR", oldDir)
+			t.Setenv("GH_CONFIG_DIR", "nonexistant")
 			if tt.hostOverride != "" {
-				old := os.Getenv("GH_HOST")
-				os.Setenv("GH_HOST", tt.hostOverride)
-				defer os.Setenv("GH_HOST", old)
+				t.Setenv("GH_HOST", tt.hostOverride)
 			}
 			r, err := Parse(tt.input)
 			if tt.wantErr != "" {
