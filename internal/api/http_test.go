@@ -120,6 +120,7 @@ func TestNewHTTPClient(t *testing.T) {
 				Headers:            tt.headers,
 				SkipDefaultHeaders: tt.skipHeaders,
 				Transport:          reflectHTTP,
+				LogIgnoreEnv:       true,
 			}
 			if tt.enableLog {
 				opts.Log = tt.log

@@ -34,9 +34,10 @@ func TestCacheResponse(t *testing.T) {
 
 	httpClient := NewHTTPClient(
 		&api.ClientOptions{
-			Transport:   fakeHTTP,
-			EnableCache: true,
-			CacheDir:    cacheDir,
+			Transport:    fakeHTTP,
+			EnableCache:  true,
+			CacheDir:     cacheDir,
+			LogIgnoreEnv: true,
 		})
 
 	do := func(method, url string, body io.Reader) (string, error) {
@@ -114,9 +115,10 @@ func TestCacheResponseRequestCacheOptions(t *testing.T) {
 
 	httpClient := NewHTTPClient(
 		&api.ClientOptions{
-			Transport:   fakeHTTP,
-			EnableCache: false,
-			CacheDir:    cacheDir,
+			Transport:    fakeHTTP,
+			EnableCache:  false,
+			CacheDir:     cacheDir,
+			LogIgnoreEnv: true,
 		})
 
 	do := func(method, url string, body io.Reader) (string, error) {
