@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"os"
 	"testing"
 
 	"github.com/cli/go-gh/pkg/config"
@@ -9,17 +8,6 @@ import (
 )
 
 func TestTokenForHost(t *testing.T) {
-	orig_GITHUB_TOKEN := os.Getenv("GITHUB_TOKEN")
-	orig_GITHUB_ENTERPRISE_TOKEN := os.Getenv("GITHUB_ENTERPRISE_TOKEN")
-	orig_GH_TOKEN := os.Getenv("GH_TOKEN")
-	orig_GH_ENTERPRISE_TOKEN := os.Getenv("GH_ENTERPRISE_TOKEN")
-	t.Cleanup(func() {
-		os.Setenv("GITHUB_TOKEN", orig_GITHUB_TOKEN)
-		os.Setenv("GITHUB_ENTERPRISE_TOKEN", orig_GITHUB_ENTERPRISE_TOKEN)
-		os.Setenv("GH_TOKEN", orig_GH_TOKEN)
-		os.Setenv("GH_ENTERPRISE_TOKEN", orig_GH_ENTERPRISE_TOKEN)
-	})
-
 	tests := []struct {
 		name                  string
 		host                  string
@@ -100,10 +88,10 @@ func TestTokenForHost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("GITHUB_TOKEN", tt.githubToken)
-			os.Setenv("GITHUB_ENTERPRISE_TOKEN", tt.githubEnterpriseToken)
-			os.Setenv("GH_TOKEN", tt.ghToken)
-			os.Setenv("GH_ENTERPRISE_TOKEN", tt.ghEnterpriseToken)
+			t.Setenv("GITHUB_TOKEN", tt.githubToken)
+			t.Setenv("GITHUB_ENTERPRISE_TOKEN", tt.githubEnterpriseToken)
+			t.Setenv("GH_TOKEN", tt.ghToken)
+			t.Setenv("GH_ENTERPRISE_TOKEN", tt.ghEnterpriseToken)
 			token, source := tokenForHost(tt.config, tt.host)
 			assert.Equal(t, tt.wantToken, token)
 			assert.Equal(t, tt.wantSource, source)
@@ -152,10 +140,7 @@ func TestDefaultHost(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.ghHost != "" {
-				k := "GH_HOST"
-				old := os.Getenv(k)
-				os.Setenv(k, tt.ghHost)
-				defer os.Setenv(k, old)
+				t.Setenv("GH_HOST", tt.ghHost)
 			}
 			host, source := defaultHost(tt.config)
 			assert.Equal(t, tt.wantHost, host)
@@ -206,16 +191,10 @@ func TestKnownHosts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.ghHost != "" {
-				k := "GH_HOST"
-				old := os.Getenv(k)
-				os.Setenv(k, tt.ghHost)
-				defer os.Setenv(k, old)
+				t.Setenv("GH_HOST", tt.ghHost)
 			}
 			if tt.ghToken != "" {
-				k := "GH_TOKEN"
-				old := os.Getenv(k)
-				os.Setenv(k, tt.ghToken)
-				defer os.Setenv(k, old)
+				t.Setenv("GH_TOKEN", tt.ghToken)
 			}
 			hosts := knownHosts(tt.config)
 			assert.Equal(t, tt.wantHosts, hosts)

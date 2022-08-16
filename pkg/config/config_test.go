@@ -87,9 +87,7 @@ func TestConfigDir(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.env != nil {
 				for k, v := range tt.env {
-					old := os.Getenv(k)
-					os.Setenv(k, v)
-					defer os.Setenv(k, old)
+					t.Setenv(k, v)
 				}
 			}
 			assert.Equal(t, tt.output, ConfigDir())
@@ -151,9 +149,7 @@ func TestStateDir(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.env != nil {
 				for k, v := range tt.env {
-					old := os.Getenv(k)
-					os.Setenv(k, v)
-					defer os.Setenv(k, old)
+					t.Setenv(k, v)
 				}
 			}
 			assert.Equal(t, tt.output, StateDir())
@@ -215,9 +211,7 @@ func TestDataDir(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.env != nil {
 				for k, v := range tt.env {
-					old := os.Getenv(k)
-					os.Setenv(k, v)
-					defer os.Setenv(k, old)
+					t.Setenv(k, v)
 				}
 			}
 			assert.Equal(t, tt.output, DataDir())
@@ -374,9 +368,7 @@ func TestWrite(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
-			old := os.Getenv("GH_CONFIG_DIR")
-			os.Setenv("GH_CONFIG_DIR", tempDir)
-			defer os.Setenv("GH_CONFIG_DIR", old)
+			t.Setenv("GH_CONFIG_DIR", tempDir)
 			cfg := tt.createConfig()
 			err := Write(cfg)
 			assert.NoError(t, err)
