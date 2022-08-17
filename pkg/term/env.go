@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/muesli/termenv"
 	"golang.org/x/term"
 )
 
@@ -119,6 +120,17 @@ func (t Term) Size() (int, int, error) {
 	}
 
 	return width, height, err
+}
+
+// Theme returns the theme of the terminal by analyzing the background color of the terminal.
+func (t Term) Theme() string {
+	if !t.IsColorEnabled() {
+		return "none"
+	}
+	if termenv.HasDarkBackground() {
+		return "dark"
+	}
+	return "light"
 }
 
 // IsTerminal reports whether a file descriptor is connected to a terminal.
