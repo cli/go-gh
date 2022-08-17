@@ -2,7 +2,7 @@ package tableprinter
 
 import (
 	"bytes"
-	"fmt"
+	"log"
 	"os"
 	"testing"
 )
@@ -23,8 +23,7 @@ func ExampleTablePrinter() {
 	t.AddField("long description", WithColor(red))
 	t.EndRow()
 	if err := t.Render(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	// stdout now contains:
 	// 9   hello

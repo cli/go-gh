@@ -1,3 +1,6 @@
+// Package template facilitates processing of JSON strings using Go templates.
+// Provides additional functions not available using basic Go templates, such as coloring,
+// and table rendering.
 package template
 
 import (
@@ -11,10 +14,12 @@ import (
 	"time"
 
 	"github.com/cli/go-gh/pkg/tableprinter"
-	"github.com/mattn/go-runewidth"
-	"github.com/mgutz/ansi"
+	color "github.com/mgutz/ansi"
+	"github.com/muesli/reflow/ansi"
+	"github.com/muesli/reflow/truncate"
 )
 
+// Template is the representation of a template.
 type Template struct {
 	colorEnabled bool
 	output       io.Writer
@@ -23,6 +28,7 @@ type Template struct {
 	width        int
 }
 
+// New initializes a Template.
 func New(w io.Writer, width int, colorEnabled bool) Template {
 	return Template{
 		colorEnabled: colorEnabled,
@@ -32,7 +38,8 @@ func New(w io.Writer, width int, colorEnabled bool) Template {
 	}
 }
 
-func (t *Template) Parse(tpl string) error {
+// Parse the given template string for use with Execute.
+func (t *Template) Parse(tmpl string) error {
 	now := time.Now()
 	templateFuncs := map[string]interface{}{
 		"autocolor": colorFunc,
@@ -60,10 +67,12 @@ func (t *Template) Parse(tpl string) error {
 		templateFuncs["autocolor"] = autoColorFunc
 	}
 	var err error
-	t.tmpl, err = template.New("").Funcs(templateFuncs).Parse(tpl)
+	t.tmpl, err = template.New("").Funcs(templateFuncs).Parse(tmpl)
 	return err
 }
 
+// Execute applies the parsed template to the input and writes result to the writer
+// the template was initialized with.
 func (t *Template) Execute(input io.Reader) error {
 	jsonData, err := io.ReadAll(input)
 	if err != nil {
@@ -78,6 +87,10 @@ func (t *Template) Execute(input io.Reader) error {
 	return t.tmpl.Execute(t.output, data)
 }
 
+// Flush writes any remaining data to the writer. This is mostly useful
+// when a templates uses the tablerow function but does not include the
+// tablerender function at the end.
+// If a template did not use the table functionality this is a noop.
 func (t *Template) Flush() error {
 	if _, err := tableRenderFunc(t.tp); err != nil {
 		return err
@@ -90,7 +103,7 @@ func colorFunc(colorName string, input interface{}) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return ansi.Color(text, colorName), nil
+	return color.Color(text, colorName), nil
 }
 
 func pluckFunc(field string, input []interface{}) []interface{} {
@@ -135,7 +148,7 @@ func truncateFunc(maxWidth int, v interface{}) (string, error) {
 		return "", nil
 	}
 	if s, ok := v.(string); ok {
-		return truncate(maxWidth, s), nil
+		return truncateText(maxWidth, s), nil
 	}
 	return "", fmt.Errorf("invalid value; expected string, got %T", v)
 }
@@ -221,12 +234,16 @@ func truncateColumn(maxWidth int, s string) string {
 	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
 		s = s[:i] + "..."
 	}
-	return truncate(maxWidth, s)
+	return truncateText(maxWidth, s)
 }
 
-func truncate(maxWidth int, s string) string {
-	if maxWidth < 5 {
-		return runewidth.Truncate(s, maxWidth, "")
+func truncateText(maxWidth int, s string) string {
+	rw := ansi.PrintableRuneWidth(s)
+	if rw <= maxWidth {
+		return s
 	}
-	return runewidth.Truncate(s, maxWidth, "...")
+	if maxWidth < 5 {
+		return truncate.String(s, uint(maxWidth))
+	}
+	return truncate.StringWithTail(s, uint(maxWidth), "...")
 }

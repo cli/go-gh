@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +13,31 @@ import (
 	"github.com/MakeNowJust/heredoc"
 	"github.com/stretchr/testify/assert"
 )
+
+func ExampleTemplate() {
+	// Information about the terminal can be obtained using the [pkg/term] package.
+	colorEnabled := true
+	termWidth := 14
+	json := strings.NewReader(heredoc.Doc(`[
+		{"number": 1, "title": "One"},
+		{"number": 2, "title": "Two"}
+	]`))
+	template := "HEADER\n\n{{range .}}{{tablerow .number .title}}{{end}}{{tablerender}}\nFOOTER"
+	tmpl := New(os.Stdout, termWidth, colorEnabled)
+	if err := tmpl.Parse(template); err != nil {
+		log.Fatal(err)
+	}
+	if err := tmpl.Execute(json); err != nil {
+		log.Fatal(err)
+	}
+	// Output:
+	// HEADER
+	//
+	// 1  One
+	// 2  Two
+	//
+	// FOOTER
+}
 
 func TestJsonScalarToString(t *testing.T) {
 	tests := []struct {
