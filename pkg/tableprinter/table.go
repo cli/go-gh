@@ -9,7 +9,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/mattn/go-runewidth"
+	"github.com/muesli/reflow/ansi"
+	"github.com/muesli/reflow/truncate"
 )
 
 type fieldOption func(*tableField)
@@ -231,12 +232,16 @@ func (t *tsvTablePrinter) Render() error {
 }
 
 func truncateText(maxWidth int, s string) string {
-	if maxWidth < 5 {
-		return runewidth.Truncate(s, maxWidth, "")
+	rw := ansi.PrintableRuneWidth(s)
+	if rw <= maxWidth {
+		return s
 	}
-	return runewidth.Truncate(s, maxWidth, "...")
+	if maxWidth < 5 {
+		return truncate.String(s, uint(maxWidth))
+	}
+	return truncate.StringWithTail(s, uint(maxWidth), "...")
 }
 
 func displayWidth(s string) int {
-	return runewidth.StringWidth(s)
+	return ansi.PrintableRuneWidth(s)
 }
