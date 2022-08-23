@@ -9,8 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/muesli/reflow/ansi"
-	"github.com/muesli/reflow/truncate"
+	"github.com/cli/go-gh/pkg/text"
 )
 
 type fieldOption func(*tableField)
@@ -72,7 +71,7 @@ func (t *ttyTablePrinter) AddField(s string, opts ...fieldOption) {
 	rowI := len(t.rows) - 1
 	field := tableField{
 		text:         s,
-		truncateFunc: truncateText,
+		truncateFunc: text.Truncate,
 	}
 	for _, opt := range opts {
 		opt(&field)
@@ -107,7 +106,7 @@ func (t *ttyTablePrinter) Render() error {
 			}
 			if col < numCols-1 {
 				// pad value with spaces on the right
-				if padWidth := colWidths[col] - displayWidth(field.text); padWidth > 0 {
+				if padWidth := colWidths[col] - text.DisplayWidth(field.text); padWidth > 0 {
 					truncVal += strings.Repeat(" ", padWidth)
 				}
 			}
@@ -136,7 +135,7 @@ func (t *ttyTablePrinter) calculateColumnWidths(delimSize int) []int {
 
 	for _, row := range t.rows {
 		for col, field := range row {
-			w := displayWidth(field.text)
+			w := text.DisplayWidth(field.text)
 			if w > maxColWidths[col] {
 				maxColWidths[col] = w
 			}
@@ -229,19 +228,4 @@ func (t *tsvTablePrinter) EndRow() {
 
 func (t *tsvTablePrinter) Render() error {
 	return nil
-}
-
-func truncateText(maxWidth int, s string) string {
-	rw := ansi.PrintableRuneWidth(s)
-	if rw <= maxWidth {
-		return s
-	}
-	if maxWidth < 5 {
-		return truncate.String(s, uint(maxWidth))
-	}
-	return truncate.StringWithTail(s, uint(maxWidth), "...")
-}
-
-func displayWidth(s string) int {
-	return ansi.PrintableRuneWidth(s)
 }
