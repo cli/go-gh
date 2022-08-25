@@ -128,12 +128,14 @@ func Test_Translate(t *testing.T) {
 		aliases: map[string]string{
 			"gh":         "github.com",
 			"github.com": "ssh.github.com",
+			"my.gh.com":  "ssh.github.com",
 		},
 	}
 
 	cases := [][]string{
 		{"ssh://gh/o/r", "ssh://github.com/o/r"},
 		{"ssh://github.com/o/r", "ssh://github.com/o/r"},
+		{"ssh://my.gh.com", "ssh://github.com"},
 		{"https://gh/o/r", "https://gh/o/r"},
 	}
 

@@ -53,6 +53,7 @@ func NewTranslator() Translator {
 	for _, file := range configFiles {
 		_ = p.read(file)
 	}
+
 	return p.cfg
 }
 
@@ -75,8 +76,8 @@ func (c config) Translate(u *url.URL) *url.URL {
 	if !ok {
 		return u
 	}
-	if strings.EqualFold(u.Hostname(), "github.com") && strings.EqualFold(resolvedHost, "ssh.github.com") {
-		return u
+	if strings.EqualFold(resolvedHost, "ssh.github.com") {
+		resolvedHost = "github.com"
 	}
 	newURL, _ := url.Parse(u.String())
 	newURL.Host = resolvedHost
