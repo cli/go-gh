@@ -24,8 +24,9 @@ const (
 )
 
 var (
-	cfg  *Config
-	once sync.Once
+	cfg     *Config
+	once    sync.Once
+	loadErr error
 )
 
 // Config is a in memory representation of the gh configuration files.
@@ -121,11 +122,10 @@ func (c *Config) Set(keys []string, value string) {
 // Read gh configuration files from the local file system and
 // return a Config.
 var Read = func() (*Config, error) {
-	var err error
 	once.Do(func() {
-		cfg, err = load(generalConfigFile(), hostsConfigFile())
+		cfg, loadErr = load(generalConfigFile(), hostsConfigFile())
 	})
-	return cfg, err
+	return cfg, loadErr
 }
 
 // ReadFromString takes a yaml string and returns a Config.
