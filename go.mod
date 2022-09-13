@@ -18,7 +18,6 @@ require (
 	github.com/thlib/go-timezone-local v0.0.0-20210907160436-ef149e42d28e
 	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
-	golang.org/x/text v0.3.7
 	gopkg.in/h2non/gock.v1 v1.1.2
 	gopkg.in/yaml.v3 v3.0.1
 )

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFuzzyAgo(t *testing.T) {
+func TestRelativeTimeAgo(t *testing.T) {
 	const form = "2006-Jan-02 15:04:05"
 	now, _ := time.Parse(form, "2020-Nov-22 14:00:00")
 	cases := map[string]string{
@@ -28,36 +28,9 @@ func TestFuzzyAgo(t *testing.T) {
 	for createdAt, expected := range cases {
 		d, err := time.Parse(form, createdAt)
 		assert.NoError(t, err)
-		fuzzy := FuzzyAgo(now, d)
-		assert.Equal(t, expected, fuzzy)
+		relative := RelativeTimeAgo(now, d)
+		assert.Equal(t, expected, relative)
 	}
-}
-
-func TestFuzzyAgoAbbr(t *testing.T) {
-	const form = "2006-Jan-02 15:04:05"
-	now, _ := time.Parse(form, "2020-Nov-22 14:00:00")
-	cases := map[string]string{
-		"2020-Nov-22 14:00:00": "0m",
-		"2020-Nov-22 13:59:00": "1m",
-		"2020-Nov-22 13:30:00": "30m",
-		"2020-Nov-22 13:00:00": "1h",
-		"2020-Nov-22 02:00:00": "12h",
-		"2020-Nov-21 14:00:00": "1d",
-		"2020-Nov-07 14:00:00": "15d",
-		"2020-Oct-24 14:00:00": "29d",
-		"2020-Oct-23 14:00:00": "Oct 23, 2020",
-		"2019-Nov-22 14:00:00": "Nov 22, 2019",
-	}
-	for createdAt, expected := range cases {
-		d, err := time.Parse(form, createdAt)
-		assert.NoError(t, err)
-		fuzzy := FuzzyAgoAbbr(now, d)
-		assert.Equal(t, expected, fuzzy)
-	}
-}
-
-func ExampleTruncate() {
-
 }
 
 func TestTruncate(t *testing.T) {
@@ -199,81 +172,6 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
-func TestTruncateMultiline(t *testing.T) {
-	type args struct {
-		max int
-		s   string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "exactly minimum width",
-			args: args{
-				max: 5,
-				s:   "short",
-			},
-			want: "short",
-		},
-		{
-			name: "exactly minimum width with new line",
-			args: args{
-				max: 5,
-				s:   "short\n",
-			},
-			want: "sh...",
-		},
-		{
-			name: "less than minimum width",
-			args: args{
-				max: 4,
-				s:   "short",
-			},
-			want: "shor",
-		},
-		{
-			name: "less than minimum width with new line",
-			args: args{
-				max: 4,
-				s:   "short\n",
-			},
-			want: "shor",
-		},
-		{
-			name: "first line of multiple is short enough",
-			args: args{
-				max: 80,
-				s:   "short\n\nthis is a new line",
-			},
-			want: "short...",
-		},
-		{
-			name: "using Windows line endings",
-			args: args{
-				max: 80,
-				s:   "short\r\n\r\nthis is a new line",
-			},
-			want: "short...",
-		},
-		{
-			name: "using older MacOS line endings",
-			args: args{
-				max: 80,
-				s:   "short\r\rthis is a new line",
-			},
-			want: "short...",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := TruncateMultiline(tt.args.max, tt.args.s)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestDisplayWidth(t *testing.T) {
 	tests := []struct {
 		name string
@@ -360,85 +258,6 @@ func TestDisplayWidth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := DisplayWidth(tt.text)
 			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestRemoveExcessiveWhitespace(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{
-			name:  "nothing to remove",
-			input: "one two three",
-			want:  "one two three",
-		},
-		{
-			name:  "whitespace b-gone",
-			input: "\n  one\n\t  two  three\r\n  ",
-			want:  "one two three",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := RemoveExcessiveWhitespace(tt.input)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestCamelToKebab(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		out  string
-	}{
-		{
-			name: "single lowercase word",
-			in:   "test",
-			out:  "test",
-		},
-		{
-			name: "multiple mixed words",
-			in:   "testTestTest",
-			out:  "test-test-test",
-		},
-		{
-			name: "multiple uppercase words",
-			in:   "TestTest",
-			out:  "test-test",
-		},
-		{
-			name: "multiple lowercase words",
-			in:   "testtest",
-			out:  "testtest",
-		},
-		{
-			name: "multiple mixed words with number",
-			in:   "test2Test",
-			out:  "test2-test",
-		},
-		{
-			name: "multiple lowercase words with number",
-			in:   "test2test",
-			out:  "test2test",
-		},
-		{
-			name: "multiple lowercase words with dash",
-			in:   "test-test",
-			out:  "test-test",
-		},
-		{
-			name: "multiple uppercase words with dash",
-			in:   "Test-Test",
-			out:  "test--test",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.out, CamelToKebab(tt.in))
 		})
 	}
 }

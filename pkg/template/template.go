@@ -18,6 +18,10 @@ import (
 	color "github.com/mgutz/ansi"
 )
 
+const (
+	ellipsis = "..."
+)
+
 // Template is the representation of a template.
 type Template struct {
 	colorEnabled bool
@@ -165,7 +169,7 @@ func tableRowFunc(tp tableprinter.TablePrinter, fields ...interface{}) (string, 
 		if err != nil {
 			return "", fmt.Errorf("failed to write table row: %v", err)
 		}
-		tp.AddField(s, tableprinter.WithTruncate(text.TruncateMultiline))
+		tp.AddField(s, tableprinter.WithTruncate(truncateMultiline))
 	}
 	tp.EndRow()
 	return "", nil
@@ -218,4 +222,14 @@ func timeAgo(ago time.Duration) string {
 		return text.Pluralize(int(ago.Hours())/24/30, "month") + " ago"
 	}
 	return text.Pluralize(int(ago.Hours()/24/365), "year") + " ago"
+}
+
+// TruncateMultiline returns a copy of the string s that has been shortened to fit the maximum
+// display width. If string s has multiple lines the first line will be shortened and all others
+// removed.
+func truncateMultiline(maxWidth int, s string) string {
+	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
+		s = s[:i] + ellipsis
+	}
+	return text.Truncate(maxWidth, s)
 }
