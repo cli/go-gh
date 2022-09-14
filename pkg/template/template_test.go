@@ -17,13 +17,14 @@ import (
 func ExampleTemplate() {
 	// Information about the terminal can be obtained using the [pkg/term] package.
 	colorEnabled := true
+	isTTY := true
 	termWidth := 14
 	json := strings.NewReader(heredoc.Doc(`[
 		{"number": 1, "title": "One"},
 		{"number": 2, "title": "Two"}
 	]`))
 	template := "HEADER\n\n{{range .}}{{tablerow .number .title}}{{end}}{{tablerender}}\nFOOTER"
-	tmpl := New(os.Stdout, termWidth, colorEnabled)
+	tmpl := New(os.Stdout, termWidth, colorEnabled, isTTY)
 	if err := tmpl.Parse(template); err != nil {
 		log.Fatal(err)
 	}
@@ -100,6 +101,7 @@ func TestExecute(t *testing.T) {
 		json     io.Reader
 		template string
 		colorize bool
+		isTTY    bool
 	}
 	tests := []struct {
 		name    string
@@ -322,11 +324,45 @@ func TestExecute(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "hyperlink enabled",
+			args: args{
+				isTTY:    true,
+				json:     strings.NewReader(`{"link":"https://github.com"}`),
+				template: `{{ hyperlink .link "" }}`,
+			},
+			wantW: "\x1b]8;;https://github.com\x1b\\https://github.com\x1b]8;;\x1b\\",
+		},
+		{
+			name: "hyperlink disabled",
+			args: args{
+				json:     strings.NewReader(`{"link":"https://github.com"}`),
+				template: `{{ hyperlink .link "" }}`,
+			},
+			wantW: "https://github.com",
+		},
+		{
+			name: "hyperlink enabled",
+			args: args{
+				isTTY:    true,
+				json:     strings.NewReader(`{"link":"https://github.com","text":"GitHub"}`),
+				template: `{{ hyperlink .link .text }}`,
+			},
+			wantW: "\x1b]8;;https://github.com\x1b\\GitHub\x1b]8;;\x1b\\",
+		},
+		{
+			name: "hyperlink disabled",
+			args: args{
+				json:     strings.NewReader(`{"link":"https://github.com","text":"GitHub"}`),
+				template: `{{ hyperlink .link .text }}`,
+			},
+			wantW: "https://github.com",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &bytes.Buffer{}
-			tmpl := New(w, 80, tt.args.colorize)
+			tmpl := New(w, 80, tt.args.colorize, tt.args.isTTY)
 			err := tmpl.Parse(tt.args.template)
 			assert.NoError(t, err)
 			err = tmpl.Execute(tt.args.json)

@@ -25,6 +25,7 @@ const (
 // Template is the representation of a template.
 type Template struct {
 	colorEnabled bool
+	isTTY        bool
 	output       io.Writer
 	tmpl         *template.Template
 	tp           tableprinter.TablePrinter
@@ -32,9 +33,10 @@ type Template struct {
 }
 
 // New initializes a Template.
-func New(w io.Writer, width int, colorEnabled bool) Template {
+func New(w io.Writer, width int, colorEnabled, isTTY bool) Template {
 	return Template{
 		colorEnabled: colorEnabled,
+		isTTY:        isTTY,
 		output:       w,
 		tp:           tableprinter.New(w, true, width),
 		width:        width,
@@ -47,6 +49,7 @@ func (t *Template) Parse(tmpl string) error {
 	templateFuncs := map[string]interface{}{
 		"autocolor": colorFunc,
 		"color":     colorFunc,
+		"hyperlink": hyperlinkFunc(t.isTTY),
 		"join":      joinFunc,
 		"pluck":     pluckFunc,
 		"tablerender": func() (string, error) {
@@ -232,4 +235,20 @@ func truncateMultiline(maxWidth int, s string) string {
 		s = s[:i] + ellipsis
 	}
 	return text.Truncate(maxWidth, s)
+}
+
+func hyperlinkFunc(isTTY bool) func(string, string) string {
+	if !isTTY {
+		return func(link, text string) string {
+			return link
+		}
+	}
+
+	return func(link, text string) string {
+		if text == "" {
+			text = link
+		}
+
+		return fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", link, text)
+	}
 }
