@@ -14,9 +14,12 @@ import (
 	"time"
 
 	"github.com/cli/go-gh/pkg/tableprinter"
+	"github.com/cli/go-gh/pkg/text"
 	color "github.com/mgutz/ansi"
-	"github.com/muesli/reflow/ansi"
-	"github.com/muesli/reflow/truncate"
+)
+
+const (
+	ellipsis = "..."
 )
 
 // Template is the representation of a template.
@@ -148,7 +151,7 @@ func truncateFunc(maxWidth int, v interface{}) (string, error) {
 		return "", nil
 	}
 	if s, ok := v.(string); ok {
-		return truncateText(maxWidth, s), nil
+		return text.Truncate(maxWidth, s), nil
 	}
 	return "", fmt.Errorf("invalid value; expected string, got %T", v)
 }
@@ -166,7 +169,7 @@ func tableRowFunc(tp tableprinter.TablePrinter, fields ...interface{}) (string, 
 		if err != nil {
 			return "", fmt.Errorf("failed to write table row: %v", err)
 		}
-		tp.AddField(s, tableprinter.WithTruncate(truncateColumn))
+		tp.AddField(s, tableprinter.WithTruncate(truncateMultiline))
 	}
 	tp.EndRow()
 	return "", nil
@@ -207,43 +210,26 @@ func timeAgo(ago time.Duration) string {
 		return "just now"
 	}
 	if ago < time.Hour {
-		return pluralize(int(ago.Minutes()), "minute") + " ago"
+		return text.Pluralize(int(ago.Minutes()), "minute") + " ago"
 	}
 	if ago < 24*time.Hour {
-		return pluralize(int(ago.Hours()), "hour") + " ago"
+		return text.Pluralize(int(ago.Hours()), "hour") + " ago"
 	}
 	if ago < 30*24*time.Hour {
-		return pluralize(int(ago.Hours())/24, "day") + " ago"
+		return text.Pluralize(int(ago.Hours())/24, "day") + " ago"
 	}
 	if ago < 365*24*time.Hour {
-		return pluralize(int(ago.Hours())/24/30, "month") + " ago"
+		return text.Pluralize(int(ago.Hours())/24/30, "month") + " ago"
 	}
-	return pluralize(int(ago.Hours()/24/365), "year") + " ago"
+	return text.Pluralize(int(ago.Hours()/24/365), "year") + " ago"
 }
 
-func pluralize(num int, thing string) string {
-	if num == 1 {
-		return fmt.Sprintf("%d %s", num, thing)
-	}
-	return fmt.Sprintf("%d %ss", num, thing)
-}
-
-// TruncateColumn replaces the first new line character with an ellipsis
-// and shortens a string to fit the maximum display width.
-func truncateColumn(maxWidth int, s string) string {
+// TruncateMultiline returns a copy of the string s that has been shortened to fit the maximum
+// display width. If string s has multiple lines the first line will be shortened and all others
+// removed.
+func truncateMultiline(maxWidth int, s string) string {
 	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
-		s = s[:i] + "..."
+		s = s[:i] + ellipsis
 	}
-	return truncateText(maxWidth, s)
-}
-
-func truncateText(maxWidth int, s string) string {
-	rw := ansi.PrintableRuneWidth(s)
-	if rw <= maxWidth {
-		return s
-	}
-	if maxWidth < 5 {
-		return truncate.String(s, uint(maxWidth))
-	}
-	return truncate.StringWithTail(s, uint(maxWidth), "...")
+	return text.Truncate(maxWidth, s)
 }
