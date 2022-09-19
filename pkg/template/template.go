@@ -47,6 +47,7 @@ func (t *Template) Parse(tmpl string) error {
 	templateFuncs := map[string]interface{}{
 		"autocolor": colorFunc,
 		"color":     colorFunc,
+		"hyperlink": hyperlinkFunc,
 		"join":      joinFunc,
 		"pluck":     pluckFunc,
 		"tablerender": func() (string, error) {
@@ -232,4 +233,13 @@ func truncateMultiline(maxWidth int, s string) string {
 		s = s[:i] + ellipsis
 	}
 	return text.Truncate(maxWidth, s)
+}
+
+func hyperlinkFunc(link, text string) string {
+	if text == "" {
+		text = link
+	}
+
+	// See https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+	return fmt.Sprintf("\x1b]8;;%s\x1b\\%s\x1b]8;;\x1b\\", link, text)
 }

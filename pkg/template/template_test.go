@@ -322,6 +322,22 @@ func TestExecute(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "hyperlink enabled",
+			args: args{
+				json:     strings.NewReader(`{"link":"https://github.com"}`),
+				template: `{{ hyperlink .link "" }}`,
+			},
+			wantW: "\x1b]8;;https://github.com\x1b\\https://github.com\x1b]8;;\x1b\\",
+		},
+		{
+			name: "hyperlink with text enabled",
+			args: args{
+				json:     strings.NewReader(`{"link":"https://github.com","text":"GitHub"}`),
+				template: `{{ hyperlink .link .text }}`,
+			},
+			wantW: "\x1b]8;;https://github.com\x1b\\GitHub\x1b]8;;\x1b\\",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
