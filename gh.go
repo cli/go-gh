@@ -7,6 +7,7 @@ package gh
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,11 +15,11 @@ import (
 	"os/exec"
 
 	iapi "github.com/cli/go-gh/internal/api"
-	"github.com/cli/go-gh/internal/git"
 	irepo "github.com/cli/go-gh/internal/repository"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/cli/go-gh/pkg/auth"
 	"github.com/cli/go-gh/pkg/config"
+	"github.com/cli/go-gh/pkg/git"
 	repo "github.com/cli/go-gh/pkg/repository"
 	"github.com/cli/go-gh/pkg/ssh"
 	"github.com/cli/safeexec"
@@ -118,7 +119,8 @@ func CurrentRepository() (repo.Repository, error) {
 		return repo.Parse(override)
 	}
 
-	remotes, err := git.Remotes()
+	client := git.NewClient(nil)
+	remotes, err := client.Remotes(context.Background())
 	if err != nil {
 		return nil, err
 	}

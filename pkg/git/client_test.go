@@ -1,6 +1,8 @@
 package git
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,13 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRemotes(t *testing.T) {
+func TestClientRemotes(t *testing.T) {
 	tempDir := t.TempDir()
 	oldWd, _ := os.Getwd()
 	assert.NoError(t, os.Chdir(tempDir))
 	t.Cleanup(func() { _ = os.Chdir(oldWd) })
-	_, _, err := Exec("init", "--quiet")
-	assert.NoError(t, err)
+	initRepo(t)
 	gitDir := filepath.Join(tempDir, ".git")
 	remoteFile := filepath.Join(gitDir, "config")
 	remotes := `
@@ -35,7 +36,8 @@ func TestRemotes(t *testing.T) {
 	assert.NoError(t, err)
 	err = f.Close()
 	assert.NoError(t, err)
-	rs, err := Remotes()
+	client := NewClient(nil)
+	rs, err := client.Remotes(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 4, len(rs))
 	assert.Equal(t, "upstream", rs[0].Name)
@@ -97,4 +99,20 @@ func TestParseRemotes(t *testing.T) {
 	assert.Equal(t, "github.com", r[4].Host)
 	assert.Equal(t, "koke", r[4].Owner)
 	assert.Equal(t, "grit", r[4].Repo)
+}
+
+func initRepo(t *testing.T) {
+	errBuf := &bytes.Buffer{}
+	inBuf := &bytes.Buffer{}
+	outBuf := &bytes.Buffer{}
+	opts := &ClientOptions{
+		Stderr: errBuf,
+		Stdin:  inBuf,
+		Stdout: outBuf,
+	}
+	client := NewClient(opts)
+	cmd, err := client.Command(context.Background(), []string{"init", "--quiet"}...)
+	assert.NoError(t, err)
+	err = cmd.Run()
+	assert.NoError(t, err)
 }

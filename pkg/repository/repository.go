@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cli/go-gh/internal/git"
 	irepo "github.com/cli/go-gh/internal/repository"
 	"github.com/cli/go-gh/pkg/auth"
+	"github.com/cli/go-gh/pkg/git"
 )
 
 // Repository is the interface that wraps repository information methods.
