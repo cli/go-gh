@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/cli/go-gh/pkg/text"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,6 +38,42 @@ func ExampleTemplate() {
 	// 2  Two
 	//
 	// FOOTER
+}
+
+func ExampleTemplate_RegisterFunc() {
+	// Information about the terminal can be obtained using the [pkg/term] package.
+	colorEnabled := true
+	termWidth := 14
+	json := strings.NewReader(heredoc.Doc(`[
+		{"num": 1, "thing": "apple"},
+		{"num": 2, "thing": "orange"}
+	]`))
+	template := "{{range .}}* {{pluralize .num .thing}}\n{{end}}"
+	tmpl := New(os.Stdout, termWidth, colorEnabled)
+	tmpl.RegisterFunc("pluralize", func(fields ...interface{}) (string, error) {
+		if l := len(fields); l != 2 {
+			return "", fmt.Errorf("wrong number of args for pluralize: want 2 got %d", l)
+		}
+		var ok bool
+		var num float64
+		var thing string
+		if num, ok = fields[0].(float64); !ok && num == float64(int(num)) {
+			return "", fmt.Errorf("invalid value; expected int")
+		}
+		if thing, ok = fields[1].(string); !ok {
+			return "", fmt.Errorf("invalid value; expected string")
+		}
+		return text.Pluralize(int(num), thing), nil
+	})
+	if err := tmpl.Parse(template); err != nil {
+		log.Fatal(err)
+	}
+	if err := tmpl.Execute(json); err != nil {
+		log.Fatal(err)
+	}
+	// Output:
+	// * 1 apple
+	// * 2 oranges
 }
 
 func TestJsonScalarToString(t *testing.T) {
@@ -431,4 +468,40 @@ func TestTruncateMultiline(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestRegisterFunc(t *testing.T) {
+	w := &bytes.Buffer{}
+	tmpl := New(w, 80, false)
+
+	// Override "truncate" and define a new "foo" function.
+	tmpl.RegisterFunc("truncate", func(fields ...interface{}) (string, error) {
+		if l := len(fields); l != 2 {
+			return "", fmt.Errorf("wrong number of args for truncate: want 2 got %d", l)
+		}
+		var ok bool
+		var width int
+		var input string
+		if width, ok = fields[0].(int); !ok {
+			return "", fmt.Errorf("invalid value; expected int")
+		}
+		if input, ok = fields[1].(string); !ok {
+			return "", fmt.Errorf("invalid value; expected string")
+		}
+		return input[:width], nil
+	})
+	tmpl.RegisterFunc("foo", func(fields ...interface{}) (string, error) {
+		return "test", nil
+	})
+
+	err := tmpl.Parse(`{{ .text | truncate 5 }} {{ .status | color "green" }} {{ foo }}`)
+	assert.NoError(t, err)
+
+	r := strings.NewReader(`{"text":"truncated","status":"open"}`)
+	err = tmpl.Execute(r)
+	assert.NoError(t, err)
+
+	err = tmpl.Flush()
+	assert.NoError(t, err)
+	assert.Equal(t, "trunc \x1b[0;32mopen\x1b[0m test", w.String())
 }

@@ -29,6 +29,7 @@ type Template struct {
 	tmpl         *template.Template
 	tp           tableprinter.TablePrinter
 	width        int
+	funcs        template.FuncMap
 }
 
 // New initializes a Template.
@@ -38,7 +39,14 @@ func New(w io.Writer, width int, colorEnabled bool) Template {
 		output:       w,
 		tp:           tableprinter.New(w, true, width),
 		width:        width,
+		funcs:        template.FuncMap{},
 	}
+}
+
+// RegisterFunc registers a named function or overwrites a built-in function.
+// Call this before Parse.
+func (t *Template) RegisterFunc(name string, f func(fields ...interface{}) (string, error)) {
+	t.funcs[name] = f
 }
 
 // Parse the given template string for use with Execute.
@@ -69,6 +77,9 @@ func (t *Template) Parse(tmpl string) error {
 	}
 	if !t.colorEnabled {
 		templateFuncs["autocolor"] = autoColorFunc
+	}
+	for name, f := range t.funcs {
+		templateFuncs[name] = f
 	}
 	var err error
 	t.tmpl, err = template.New("").Funcs(templateFuncs).Parse(tmpl)
