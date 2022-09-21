@@ -17,7 +17,7 @@ import (
 var remoteRE = regexp.MustCompile(`(.+)\s+(.+)\s+\((push|fetch)\)`)
 
 type Client struct {
-	command  func(ctx context.Context, args ...string) (*exec.Cmd, error)
+	command  func(ctx context.Context, name string, args ...string) *exec.Cmd
 	dir      string
 	exeErr   error
 	exePath  string
@@ -28,7 +28,7 @@ type Client struct {
 }
 
 type ClientOptions struct {
-	Command  func(ctx context.Context, args ...string) (*exec.Cmd, error)
+	Command  func(ctx context.Context, name string, args ...string) *exec.Cmd
 	Dir      string    // will be passed to commands as --git-dir
 	ExePath  string    // will be resolved if none passed
 	Stderr   io.Writer // will use stderr if none specified
@@ -68,14 +68,16 @@ func (c *Client) Command(ctx context.Context, args ...string) (*exec.Cmd, error)
 	if c.workTree != "" {
 		args = append([]string{"--work-tree", c.workTree}, args...)
 	}
-	if c.command != nil {
-		return c.command(ctx, args...)
-	}
 	exe, err := c.exe()
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.CommandContext(ctx, exe, args...)
+	var cmd *exec.Cmd
+	if c.command != nil {
+		cmd = c.command(ctx, exe, args...)
+	} else {
+		cmd = exec.CommandContext(ctx, exe, args...)
+	}
 	cmd.Stderr = c.stderr
 	cmd.Stdin = c.stdin
 	cmd.Stdout = c.stdout
@@ -98,8 +100,7 @@ func (c *Client) Remotes(ctx context.Context) (RemoteSet, error) {
 	remoteOutBuf, remoteErrBuf := bytes.Buffer{}, bytes.Buffer{}
 	remoteCmd.Stderr, remoteCmd.Stdout = &remoteErrBuf, &remoteOutBuf
 	if err := remoteCmd.Run(); err != nil {
-		err = fmt.Errorf("failed to run git: %s. error: %w", remoteErrBuf.String(), err)
-		return nil, err
+		return nil, fmt.Errorf("failed to run git: %s. error: %w", remoteErrBuf.String(), err)
 	}
 
 	configArgs := []string{"config", "--get-regexp", `^remote\..*\.gh-resolved$`}
@@ -110,8 +111,7 @@ func (c *Client) Remotes(ctx context.Context) (RemoteSet, error) {
 	configOutBuf, configErrBuf := bytes.Buffer{}, bytes.Buffer{}
 	configCmd.Stderr, configCmd.Stdout = &configErrBuf, &configOutBuf
 	if err := configCmd.Run(); err != nil {
-		err = fmt.Errorf("failed to run git: %s. error: %w", configErrBuf.String(), err)
-		return nil, err
+		return nil, fmt.Errorf("failed to run git: %s. error: %w", configErrBuf.String(), err)
 	}
 
 	remotes := parseRemotes(toLines(remoteOutBuf.String()))
