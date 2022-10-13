@@ -29,6 +29,7 @@ type Template struct {
 	tmpl         *template.Template
 	tp           tableprinter.TablePrinter
 	width        int
+	funcs        template.FuncMap
 }
 
 // New initializes a Template.
@@ -38,7 +39,19 @@ func New(w io.Writer, width int, colorEnabled bool) Template {
 		output:       w,
 		tp:           tableprinter.New(w, true, width),
 		width:        width,
+		funcs:        template.FuncMap{},
 	}
+}
+
+// Funcs adds the elements of the argument map to the template's function map.
+// It must be called before the template is parsed.
+// It is legal to overwrite elements of the map including default functions.
+// The return value is the template, so calls can be chained.
+func (t *Template) Funcs(funcMap map[string]interface{}) *Template {
+	for name, f := range funcMap {
+		t.funcs[name] = f
+	}
+	return t
 }
 
 // Parse the given template string for use with Execute.
@@ -69,6 +82,9 @@ func (t *Template) Parse(tmpl string) error {
 	}
 	if !t.colorEnabled {
 		templateFuncs["autocolor"] = autoColorFunc
+	}
+	for name, f := range t.funcs {
+		templateFuncs[name] = f
 	}
 	var err error
 	t.tmpl, err = template.New("").Funcs(templateFuncs).Parse(tmpl)
