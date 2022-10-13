@@ -33,16 +33,13 @@ func (c restClient) RequestWithContext(ctx context.Context, method string, path 
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return resp, err
+		return nil, err
 	}
 
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if !success {
-		err = api.HTTPError{
-			Headers:    resp.Header,
-			RequestURL: resp.Request.URL,
-			StatusCode: resp.StatusCode,
-		}
+		defer resp.Body.Close()
+		return nil, api.HandleHTTPError(resp)
 	}
 
 	return resp, err
@@ -63,16 +60,17 @@ func (c restClient) DoWithContext(ctx context.Context, method string, path strin
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if !success {
+		defer resp.Body.Close()
 		return api.HandleHTTPError(resp)
 	}
 
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
+	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)
 	if err != nil {
