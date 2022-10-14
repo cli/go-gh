@@ -30,10 +30,9 @@ func TestRESTClientRequest(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://api.github.com").
 					Get("/some/test/path").
-					Reply(204).
-					JSON(`{}`)
+					Reply(204)
 			},
-			wantBody: `{}`,
+			wantBody: ``,
 		},
 		{
 			name: "success request non-empty response",
@@ -69,7 +68,7 @@ func TestRESTClientRequest(t *testing.T) {
 					JSON(`{"message": "OH NO"}`)
 			},
 			wantErr:    true,
-			wantErrMsg: "HTTP 422 (https://api.github.com/some/test/path)",
+			wantErrMsg: "HTTP 422: OH NO (https://api.github.com/some/test/path)",
 			wantBody:   `{"message": "OH NO"}`,
 		},
 		{
@@ -78,7 +77,7 @@ func TestRESTClientRequest(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://example.com").
 					Get("/someother/test/path").
-					Reply(204).
+					Reply(200).
 					JSON(`{}`)
 			},
 			wantBody: `{}`,
@@ -90,7 +89,7 @@ func TestRESTClientRequest(t *testing.T) {
 			httpMocks: func() {
 				gock.New("https://enterprise.com").
 					Get("/some/test/path").
-					Reply(204).
+					Reply(200).
 					JSON(`{}`)
 			},
 			wantBody: `{}`,
@@ -107,17 +106,22 @@ func TestRESTClientRequest(t *testing.T) {
 				tt.httpMocks()
 			}
 			client := NewRESTClient(tt.host, nil)
+
 			resp, err := client.Request("GET", tt.path, nil)
-			t.Cleanup(func() { resp.Body.Close() })
-			body, readErr := io.ReadAll(resp.Body)
-			assert.NoError(t, readErr)
 			if tt.wantErr {
 				assert.EqualError(t, err, tt.wantErrMsg)
 			} else {
 				assert.NoError(t, err)
 			}
+
+			if err == nil {
+				defer resp.Body.Close()
+				body, err := io.ReadAll(resp.Body)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantBody, string(body))
+			}
+
 			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
-			assert.Equal(t, tt.wantBody, string(body))
 		})
 	}
 }

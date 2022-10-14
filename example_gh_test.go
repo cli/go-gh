@@ -77,10 +77,6 @@ func ExampleRESTClient_request() {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode > 299 {
-		log.Fatal("server error")
-	}
-
 	f, err := os.CreateTemp("", "*_checksums.txt")
 	if err != nil {
 		log.Fatal(err)
