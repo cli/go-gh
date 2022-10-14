@@ -4,11 +4,12 @@
 package term
 
 import (
+	"errors"
 	"os"
 )
 
 func enableVirtualTerminalProcessing(f *os.File) error {
-	return nil
+	return errors.New("not implemented")
 }
 
 func openTTY() (*os.File, error) {
