@@ -127,7 +127,14 @@ func CurrentRepository() (repo.Repository, error) {
 	}
 
 	translator := ssh.NewTranslator()
-	translateRemotes(remotes, translator)
+	for _, r := range remotes {
+		if r.FetchURL != nil {
+			r.FetchURL = translator.Translate(r.FetchURL)
+		}
+		if r.PushURL != nil {
+			r.PushURL = translator.Translate(r.PushURL)
+		}
+	}
 
 	hosts := auth.KnownHosts()
 
@@ -168,15 +175,4 @@ func resolveOptions(opts *api.ClientOptions) error {
 		opts.UnixDomainSocket, _ = cfg.Get([]string{"http_unix_socket"})
 	}
 	return nil
-}
-
-func translateRemotes(remotes git.RemoteSet, translator ssh.Translator) {
-	for _, r := range remotes {
-		if r.FetchURL != nil {
-			r.FetchURL = translator.Translate(r.FetchURL)
-		}
-		if r.PushURL != nil {
-			r.PushURL = translator.Translate(r.PushURL)
-		}
-	}
 }
