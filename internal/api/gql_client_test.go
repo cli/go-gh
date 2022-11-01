@@ -185,6 +185,11 @@ func TestGQLEndpoint(t *testing.T) {
 			wantEndpoint: "http://api.github.localhost/graphql",
 		},
 		{
+			name:         "garage",
+			host:         "garage.github.com",
+			wantEndpoint: "https://garage.github.com/api/graphql",
+		},
+		{
 			name:         "enterprise",
 			host:         "enterprise.com",
 			wantEndpoint: "https://enterprise.com/api/graphql",

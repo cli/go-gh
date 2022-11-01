@@ -411,6 +411,11 @@ func TestRestPrefix(t *testing.T) {
 			wantEndpoint: "http://api.github.localhost/",
 		},
 		{
+			name:         "garage",
+			host:         "garage.github.com",
+			wantEndpoint: "https://garage.github.com/api/v3/",
+		},
+		{
 			name:         "enterprise",
 			host:         "enterprise.com",
 			wantEndpoint: "https://enterprise.com/api/v3/",
