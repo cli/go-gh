@@ -17,7 +17,9 @@ type Translator struct {
 	sshPath    string
 	sshPathErr error
 	sshPathMu  sync.Mutex
-	sshConfig  string
+
+	lookPath   func(string) (string, error)
+	newCommand func(string, ...string) *exec.Cmd
 }
 
 // NewTranslator initializes a new Translator instance.
@@ -53,7 +55,11 @@ func (t *Translator) resolve(hostname string) (string, error) {
 	var sshPath string
 	t.sshPathMu.Lock()
 	if t.sshPath == "" && t.sshPathErr == nil {
-		t.sshPath, t.sshPathErr = safeexec.LookPath("ssh")
+		lookPath := t.lookPath
+		if lookPath == nil {
+			lookPath = safeexec.LookPath
+		}
+		t.sshPath, t.sshPathErr = lookPath("ssh")
 	}
 	if t.sshPathErr != nil {
 		defer t.sshPathMu.Unlock()
@@ -65,11 +71,11 @@ func (t *Translator) resolve(hostname string) (string, error) {
 	t.cacheMu.Lock()
 	defer t.cacheMu.Unlock()
 
-	sshArgs := []string{"-G", hostname}
-	if t.sshConfig != "" {
-		sshArgs = append(sshArgs, "-F", t.sshConfig)
+	newCommand := t.newCommand
+	if newCommand == nil {
+		newCommand = exec.Command
 	}
-	sshCmd := exec.Command(sshPath, sshArgs...)
+	sshCmd := newCommand(sshPath, "-G", hostname)
 	stdout, err := sshCmd.StdoutPipe()
 	if err != nil {
 		return "", err
@@ -90,5 +96,10 @@ func (t *Translator) resolve(hostname string) (string, error) {
 	}
 
 	_ = sshCmd.Wait()
+
+	if t.cacheMap == nil {
+		t.cacheMap = map[string]string{}
+	}
+	t.cacheMap[strings.ToLower(hostname)] = resolvedHost
 	return resolvedHost, nil
 }

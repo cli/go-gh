@@ -1,8 +1,10 @@
 package ssh
 
 import (
+	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/MakeNowJust/heredoc"
@@ -60,7 +62,12 @@ func TestTranslator(t *testing.T) {
 				t.Fatalf("error writing ssh config: %v", err)
 			}
 
-			tr := &Translator{sshConfig: f.Name()}
+			tr := &Translator{
+				newCommand: func(exe string, args ...string) *exec.Cmd {
+					args = append([]string{"-F", f.Name()}, args...)
+					return exec.Command(exe, args...)
+				},
+			}
 			u, err := url.Parse(tt.arg)
 			if err != nil {
 				t.Fatalf("error parsing URL: %v", err)
@@ -70,5 +77,66 @@ func TestTranslator(t *testing.T) {
 				t.Errorf("expected %q, got %q", tt.want, got)
 			}
 		})
+	}
+}
+
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GH_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	if err := func(args []string) error {
+		fmt.Fprint(os.Stdout, "hostname github.com\n")
+		return nil
+	}(os.Args[3:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func TestTranslator_caching(t *testing.T) {
+	countLookPath := 0
+	countNewCommand := 0
+	tr := &Translator{
+		lookPath: func(s string) (string, error) {
+			countLookPath++
+			return "/path/to/ssh", nil
+		},
+		newCommand: func(exe string, args ...string) *exec.Cmd {
+			args = append([]string{"-test.run=TestHelperProcess", "--", exe}, args...)
+			c := exec.Command(os.Args[0], args...)
+			c.Env = []string{"GH_WANT_HELPER_PROCESS=1"}
+			countNewCommand++
+			return c
+		},
+	}
+
+	u1, err := url.Parse("ssh://github1.com/owner/repo.git")
+	if err != nil {
+		t.Fatalf("error parsing URL: %v", err)
+	}
+	if res := tr.Translate(u1); res.Host != "github.com" {
+		t.Errorf("expected github.com, got: %q", res.Host)
+	}
+	if res := tr.Translate(u1); res.Host != "github.com" {
+		t.Errorf("expected github.com, got: %q", res.Host)
+	}
+
+	u2, err := url.Parse("ssh://github2.com/owner/repo.git")
+	if err != nil {
+		t.Fatalf("error parsing URL: %v", err)
+	}
+	if res := tr.Translate(u2); res.Host != "github.com" {
+		t.Errorf("expected github.com, got: %q", res.Host)
+	}
+	if res := tr.Translate(u2); res.Host != "github.com" {
+		t.Errorf("expected github.com, got: %q", res.Host)
+	}
+
+	if countLookPath != 1 {
+		t.Errorf("expected lookPath to happen 1 time; actual: %d", countLookPath)
+	}
+	if countNewCommand != 2 {
+		t.Errorf("expected ssh command to shell out 2 times; actual: %d", countNewCommand)
 	}
 }
