@@ -109,6 +109,10 @@ func isSameDomain(requestHost, domain string) bool {
 	return (requestHost == domain) || strings.HasSuffix(requestHost, "."+domain)
 }
 
+func isGarage(host string) bool {
+	return strings.EqualFold(host, "garage.github.com")
+}
+
 func isEnterprise(host string) bool {
 	return host != github && host != localhost
 }

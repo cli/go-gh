@@ -117,6 +117,9 @@ func restURL(hostname string, pathOrURL string) string {
 }
 
 func restPrefix(hostname string) string {
+	if isGarage(hostname) {
+		return fmt.Sprintf("https://%s/api/v3/", hostname)
+	}
 	hostname = normalizeHostname(hostname)
 	if isEnterprise(hostname) {
 		return fmt.Sprintf("https://%s/api/v3/", hostname)

@@ -111,6 +111,9 @@ type gqlResponse struct {
 }
 
 func gqlEndpoint(host string) string {
+	if isGarage(host) {
+		return fmt.Sprintf("https://%s/api/graphql", host)
+	}
 	host = normalizeHostname(host)
 	if isEnterprise(host) {
 		return fmt.Sprintf("https://%s/api/graphql", host)
