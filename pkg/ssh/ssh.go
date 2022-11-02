@@ -1,79 +1,39 @@
-// Package ssh is a set of types and functions for parsing and
-// applying a user's SSH hostname aliases.
+// Package ssh resolves local SSH hostname aliases.
 package ssh
 
 import (
 	"bufio"
-	"io"
 	"net/url"
-	"os"
-	"path/filepath"
-	"regexp"
+	"os/exec"
 	"strings"
+	"sync"
+
+	"github.com/cli/safeexec"
 )
 
-var (
-	configLineRE = regexp.MustCompile(`\A\s*(?P<keyword>[A-Za-z][A-Za-z0-9]*)(?:\s+|\s*=\s*)(?P<argument>.+)`)
-	tokenRE      = regexp.MustCompile(`%[%h]`)
-)
+type Translator struct {
+	cacheMap   map[string]string
+	cacheMu    sync.RWMutex
+	sshPath    string
+	sshPathErr error
+	sshPathMu  sync.Mutex
 
-// Translator is the interface that encapsulates the SSH hostname alias translate method.
-type Translator interface {
-	Translate(*url.URL) *url.URL
+	lookPath   func(string) (string, error)
+	newCommand func(string, ...string) *exec.Cmd
 }
 
-type config struct {
-	aliases map[string]string
-}
-
-type parser struct {
-	dir   string
-	cfg   config
-	hosts []string
-	open  func(string) (io.Reader, error)
-	glob  func(string) ([]string, error)
-}
-
-// NewTranslator constructs a map of SSH hostname aliases based on user and system configuration files.
-// It returns a Translator to apply these mappings.
-func NewTranslator() Translator {
-	configFiles := []string{
-		"/etc/ssh_config",
-		"/etc/ssh/ssh_config",
-	}
-
-	p := parser{}
-
-	if sshDir, err := homeDirPath(".ssh"); err == nil {
-		userConfig := filepath.Join(sshDir, "config")
-		configFiles = append([]string{userConfig}, configFiles...)
-		p.dir = filepath.Dir(sshDir)
-	}
-
-	for _, file := range configFiles {
-		_ = p.read(file)
-	}
-
-	return p.cfg
-}
-
-func homeDirPath(subdir string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	newPath := filepath.Join(homeDir, subdir)
-	return newPath, nil
+// NewTranslator initializes a new Translator instance.
+func NewTranslator() *Translator {
+	return &Translator{}
 }
 
 // Translate applies applicable SSH hostname aliases to the specified URL and returns the resulting URL.
-func (c config) Translate(u *url.URL) *url.URL {
+func (t *Translator) Translate(u *url.URL) *url.URL {
 	if u.Scheme != "ssh" {
 		return u
 	}
-	resolvedHost, ok := c.aliases[u.Hostname()]
-	if !ok {
+	resolvedHost, err := t.resolve(u.Hostname())
+	if err != nil {
 		return u
 	}
 	if strings.EqualFold(resolvedHost, "ssh.github.com") {
@@ -84,101 +44,62 @@ func (c config) Translate(u *url.URL) *url.URL {
 	return newURL
 }
 
-func (p *parser) read(fileName string) error {
-	var file io.Reader
-	if p.open == nil {
-		f, err := os.Open(fileName)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		file = f
-	} else {
-		var err error
-		file, err = p.open(fileName)
-		if err != nil {
-			return err
-		}
+func (t *Translator) resolve(hostname string) (string, error) {
+	t.cacheMu.RLock()
+	cached, cacheFound := t.cacheMap[strings.ToLower(hostname)]
+	t.cacheMu.RUnlock()
+	if cacheFound {
+		return cached, nil
 	}
 
-	if len(p.hosts) == 0 {
-		p.hosts = []string{"*"}
+	var sshPath string
+	t.sshPathMu.Lock()
+	if t.sshPath == "" && t.sshPathErr == nil {
+		lookPath := t.lookPath
+		if lookPath == nil {
+			lookPath = safeexec.LookPath
+		}
+		t.sshPath, t.sshPathErr = lookPath("ssh")
+	}
+	if t.sshPathErr != nil {
+		defer t.sshPathMu.Unlock()
+		return t.sshPath, t.sshPathErr
+	}
+	sshPath = t.sshPath
+	t.sshPathMu.Unlock()
+
+	t.cacheMu.Lock()
+	defer t.cacheMu.Unlock()
+
+	newCommand := t.newCommand
+	if newCommand == nil {
+		newCommand = exec.Command
+	}
+	sshCmd := newCommand(sshPath, "-G", hostname)
+	stdout, err := sshCmd.StdoutPipe()
+	if err != nil {
+		return "", err
 	}
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		m := configLineRE.FindStringSubmatch(scanner.Text())
-		if len(m) < 3 {
-			continue
-		}
+	if err := sshCmd.Start(); err != nil {
+		return "", err
+	}
 
-		keyword, arguments := strings.ToLower(m[1]), m[2]
-		switch keyword {
-		case "host":
-			p.hosts = strings.Fields(arguments)
-		case "hostname":
-			for _, host := range p.hosts {
-				for _, name := range strings.Fields(arguments) {
-					if p.cfg.aliases == nil {
-						p.cfg.aliases = make(map[string]string)
-					}
-					p.cfg.aliases[host] = expandTokens(name, host)
-				}
-			}
-		case "include":
-			for _, arg := range strings.Fields(arguments) {
-				path := p.absolutePath(fileName, arg)
-
-				var fileNames []string
-				if p.glob == nil {
-					paths, _ := filepath.Glob(path)
-					for _, p := range paths {
-						if s, err := os.Stat(p); err == nil && !s.IsDir() {
-							fileNames = append(fileNames, p)
-						}
-					}
-				} else {
-					var err error
-					fileNames, err = p.glob(path)
-					if err != nil {
-						continue
-					}
-				}
-
-				for _, fileName := range fileNames {
-					_ = p.read(fileName)
-				}
-			}
+	var resolvedHost string
+	s := bufio.NewScanner(stdout)
+	for s.Scan() {
+		line := s.Text()
+		parts := strings.SplitN(line, " ", 2)
+		if len(parts) == 2 && parts[0] == "hostname" {
+			resolvedHost = parts[1]
 		}
 	}
 
-	return scanner.Err()
-}
+	_ = sshCmd.Wait()
 
-func (p *parser) absolutePath(parentFile, path string) string {
-	if filepath.IsAbs(path) || strings.HasPrefix(filepath.ToSlash(path), "/") {
-		return path
+	if t.cacheMap == nil {
+		t.cacheMap = map[string]string{}
 	}
-
-	if strings.HasPrefix(path, "~") {
-		return filepath.Join(p.dir, strings.TrimPrefix(path, "~"))
-	}
-
-	if strings.HasPrefix(filepath.ToSlash(parentFile), "/etc/ssh") {
-		return filepath.Join("/etc/ssh", path)
-	}
-
-	return filepath.Join(p.dir, ".ssh", path)
-}
-
-func expandTokens(text, host string) string {
-	return tokenRE.ReplaceAllStringFunc(text, func(match string) string {
-		switch match {
-		case "%h":
-			return host
-		case "%%":
-			return "%"
-		}
-		return ""
-	})
+	t.cacheMap[strings.ToLower(hostname)] = resolvedHost
+	return resolvedHost, nil
 }

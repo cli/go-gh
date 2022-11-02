@@ -1,149 +1,142 @@
 package ssh
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net/url"
-	"path/filepath"
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/cli/safeexec"
 )
 
-func Test_sshParser_read(t *testing.T) {
-	testFiles := map[string]string{
-		"/etc/ssh/config": heredoc.Doc(`
-			Include sites/*
-		`),
-		"/etc/ssh/sites/cfg1": heredoc.Doc(`
-			Host s1
-			Hostname=site1.net
-		`),
-		"/etc/ssh/sites/cfg2": heredoc.Doc(`
-			Host s2
-			Hostname = site2.net
-		`),
-		"HOME/.ssh/config": heredoc.Doc(`
-			Host *
-			Host gh gittyhubby
-				Hostname github.com
-				#Hostname example.com
-			Host ex
-			  Include ex_config/*
-		`),
-		"HOME/.ssh/ex_config/ex_cfg": heredoc.Doc(`
-			Hostname example.com
-		`),
-	}
-	globResults := map[string][]string{
-		"/etc/ssh/sites/*":      {"/etc/ssh/sites/cfg1", "/etc/ssh/sites/cfg2"},
-		"HOME/.ssh/ex_config/*": {"HOME/.ssh/ex_config/ex_cfg"},
+func TestTranslator(t *testing.T) {
+	if _, err := safeexec.LookPath("ssh"); err != nil {
+		t.Skip("no ssh found on system")
 	}
 
-	p := &parser{
-		dir: "HOME",
-		open: func(s string) (io.Reader, error) {
-			if contents, ok := testFiles[filepath.ToSlash(s)]; ok {
-				return bytes.NewBufferString(contents), nil
-			} else {
-				return nil, fmt.Errorf("no test file stub found: %q", s)
-			}
-		},
-		glob: func(p string) ([]string, error) {
-			if results, ok := globResults[filepath.ToSlash(p)]; ok {
-				return results, nil
-			} else {
-				return nil, fmt.Errorf("no glob stubs found: %q", p)
-			}
-		},
-	}
-
-	if err := p.read("/etc/ssh/config"); err != nil {
-		t.Fatalf("read(global config) = %v", err)
-	}
-	if err := p.read("HOME/.ssh/config"); err != nil {
-		t.Fatalf("read(user config) = %v", err)
-	}
-
-	if got := p.cfg.aliases["gh"]; got != "github.com" {
-		t.Errorf("expected alias %q to expand to %q, got %q", "gh", "github.com", got)
-	}
-	if got := p.cfg.aliases["gittyhubby"]; got != "github.com" {
-		t.Errorf("expected alias %q to expand to %q, got %q", "gittyhubby", "github.com", got)
-	}
-	if got := p.cfg.aliases["example.com"]; got != "" {
-		t.Errorf("expected alias %q to expand to %q, got %q", "example.com", "", got)
-	}
-	if got := p.cfg.aliases["ex"]; got != "example.com" {
-		t.Errorf("expected alias %q to expand to %q, got %q", "ex", "example.com", got)
-	}
-	if got := p.cfg.aliases["s1"]; got != "site1.net" {
-		t.Errorf("expected alias %q to expand to %q, got %q", "s1", "site1.net", got)
-	}
-}
-
-func Test_sshParser_absolutePath(t *testing.T) {
-	dir := "HOME"
-	p := &parser{dir: dir}
-
-	tests := map[string]struct {
-		parentFile string
-		arg        string
-		want       string
+	tests := []struct {
+		name      string
+		sshConfig string
+		arg       string
+		want      string
 	}{
-		"absolute path": {
-			parentFile: "/etc/ssh/ssh_config",
-			arg:        "/etc/ssh/config",
-			want:       "/etc/ssh/config",
+		{
+			name: "translate SSH URL",
+			sshConfig: heredoc.Doc(`
+				Host github-*
+					Hostname github.com
+			`),
+			arg:  "ssh://git@github-foo/owner/repo.git",
+			want: "ssh://git@github.com/owner/repo.git",
 		},
-		"system relative path": {
-			parentFile: "/etc/ssh/config",
-			arg:        "configs/*.conf",
-			want:       filepath.Join("/etc", "ssh", "configs", "*.conf"),
+		{
+			name: "does not translate HTTPS URL",
+			sshConfig: heredoc.Doc(`
+				Host github-*
+					Hostname github.com
+			`),
+			arg:  "https://github-foo/owner/repo.git",
+			want: "https://github-foo/owner/repo.git",
 		},
-		"user relative path": {
-			parentFile: filepath.Join(dir, ".ssh", "ssh_config"),
-			arg:        "configs/*.conf",
-			want:       filepath.Join(dir, ".ssh", "configs/*.conf"),
-		},
-		"shell-like ~ rerefence": {
-			parentFile: filepath.Join(dir, ".ssh", "ssh_config"),
-			arg:        "~/.ssh/*.conf",
-			want:       filepath.Join(dir, ".ssh", "*.conf"),
+		{
+			name: "treats ssh.github.com as github.com",
+			sshConfig: heredoc.Doc(`
+				Host github.com
+					Hostname ssh.github.com
+			`),
+			arg:  "ssh://git@github.com/owner/repo.git",
+			want: "ssh://git@github.com/owner/repo.git",
 		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := os.CreateTemp("", "ssh-config.*")
+			if err != nil {
+				t.Fatalf("error creating file: %v", err)
+			}
+			_, err = f.WriteString(tt.sshConfig)
+			_ = f.Close()
+			if err != nil {
+				t.Fatalf("error writing ssh config: %v", err)
+			}
 
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			if got := p.absolutePath(tt.parentFile, tt.arg); got != tt.want {
-				t.Errorf("absolutePath(): %q, wants %q", got, tt.want)
+			tr := &Translator{
+				newCommand: func(exe string, args ...string) *exec.Cmd {
+					args = append([]string{"-F", f.Name()}, args...)
+					return exec.Command(exe, args...)
+				},
+			}
+			u, err := url.Parse(tt.arg)
+			if err != nil {
+				t.Fatalf("error parsing URL: %v", err)
+			}
+			res := tr.Translate(u)
+			if got := res.String(); got != tt.want {
+				t.Errorf("expected %q, got %q", tt.want, got)
 			}
 		})
 	}
 }
 
-func Test_Translate(t *testing.T) {
-	m := config{
-		aliases: map[string]string{
-			"gh":         "github.com",
-			"github.com": "ssh.github.com",
-			"my.gh.com":  "ssh.github.com",
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GH_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	if err := func(args []string) error {
+		fmt.Fprint(os.Stdout, "hostname github.com\n")
+		return nil
+	}(os.Args[3:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func TestTranslator_caching(t *testing.T) {
+	countLookPath := 0
+	countNewCommand := 0
+	tr := &Translator{
+		lookPath: func(s string) (string, error) {
+			countLookPath++
+			return "/path/to/ssh", nil
+		},
+		newCommand: func(exe string, args ...string) *exec.Cmd {
+			args = append([]string{"-test.run=TestHelperProcess", "--", exe}, args...)
+			c := exec.Command(os.Args[0], args...)
+			c.Env = []string{"GH_WANT_HELPER_PROCESS=1"}
+			countNewCommand++
+			return c
 		},
 	}
 
-	cases := [][]string{
-		{"ssh://gh/o/r", "ssh://github.com/o/r"},
-		{"ssh://github.com/o/r", "ssh://github.com/o/r"},
-		{"ssh://my.gh.com", "ssh://github.com"},
-		{"https://gh/o/r", "https://gh/o/r"},
+	u1, err := url.Parse("ssh://github1.com/owner/repo.git")
+	if err != nil {
+		t.Fatalf("error parsing URL: %v", err)
+	}
+	if res := tr.Translate(u1); res.Host != "github.com" {
+		t.Errorf("expected github.com, got: %q", res.Host)
+	}
+	if res := tr.Translate(u1); res.Host != "github.com" {
+		t.Errorf("expected github.com, got: %q", res.Host)
 	}
 
-	for _, c := range cases {
-		u, _ := url.Parse(c[0])
-		got := m.Translate(u)
-		if got.String() != c[1] {
-			t.Errorf("%q: expected %q, got %q", c[0], c[1], got)
-		}
+	u2, err := url.Parse("ssh://github2.com/owner/repo.git")
+	if err != nil {
+		t.Fatalf("error parsing URL: %v", err)
+	}
+	if res := tr.Translate(u2); res.Host != "github.com" {
+		t.Errorf("expected github.com, got: %q", res.Host)
+	}
+	if res := tr.Translate(u2); res.Host != "github.com" {
+		t.Errorf("expected github.com, got: %q", res.Host)
+	}
+
+	if countLookPath != 1 {
+		t.Errorf("expected lookPath to happen 1 time; actual: %d", countLookPath)
+	}
+	if countNewCommand != 2 {
+		t.Errorf("expected ssh command to shell out 2 times; actual: %d", countNewCommand)
 	}
 }
