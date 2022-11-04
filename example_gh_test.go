@@ -1,4 +1,4 @@
-package gh
+package gh_test
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	gh "github.com/cli/go-gh"
 	"github.com/cli/go-gh/pkg/api"
 	"github.com/cli/go-gh/pkg/tableprinter"
 	"github.com/cli/go-gh/pkg/term"
@@ -16,7 +17,7 @@ import (
 // Execute 'gh issue list -R cli/cli', and print the output.
 func ExampleExec() {
 	args := []string{"issue", "list", "-R", "cli/cli"}
-	stdOut, stdErr, err := Exec(args...)
+	stdOut, stdErr, err := gh.Exec(args...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -26,7 +27,7 @@ func ExampleExec() {
 
 // Get tags from cli/cli repository using REST API.
 func ExampleRESTClient_simple() {
-	client, err := RESTClient(nil)
+	client, err := gh.RESTClient(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,7 +48,7 @@ func ExampleRESTClient_advanced() {
 		Headers:   map[string]string{"Time-Zone": "America/Los_Angeles"},
 		Log:       os.Stdout,
 	}
-	client, err := RESTClient(&opts)
+	client, err := gh.RESTClient(&opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,7 +65,7 @@ func ExampleRESTClient_request() {
 	opts := api.ClientOptions{
 		Headers: map[string]string{"Accept": "application/octet-stream"},
 	}
-	client, err := RESTClient(&opts)
+	client, err := gh.RESTClient(&opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -93,7 +94,7 @@ func ExampleRESTClient_request() {
 
 // Query tags from cli/cli repository using GQL API.
 func ExampleGQLClient_simple() {
-	client, err := GQLClient(nil)
+	client, err := gh.GQLClient(nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -126,7 +127,7 @@ func ExampleGQLClient_advanced() {
 		EnableCache: true,
 		Timeout:     5 * time.Second,
 	}
-	client, err := GQLClient(&opts)
+	client, err := gh.GQLClient(&opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -154,7 +155,7 @@ func ExampleGQLClient_advanced() {
 
 // Get repository for the current directory.
 func ExampleCurrentRepository() {
-	repo, err := CurrentRepository()
+	repo, err := gh.CurrentRepository()
 	if err != nil {
 		log.Fatal(err)
 	}
