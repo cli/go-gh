@@ -4,9 +4,9 @@
 
 Modules from this library will obey GitHub CLI conventions by default:
 
-- [`CurrentRepository()`](https://pkg.go.dev/github.com/cli/go-gh#CurrentRepository) respects the value of the `GH_REPO` environment variable if set, and reads from git remote configuration as fallback.
+- [`CurrentRepository()`](https://pkg.go.dev/github.com/cli/go-gh#CurrentRepository) respects the value of the `GH_REPO` environment variable and reads from git remote configuration as fallback.
 
-- GitHub API requests will be authenticated using the same mechanism as `gh`, i.e. respecting the values `GH_TOKEN` and `GH_HOST` environment variables if set and falling back to the user's stored OAuth token.
+- GitHub API requests will be authenticated using the same mechanism as `gh`, i.e. using the values of `GH_TOKEN` and `GH_HOST` environment variables and falling back to the user's stored OAuth token.
 
 - [Terminal capabilities](https://pkg.go.dev/github.com/cli/go-gh/pkg/term) are determined by taking environment variables `GH_FORCE_TTY`, `NO_COLOR`, `CLICOLOR`, etc. into account.
 
