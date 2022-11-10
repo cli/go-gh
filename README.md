@@ -4,15 +4,15 @@
 
 Modules from this library will obey GitHub CLI conventions by default:
 
-- [`CurrentRepository()`](https://pkg.go.dev/github.com/cli/go-gh#CurrentRepository) respects `GH_REPO` and reads from git remote configuration as fallback;
-- GitHub API requests will be authenticated using the same mechanism as gh, respecting `GH_TOKEN` and `GH_HOST` if present;
+- [`CurrentRepository()`](https://pkg.go.dev/github.com/cli/go-gh#CurrentRepository) respects the value of the `GH_REPO` environment variable if set, and reads from git remote configuration as fallback;
+- GitHub API requests will be authenticated using the same mechanism as `gh`, respecting the value of the `GH_TOKEN` and `GH_HOST` environment variables if present;
 - Inspecting [`term`](https://pkg.go.dev/github.com/cli/go-gh/pkg/term) capabilities is done with respect to e.g. `NO_COLOR`;
-- Generating [table-](https://pkg.go.dev/github.com/cli/go-gh/pkg/tableprinter) or [Go template](https://pkg.go.dev/github.com/cli/go-gh/pkg/template)-based output uses the same engine as gh;
+- Generating [table](https://pkg.go.dev/github.com/cli/go-gh/pkg/tableprinter) or [Go template](https://pkg.go.dev/github.com/cli/go-gh/pkg/template) based output uses the same engine as gh;
 - The [`browser`](https://pkg.go.dev/github.com/cli/go-gh/pkg/browser) module activates the user's preferred web browser.
 
 ## Usage
 
-See the [go-gh full reference documentation](https://pkg.go.dev/github.com/cli/go-gh).
+See the full `go-gh`  [reference documentation](https://pkg.go.dev/github.com/cli/go-gh) for more information
 
 ```golang
 package main
