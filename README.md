@@ -1,69 +1,61 @@
-# go-gh beta
+# Go library for the GitHub CLI
 
-**This project is in beta!** Feedback is welcome.
+`go-gh` is a collection of Go modules to make authoring [GitHub CLI extensions][extensions] easier.
 
-A Go module for CLI Go applications and [gh extensions][extensions] that want a convenient way to interact with [gh][], and the GitHub API using [gh][] environment configuration.
+Modules from this library will obey GitHub CLI conventions by default:
 
-`go-gh` supports multiple ways of getting access to `gh` functionality:
-
-* Helpers that automatically read a `gh` config to authenticate themselves
-* `gh.Exec` shells out to a `gh` install on your machine
-
-If you'd like to use `go-gh` on systems without `gh` installed and configured, you can provide custom authentication details to the `go-gh` API helpers.
-
-
-## Installation
-```bash
-go get github.com/cli/go-gh
-```
+- [`CurrentRepository()`](https://pkg.go.dev/github.com/cli/go-gh#CurrentRepository) respects `GH_REPO` and reads from git remote configuration as fallback;
+- GitHub API requests will be authenticated using the same mechanism as gh, respecting `GH_TOKEN` and `GH_HOST` if present;
+- Inspecting [`term`](https://pkg.go.dev/github.com/cli/go-gh/pkg/term) capabilities is done with respect to e.g. `NO_COLOR`;
+- Generating [table-](https://pkg.go.dev/github.com/cli/go-gh/pkg/tableprinter) or [Go template](https://pkg.go.dev/github.com/cli/go-gh/pkg/template)-based output uses the same engine as gh;
+- The [`browser`](https://pkg.go.dev/github.com/cli/go-gh/pkg/browser) module activates the user's preferred web browser.
 
 ## Usage
+
+See the [go-gh full reference documentation](https://pkg.go.dev/github.com/cli/go-gh).
+
 ```golang
 package main
+
 import (
 	"fmt"
+	"log"
 	"github.com/cli/go-gh"
 )
 
 func main() {
 	// These examples assume `gh` is installed and has been authenticated
 
-	// Execute `gh issue list -R cli/cli`, and print the output.
-	args := []string{"issue", "list", "-R", "cli/cli"}
-	stdOut, _, err := gh.Exec(args...)
+	// Shell out to a gh command and read its output
+	issueList, _, err := gh.Exec("issue", "list", "--repo", "cli/cli", "--limit", "5")
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
-	fmt.Println(stdOut.String())
+	fmt.Println(issueList.String())
 	
 	// Use an API helper to grab repository tags
 	client, err := gh.RESTClient(nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
-	response := []struct{ Name string }{}
+	response := []struct{
+		Name string
+	}{}
 	err = client.Get("repos/cli/cli/tags", &response)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	fmt.Println(response)
 }
 ```
 
-See [examples][examples] for more use cases.
-
-## Reference Documentation
-
-Full reference docs can be found on [pkg.go.dev](https://pkg.go.dev/github.com/cli/go-gh).
+See [examples][] for more demonstrations of usage.
 
 ## Contributing
 
-If anything feels off, or if you feel that some functionality is missing, please check out the [contributing page][contributing]. There you will find instructions for sharing your feedback, and submitting pull requests to the project.
+If anything feels off, or if you feel that some functionality is missing, please check out our [contributing docs][contributing]. There you will find instructions for sharing your feedback and for submitting pull requests to the project. Thank you!
 
-[extensions]: https://github.com/topics/gh-extension
-[gh]: https://github.com/cli/cli
+
+[extensions]: https://docs.github.com/en/github-cli/github-cli/creating-github-cli-extensions
 [examples]: ./example_gh_test.go
 [contributing]: ./.github/CONTRIBUTING.md
