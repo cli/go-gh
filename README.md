@@ -4,10 +4,14 @@
 
 Modules from this library will obey GitHub CLI conventions by default:
 
-- [`CurrentRepository()`](https://pkg.go.dev/github.com/cli/go-gh#CurrentRepository) respects the value of the `GH_REPO` environment variable if set, and reads from git remote configuration as fallback;
-- GitHub API requests will be authenticated using the same mechanism as `gh`, respecting the value of the `GH_TOKEN` and `GH_HOST` environment variables if present;
-- Inspecting [`term`](https://pkg.go.dev/github.com/cli/go-gh/pkg/term) capabilities is done with respect to e.g. `NO_COLOR`;
-- Generating [table](https://pkg.go.dev/github.com/cli/go-gh/pkg/tableprinter) or [Go template](https://pkg.go.dev/github.com/cli/go-gh/pkg/template) based output uses the same engine as gh;
+- [`CurrentRepository()`](https://pkg.go.dev/github.com/cli/go-gh#CurrentRepository) respects the value of the `GH_REPO` environment variable if set, and reads from git remote configuration as fallback.
+
+- GitHub API requests will be authenticated using the same mechanism as `gh`, i.e. respecting the values `GH_TOKEN` and `GH_HOST` environment variables if set and falling back to the user's stored OAuth token.
+
+- [Terminal capabilities](https://pkg.go.dev/github.com/cli/go-gh/pkg/term) are determined by taking environment variables `GH_FORCE_TTY`, `NO_COLOR`, `CLICOLOR`, etc. into account.
+
+- Generating [table](https://pkg.go.dev/github.com/cli/go-gh/pkg/tableprinter) or [Go template](https://pkg.go.dev/github.com/cli/go-gh/pkg/template) output uses the same engine as gh.
+
 - The [`browser`](https://pkg.go.dev/github.com/cli/go-gh/pkg/browser) module activates the user's preferred web browser.
 
 ## Usage
