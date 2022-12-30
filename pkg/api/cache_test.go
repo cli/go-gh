@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,8 +31,8 @@ func TestCacheResponse(t *testing.T) {
 
 	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
 
-	httpClient := NewHTTPClient(
-		&api.ClientOptions{
+	httpClient, _ := NewHTTPClient(
+		ClientOptions{
 			Transport:    fakeHTTP,
 			EnableCache:  true,
 			CacheDir:     cacheDir,
@@ -113,8 +112,8 @@ func TestCacheResponseRequestCacheOptions(t *testing.T) {
 
 	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
 
-	httpClient := NewHTTPClient(
-		&api.ClientOptions{
+	httpClient, _ := NewHTTPClient(
+		ClientOptions{
 			Transport:    fakeHTTP,
 			EnableCache:  false,
 			CacheDir:     cacheDir,

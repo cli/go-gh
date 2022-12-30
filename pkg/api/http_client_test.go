@@ -5,11 +5,32 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
-	"github.com/cli/go-gh/pkg/api"
+	"github.com/cli/go-gh/pkg/config"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/h2non/gock.v1"
 )
+
+func TestHTTPClient(t *testing.T) {
+	stubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Get("/some/test/path").
+		MatchHeader("Authorization", "token abc123").
+		Reply(200).
+		JSON(`{"message": "success"}`)
+
+	client, err := DefaultHTTPClient()
+	assert.NoError(t, err)
+
+	res, err := client.Get("https://api.github.com/some/test/path")
+	assert.NoError(t, err)
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+	assert.Equal(t, 200, res.StatusCode)
+}
 
 func TestNewHTTPClient(t *testing.T) {
 	reflectHTTP := tripper{
@@ -114,7 +135,7 @@ func TestNewHTTPClient(t *testing.T) {
 			if tt.host == "" {
 				tt.host = "test.com"
 			}
-			opts := api.ClientOptions{
+			opts := ClientOptions{
 				Host:               tt.host,
 				AuthToken:          "oauth_token",
 				Headers:            tt.headers,
@@ -125,7 +146,7 @@ func TestNewHTTPClient(t *testing.T) {
 			if tt.enableLog {
 				opts.Log = tt.log
 			}
-			client := NewHTTPClient(&opts)
+			client, _ := NewHTTPClient(opts)
 			res, err := client.Get("https://test.com")
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHeaders, res.Header)
@@ -221,4 +242,23 @@ func defaultHeaders() http.Header {
 	h.Set(timeZone, currentTimeZone())
 	h.Set(accept, a)
 	return h
+}
+
+func stubConfig(t *testing.T, cfgStr string) {
+	t.Helper()
+	old := config.Read
+	config.Read = func() (*config.Config, error) {
+		return config.ReadFromString(cfgStr), nil
+	}
+	t.Cleanup(func() {
+		config.Read = old
+	})
+}
+
+func printPendingMocks(mocks []gock.Mock) string {
+	paths := []string{}
+	for _, mock := range mocks {
+		paths = append(paths, mock.Request().URLStruct.String())
+	}
+	return fmt.Sprintf("%d unmatched mocks: %s", len(paths), strings.Join(paths, ", "))
 }

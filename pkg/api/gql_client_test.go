@@ -2,12 +2,55 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
 )
+
+func TestGQLClient(t *testing.T) {
+	stubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		BodyString(`{"query":"QUERY","variables":{"var":"test"}}`).
+		Reply(200).
+		JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
+
+	client, err := DefaultGQLClient()
+	assert.NoError(t, err)
+
+	vars := map[string]interface{}{"var": "test"}
+	res := struct{ Viewer struct{ Login string } }{}
+	err = client.Do("QUERY", vars, &res)
+	assert.NoError(t, err)
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+	assert.Equal(t, "hubot", res.Viewer.Login)
+}
+
+func TestGQLClientError(t *testing.T) {
+	stubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		BodyString(`{"query":"QUERY","variables":null}`).
+		Reply(200).
+		JSON(`{"errors":[{"type":"NOT_FOUND","path":["organization"],"message":"Could not resolve to an Organization with the login of 'cli'."}]}`)
+
+	client, err := DefaultGQLClient()
+	assert.NoError(t, err)
+
+	res := struct{ Organization struct{ Name string } }{}
+	err = client.Do("QUERY", nil, &res)
+	assert.EqualError(t, err, "GraphQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
 
 func TestGQLClientDo(t *testing.T) {
 	tests := []struct {
@@ -100,7 +143,11 @@ func TestGQLClientDo(t *testing.T) {
 			if tt.httpMocks != nil {
 				tt.httpMocks()
 			}
-			client := NewGQLClient(tt.host, nil)
+			client, _ := NewGQLClient(ClientOptions{
+				Host:      tt.host,
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			})
 			vars := map[string]interface{}{"var": "test"}
 			res := struct{ Viewer struct{ Login string } }{}
 			err := client.Do("QUERY", vars, &res)
@@ -153,7 +200,12 @@ func TestGQLClientDoWithContext(t *testing.T) {
 				Reply(200).
 				JSON(`{}`)
 
-			client := NewGQLClient("github.com", nil)
+			client, _ := NewGQLClient(ClientOptions{
+				Host:      "github.com",
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			})
+
 			vars := map[string]interface{}{"var": "test"}
 			res := struct{ Viewer struct{ Login string } }{}
 

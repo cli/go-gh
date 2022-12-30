@@ -6,15 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 )
-
-const (
-	contentType = "Content-Type"
-)
-
-var jsonTypeRE = regexp.MustCompile(`[/+]json($|;)`)
 
 // HTTPError represents an error response from the GitHub API.
 type HTTPError struct {
@@ -28,14 +21,14 @@ type HTTPError struct {
 // HTTPErrorItem stores additional information about an error response
 // returned from the GitHub API.
 type HTTPErrorItem struct {
+	Code     string
+	Field    string
 	Message  string
 	Resource string
-	Field    string
-	Code     string
 }
 
 // Allow HTTPError to satisfy error interface.
-func (err HTTPError) Error() string {
+func (err *HTTPError) Error() string {
 	if msgs := strings.SplitN(err.Message, "\n", 2); len(msgs) > 1 {
 		return fmt.Sprintf("HTTP %d: %s (%s)\n%s", err.StatusCode, msgs[0], err.RequestURL, msgs[1])
 	} else if err.Message != "" {
@@ -58,7 +51,7 @@ type GQLErrorItem struct {
 }
 
 // Allow GQLError to satisfy error interface.
-func (gr GQLError) Error() string {
+func (gr *GQLError) Error() string {
 	errorMessages := make([]string, 0, len(gr.Errors))
 	for _, e := range gr.Errors {
 		msg := e.Message
@@ -72,7 +65,7 @@ func (gr GQLError) Error() string {
 
 // Match determines if the GQLError is about a specific type on a specific path.
 // If the path argument ends with a ".", it will match all its subpaths.
-func (gr GQLError) Match(expectType, expectPath string) bool {
+func (gr *GQLError) Match(expectType, expectPath string) bool {
 	for _, e := range gr.Errors {
 		if e.Type != expectType || !matchPath(e.pathString(), expectPath) {
 			return false
@@ -101,7 +94,7 @@ func matchPath(p, expect string) bool {
 
 // HandleHTTPError parses a http.Response into a HTTPError.
 func HandleHTTPError(resp *http.Response) error {
-	httpError := HTTPError{
+	httpError := &HTTPError{
 		Headers:    resp.Header,
 		RequestURL: resp.Request.URL,
 		StatusCode: resp.StatusCode,
