@@ -3,16 +3,34 @@ package api
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
 )
+
+func TestRESTClient(t *testing.T) {
+	stubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Get("/some/test/path").
+		MatchHeader("Authorization", "token abc123").
+		Reply(200).
+		JSON(`{"message": "success"}`)
+
+	client, err := DefaultRESTClient()
+	assert.NoError(t, err)
+
+	res := struct{ Message string }{}
+	err = client.Do("GET", "some/test/path", nil, &res)
+	assert.NoError(t, err)
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+	assert.Equal(t, "success", res.Message)
+}
 
 func TestRESTClientRequest(t *testing.T) {
 	tests := []struct {
@@ -105,7 +123,11 @@ func TestRESTClientRequest(t *testing.T) {
 			if tt.httpMocks != nil {
 				tt.httpMocks()
 			}
-			client := NewRESTClient(tt.host, nil)
+			client, _ := NewRESTClient(ClientOptions{
+				Host:      tt.host,
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			})
 
 			resp, err := client.Request("GET", tt.path, nil)
 			if tt.wantErr {
@@ -213,7 +235,11 @@ func TestRESTClientDo(t *testing.T) {
 			if tt.httpMocks != nil {
 				tt.httpMocks()
 			}
-			client := NewRESTClient(tt.host, nil)
+			client, _ := NewRESTClient(ClientOptions{
+				Host:      tt.host,
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			})
 			res := struct{ Message string }{}
 			err := client.Do("GET", tt.path, nil, &res)
 			if tt.wantErr {
@@ -233,7 +259,11 @@ func TestRESTClientDelete(t *testing.T) {
 		Delete("/some/path/here").
 		Reply(204).
 		JSON(`{}`)
-	client := NewRESTClient("github.com", nil)
+	client, _ := NewRESTClient(ClientOptions{
+		Host:      "github.com",
+		AuthToken: "token",
+		Transport: http.DefaultTransport,
+	})
 	err := client.Delete("some/path/here", nil)
 	assert.NoError(t, err)
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
@@ -245,7 +275,11 @@ func TestRESTClientGet(t *testing.T) {
 		Get("/some/path/here").
 		Reply(204).
 		JSON(`{}`)
-	client := NewRESTClient("github.com", nil)
+	client, _ := NewRESTClient(ClientOptions{
+		Host:      "github.com",
+		AuthToken: "token",
+		Transport: http.DefaultTransport,
+	})
 	err := client.Get("some/path/here", nil)
 	assert.NoError(t, err)
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
@@ -258,7 +292,11 @@ func TestRESTClientPatch(t *testing.T) {
 		BodyString(`{}`).
 		Reply(204).
 		JSON(`{}`)
-	client := NewRESTClient("github.com", nil)
+	client, _ := NewRESTClient(ClientOptions{
+		Host:      "github.com",
+		AuthToken: "token",
+		Transport: http.DefaultTransport,
+	})
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Patch("some/path/here", r, nil)
 	assert.NoError(t, err)
@@ -272,7 +310,11 @@ func TestRESTClientPost(t *testing.T) {
 		BodyString(`{}`).
 		Reply(204).
 		JSON(`{}`)
-	client := NewRESTClient("github.com", nil)
+	client, _ := NewRESTClient(ClientOptions{
+		Host:      "github.com",
+		AuthToken: "token",
+		Transport: http.DefaultTransport,
+	})
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Post("some/path/here", r, nil)
 	assert.NoError(t, err)
@@ -286,7 +328,11 @@ func TestRESTClientPut(t *testing.T) {
 		BodyString(`{}`).
 		Reply(204).
 		JSON(`{}`)
-	client := NewRESTClient("github.com", nil)
+	client, _ := NewRESTClient(ClientOptions{
+		Host:      "github.com",
+		AuthToken: "token",
+		Transport: http.DefaultTransport,
+	})
 	r := bytes.NewReader([]byte(`{}`))
 	err := client.Put("some/path/here", r, nil)
 	assert.NoError(t, err)
@@ -330,7 +376,11 @@ func TestRESTClientDoWithContext(t *testing.T) {
 				Reply(204).
 				JSON(`{}`)
 
-			client := NewRESTClient("github.com", nil)
+			client, _ := NewRESTClient(ClientOptions{
+				Host:      "github.com",
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			})
 			res := struct{ Message string }{}
 
 			// when
@@ -381,7 +431,11 @@ func TestRESTClientRequestWithContext(t *testing.T) {
 				Reply(204).
 				JSON(`{}`)
 
-			client := NewRESTClient("github.com", nil)
+			client, _ := NewRESTClient(ClientOptions{
+				Host:      "github.com",
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			})
 
 			// when
 			ctx := tt.getCtx()
@@ -428,12 +482,4 @@ func TestRestPrefix(t *testing.T) {
 			assert.Equal(t, tt.wantEndpoint, endpoint)
 		})
 	}
-}
-
-func printPendingMocks(mocks []gock.Mock) string {
-	paths := []string{}
-	for _, mock := range mocks {
-		paths = append(paths, mock.Request().URLStruct.String())
-	}
-	return fmt.Sprintf("%d unmatched mocks: %s", len(paths), strings.Join(paths, ", "))
 }

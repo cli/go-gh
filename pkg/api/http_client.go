@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cli/go-gh/pkg/api"
 	"github.com/cli/go-gh/pkg/term"
 	"github.com/henvic/httpretty"
 	"github.com/thlib/go-timezone-local/tzlocal"
@@ -31,9 +30,26 @@ const (
 
 var jsonTypeRE = regexp.MustCompile(`[/+]json($|;)`)
 
-func NewHTTPClient(opts *api.ClientOptions) http.Client {
-	if opts == nil {
-		opts = &api.ClientOptions{}
+func DefaultHTTPClient() (*http.Client, error) {
+	return NewHTTPClient(ClientOptions{})
+}
+
+// HTTPClient builds a client that can be passed to another library.
+// As part of the configuration a hostname, auth token, default set of headers,
+// and unix domain socket are resolved from the gh environment configuration.
+// These behaviors can be overridden using the opts argument. In this instance
+// providing opts.Host will not change the destination of your request as it is
+// the responsibility of the consumer to configure this. However, if opts.Host
+// does not match the request host, the auth token will not be added to the headers.
+// This is to protect against the case where tokens could be sent to an arbitrary
+// host.
+func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
+	if optionsNeedResolution(opts) {
+		var err error
+		opts, err = resolveOptions(opts)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	transport := http.DefaultTransport
@@ -94,7 +110,7 @@ func NewHTTPClient(opts *api.ClientOptions) http.Client {
 	}
 	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
 
-	return http.Client{Transport: transport, Timeout: opts.Timeout}
+	return &http.Client{Transport: transport, Timeout: opts.Timeout}, nil
 }
 
 func inspectableMIMEType(t string) bool {

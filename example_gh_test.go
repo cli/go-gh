@@ -12,6 +12,7 @@ import (
 
 	gh "github.com/cli/go-gh"
 	"github.com/cli/go-gh/pkg/api"
+	"github.com/cli/go-gh/pkg/repository"
 	"github.com/cli/go-gh/pkg/tableprinter"
 	"github.com/cli/go-gh/pkg/term"
 	graphql "github.com/cli/shurcooL-graphql"
@@ -29,8 +30,8 @@ func ExampleExec() {
 }
 
 // Get tags from cli/cli repository using REST API.
-func ExampleRESTClient_simple() {
-	client, err := gh.RESTClient(nil)
+func ExampleDefaultRESTClient() {
+	client, err := api.DefaultRESTClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,14 +45,14 @@ func ExampleRESTClient_simple() {
 
 // Get tags from cli/cli repository using REST API.
 // Specifying host, auth token, headers and logging to stdout.
-func ExampleRESTClient_advanced() {
+func ExampleRESTClient() {
 	opts := api.ClientOptions{
 		Host:      "github.com",
 		AuthToken: "xxxxxxxxxx", // Replace with valid auth token.
 		Headers:   map[string]string{"Time-Zone": "America/Los_Angeles"},
 		Log:       os.Stdout,
 	}
-	client, err := gh.RESTClient(&opts)
+	client, err := api.NewRESTClient(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,7 +69,7 @@ func ExampleRESTClient_request() {
 	opts := api.ClientOptions{
 		Headers: map[string]string{"Accept": "application/octet-stream"},
 	}
-	client, err := gh.RESTClient(&opts)
+	client, err := api.NewRESTClient(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -133,8 +134,8 @@ func ExampleRESTClient_pagination() {
 }
 
 // Query tags from cli/cli repository using GQL API.
-func ExampleGQLClient_simple() {
-	client, err := gh.GQLClient(nil)
+func ExampleDefaultGQLClient() {
+	client, err := api.DefaultGQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -162,12 +163,12 @@ func ExampleGQLClient_simple() {
 
 // Query tags from cli/cli repository using GQL API.
 // Enable caching and request timeout.
-func ExampleGQLClient_advanced() {
+func ExampleGQLClient() {
 	opts := api.ClientOptions{
 		EnableCache: true,
 		Timeout:     5 * time.Second,
 	}
-	client, err := gh.GQLClient(&opts)
+	client, err := api.NewGQLClient(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -269,11 +270,11 @@ func ExampleGQLClient_pagination() {
 
 // Get repository for the current directory.
 func ExampleCurrentRepository() {
-	repo, err := gh.CurrentRepository()
+	repo, err := repository.CurrentRepository()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("%s/%s/%s\n", repo.Host(), repo.Owner(), repo.Name())
+	fmt.Printf("%s/%s/%s\n", repo.Host, repo.Owner, repo.Name)
 }
 
 // Print tabular data to a terminal or in machine-readable format for scripts.
