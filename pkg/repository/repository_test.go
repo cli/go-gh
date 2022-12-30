@@ -91,9 +91,9 @@ func TestParse(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantHost, r.Host())
-			assert.Equal(t, tt.wantOwner, r.Owner())
-			assert.Equal(t, tt.wantName, r.Name())
+			assert.Equal(t, tt.wantHost, r.Host)
+			assert.Equal(t, tt.wantOwner, r.Owner)
+			assert.Equal(t, tt.wantName, r.Name)
 		})
 	}
 }
@@ -109,9 +109,9 @@ hosts:
 	stubConfig(t, cfgStr)
 	r, err := Parse("OWNER/REPO")
 	assert.NoError(t, err)
-	assert.Equal(t, "enterprise.com", r.Host())
-	assert.Equal(t, "OWNER", r.Owner())
-	assert.Equal(t, "REPO", r.Name())
+	assert.Equal(t, "enterprise.com", r.Host)
+	assert.Equal(t, "OWNER", r.Owner)
+	assert.Equal(t, "REPO", r.Name)
 }
 
 func TestParseWithHost(t *testing.T) {
@@ -183,9 +183,9 @@ func TestParseWithHost(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantHost, r.Host())
-			assert.Equal(t, tt.wantOwner, r.Owner())
-			assert.Equal(t, tt.wantName, r.Name())
+			assert.Equal(t, tt.wantHost, r.Host)
+			assert.Equal(t, tt.wantOwner, r.Owner)
+			assert.Equal(t, tt.wantName, r.Name)
 		})
 	}
 }
