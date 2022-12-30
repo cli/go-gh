@@ -134,42 +134,6 @@ func HTTPClient(opts *api.ClientOptions) (*http.Client, error) {
 	return &client, nil
 }
 
-// CurrentRepository uses git remotes to determine the GitHub repository
-// the current directory is tracking.
-func CurrentRepository() (repo.Repository, error) {
-	override := os.Getenv("GH_REPO")
-	if override != "" {
-		return repo.Parse(override)
-	}
-
-	remotes, err := git.Remotes()
-	if err != nil {
-		return nil, err
-	}
-	if len(remotes) == 0 {
-		return nil, errors.New("unable to determine current repository, no git remotes configured for this repository")
-	}
-
-	translator := ssh.NewTranslator()
-	for _, r := range remotes {
-		if r.FetchURL != nil {
-			r.FetchURL = translator.Translate(r.FetchURL)
-		}
-		if r.PushURL != nil {
-			r.PushURL = translator.Translate(r.PushURL)
-		}
-	}
-
-	hosts := auth.KnownHosts()
-
-	filteredRemotes := remotes.FilterByHosts(hosts)
-	if len(filteredRemotes) == 0 {
-		return nil, errors.New("unable to determine current repository, none of the git remotes configured for this repository point to a known GitHub host")
-	}
-
-	r := filteredRemotes[0]
-	return irepo.New(r.Host, r.Owner, r.Repo), nil
-}
 
 func optionsNeedResolution(opts *api.ClientOptions) bool {
 	if opts.Host == "" {
