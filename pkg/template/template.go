@@ -33,8 +33,8 @@ type Template struct {
 }
 
 // New initializes a Template.
-func New(w io.Writer, width int, colorEnabled bool) Template {
-	return Template{
+func New(w io.Writer, width int, colorEnabled bool) *Template {
+	return &Template{
 		colorEnabled: colorEnabled,
 		output:       w,
 		tp:           tableprinter.New(w, true, width),
