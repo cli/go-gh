@@ -7,37 +7,62 @@ package gh
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"os"
 	"os/exec"
 
 	"github.com/cli/safeexec"
 )
 
-// Exec gh command with provided arguments.
-func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
-	path, err := path()
+// Exec invokes a gh command in a subprocess and captures the output and error streams.
+func Exec(args ...string) (stdout, stderr bytes.Buffer, err error) {
+	ghExe, err := ghLookPath()
 	if err != nil {
-		err = fmt.Errorf("could not find gh executable in PATH. error: %w", err)
 		return
 	}
-	return run(path, nil, args...)
+	err = run(context.Background(), ghExe, nil, nil, &stdout, &stderr, args)
+	return
 }
 
-func path() (string, error) {
+// ExecContext invokes a gh command in a subprocess and captures the output and error streams.
+func ExecContext(ctx context.Context, args ...string) (stdout, stderr bytes.Buffer, err error) {
+	ghExe, err := ghLookPath()
+	if err != nil {
+		return
+	}
+	err = run(ctx, ghExe, nil, nil, &stdout, &stderr, args)
+	return
+}
+
+// Exec invokes a gh command in a subprocess with its stdin, stdout, and stderr streams connected to
+// those of the parent process. This is suitable for running gh commands with interactive prompts.
+func ExecInteractive(ctx context.Context, args ...string) error {
+	ghExe, err := ghLookPath()
+	if err != nil {
+		return err
+	}
+	return run(ctx, ghExe, nil, os.Stdin, os.Stdout, os.Stderr, args)
+}
+
+func ghLookPath() (string, error) {
+	if ghExe := os.Getenv("GH_PATH"); ghExe != "" {
+		return ghExe, nil
+	}
 	return safeexec.LookPath("gh")
 }
 
-func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer, err error) {
-	cmd := exec.Command(path, args...)
-	cmd.Stdout = &stdOut
-	cmd.Stderr = &stdErr
+func run(ctx context.Context, ghExe string, env []string, stdin io.Reader, stdout, stderr io.Writer, args []string) error {
+	cmd := exec.CommandContext(ctx, ghExe, args...)
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	if env != nil {
 		cmd.Env = env
 	}
-	err = cmd.Run()
-	if err != nil {
-		err = fmt.Errorf("failed to run gh: %s. error: %w", stdErr.String(), err)
-		return
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("gh execution failed: %w", err)
 	}
-	return
+	return nil
 }

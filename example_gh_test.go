@@ -103,7 +103,7 @@ func ExampleRESTClient_pagination() {
 		}
 		return "", false
 	}
-	client, err := gh.RESTClient(nil)
+	client, err := api.DefaultRESTClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -195,8 +195,8 @@ func ExampleGQLClient() {
 }
 
 // Add a star to the cli/go-gh repository using the GQL API.
-func ExampleGQLClient_mutate_simple() {
-	client, err := gh.GQLClient(nil)
+func ExampleGQLClient_mutate() {
+	client, err := api.DefaultGQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func ExampleGQLClient_mutate_simple() {
 
 // Query releases from cli/cli repository using GQL API with paginated results.
 func ExampleGQLClient_pagination() {
-	client, err := gh.GQLClient(nil)
+	client, err := api.DefaultGQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
