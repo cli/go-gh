@@ -172,7 +172,6 @@ func ExampleGQLClient_Mutate_simple() {
 				} `graphql:"... on Repository"`
 				Gist struct {
 					StargazerCount int
-					Url            string
 				} `graphql:"... on Gist"`
 			}
 		} `graphql:"addStar(input: $input)"`
