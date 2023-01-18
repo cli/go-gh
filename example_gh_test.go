@@ -179,8 +179,7 @@ func ExampleGQLClient_Mutate_simple() {
 	}
 	variables := map[string]interface{}{
 		"input": githubv4.AddStarInput{
-			ClientMutationID: githubv4.NewString("addStar"),
-			StarrableID:      "R_kgDOF_MgQQ",
+			StarrableID: githubv4.NewString("R_kgDOF_MgQQ"),
 		},
 		"first": graphql.Int(10),
 	}
