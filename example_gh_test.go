@@ -164,11 +164,7 @@ func ExampleGQLClient_Mutate_simple() {
 		AddStar struct {
 			Starrable struct {
 				Repository struct {
-					Stargazers struct {
-						Nodes []struct {
-							Login string
-						}
-					} `graphql:"stargazers(first: $first)"`
+					StargazerCount int
 				} `graphql:"... on Repository"`
 				Gist struct {
 					StargazerCount int
@@ -180,13 +176,12 @@ func ExampleGQLClient_Mutate_simple() {
 		"input": githubv4.AddStarInput{
 			StarrableID: githubv4.NewString("R_kgDOF_MgQQ"),
 		},
-		"first": graphql.Int(10),
 	}
 	err = client.Mutate("AddStar", &m, variables)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(m.AddStar.Starrable.Repository.Stargazers.Nodes[0].Login)
+	fmt.Println(m.AddStar.Starrable.Repository.StargazerCount)
 }
 
 // Get repository for the current directory.
