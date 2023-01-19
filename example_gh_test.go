@@ -12,6 +12,7 @@ import (
 	"github.com/cli/go-gh/pkg/tableprinter"
 	"github.com/cli/go-gh/pkg/term"
 	graphql "github.com/cli/shurcooL-graphql"
+	"github.com/shurcooL/githubv4"
 )
 
 // Execute 'gh issue list -R cli/cli', and print the output.
@@ -151,6 +152,36 @@ func ExampleGQLClient_advanced() {
 		log.Fatal(err)
 	}
 	fmt.Println(query)
+}
+
+// Add a star to the cli/go-gh repository using the GQL API.
+func ExampleGQLClient_Mutate_simple() {
+	client, err := gh.GQLClient(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var m struct {
+		AddStar struct {
+			Starrable struct {
+				Repository struct {
+					StargazerCount int
+				} `graphql:"... on Repository"`
+				Gist struct {
+					StargazerCount int
+				} `graphql:"... on Gist"`
+			}
+		} `graphql:"addStar(input: $input)"`
+	}
+	variables := map[string]interface{}{
+		"input": githubv4.AddStarInput{
+			StarrableID: githubv4.NewID("R_kgDOF_MgQQ"),
+		},
+	}
+	err = client.Mutate("AddStar", &m, variables)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(m.AddStar.Starrable.Repository.StargazerCount)
 }
 
 // Get repository for the current directory.
