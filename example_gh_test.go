@@ -174,7 +174,7 @@ func ExampleGQLClient_Mutate_simple() {
 	}
 	variables := map[string]interface{}{
 		"input": githubv4.AddStarInput{
-			StarrableID: githubv4.NewString("R_kgDOF_MgQQ"),
+			StarrableID: githubv4.NewID("R_kgDOF_MgQQ"),
 		},
 	}
 	err = client.Mutate("AddStar", &m, variables)
