@@ -47,6 +47,22 @@ func TestEvaluate(t *testing.T) {
 			wantW: "{\"login\":\"monalisa\"}\n",
 		},
 		{
+			name: "empty array",
+			args: args{
+				json: strings.NewReader(`[]`),
+				expr: `.`,
+			},
+			wantW: "[]\n",
+		},
+		{
+			name: "empty array 2",
+			args: args{
+				json: strings.NewReader(`[]`),
+				expr: `[]`,
+			},
+			wantW: "[]\n",
+		},
+		{
 			name: "complex",
 			args: args{
 				json: strings.NewReader(heredoc.Doc(`[

@@ -39,6 +39,8 @@ func Evaluate(input io.Reader, output io.Writer, expr string) error {
 		return err
 	}
 
+	enc := json.NewEncoder(output)
+
 	iter := code.Run(responseData)
 	for {
 		v, ok := iter.Next()
@@ -53,18 +55,13 @@ func Evaluate(input io.Reader, output io.Writer, expr string) error {
 			if err != nil {
 				return err
 			}
+		} else if tt, ok := v.([]interface{}); ok && tt == nil {
+			_, err = fmt.Fprint(output, "[]\n")
+			if err != nil {
+				return err
+			}
 		} else {
-			var jsonFragment []byte
-			jsonFragment, err = json.Marshal(v)
-			if err != nil {
-				return err
-			}
-			_, err = output.Write(jsonFragment)
-			if err != nil {
-				return err
-			}
-			_, err = fmt.Fprint(output, "\n")
-			if err != nil {
+			if err = enc.Encode(v); err != nil {
 				return err
 			}
 		}
