@@ -157,7 +157,7 @@ func ExampleGQLClient() {
 
 // Add a star to the cli/go-gh repository using the GQL API.
 func ExampleGQLClient_Mutate_simple() {
-	client, err := gh.GQLClient(nil)
+	client, err := api.DefaultGQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
