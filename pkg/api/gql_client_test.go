@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ func TestGQLClient(t *testing.T) {
 	assert.Equal(t, "hubot", res.Viewer.Login)
 }
 
-func TestGQLClientError(t *testing.T) {
+func TestGQLClientDoError(t *testing.T) {
 	stubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
 
@@ -48,7 +49,56 @@ func TestGQLClientError(t *testing.T) {
 
 	res := struct{ Organization struct{ Name string } }{}
 	err = client.Do("QUERY", nil, &res)
-	assert.EqualError(t, err, "GraphQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
+	var gqlErr *GQLError
+	assert.True(t, errors.As(err, &gqlErr))
+	assert.EqualError(t, gqlErr, "GraphQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestGQLClientQueryError(t *testing.T) {
+	stubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		BodyString(`{"query":"query QUERY{organization{name}}"}`).
+		Reply(200).
+		JSON(`{"errors":[{"type":"NOT_FOUND","path":["organization"],"message":"Could not resolve to an Organization with the login of 'cli'."}]}`)
+
+	client, err := DefaultGQLClient()
+	assert.NoError(t, err)
+
+	var res struct{ Organization struct{ Name string } }
+	err = client.Query("QUERY", &res, nil)
+	var gqlErr *GQLError
+	assert.True(t, errors.As(err, &gqlErr))
+	assert.EqualError(t, gqlErr, "GraphQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestGQLClientMutateError(t *testing.T) {
+	stubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		BodyString(`{"query":"mutation MUTATE($input:ID!){updateRepository{repository{name}}}","variables":{"input":"variables"}}`).
+		Reply(200).
+		JSON(`{"errors":[{"type":"NOT_FOUND","path":["organization"],"message":"Could not resolve to an Organization with the login of 'cli'."}]}`)
+
+	client, err := DefaultGQLClient()
+	assert.NoError(t, err)
+
+	var mutation struct {
+		UpdateRepository struct{ Repository struct{ Name string } }
+	}
+	variables := map[string]interface{}{"input": "variables"}
+	err = client.Mutate("MUTATE", &mutation, variables)
+	var gqlErr *GQLError
+	assert.True(t, errors.As(err, &gqlErr))
+	assert.EqualError(t, gqlErr, "GraphQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
@@ -192,7 +242,6 @@ func TestGQLClientDoWithContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// given
 			t.Cleanup(gock.Off)
 			gock.New("https://api.github.com").
 				Post("/graphql").
@@ -209,11 +258,9 @@ func TestGQLClientDoWithContext(t *testing.T) {
 			vars := map[string]interface{}{"var": "test"}
 			res := struct{ Viewer struct{ Login string } }{}
 
-			// when
 			ctx := tt.getCtx()
 			gotErr := client.DoWithContext(ctx, "QUERY", vars, &res)
 
-			// then
 			assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 			assert.EqualError(t, gotErr, tt.wantErrMsg)
 		})

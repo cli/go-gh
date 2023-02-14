@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -109,7 +110,22 @@ func (c *GQLClient) Do(query string, variables map[string]interface{}, response 
 // to the GitHub GraphQL schema.
 // Provided input will be set as a variable named input.
 func (c *GQLClient) MutateWithContext(ctx context.Context, name string, m interface{}, variables map[string]interface{}) error {
-	return c.client.MutateNamed(ctx, name, m, variables)
+	err := c.client.MutateNamed(ctx, name, m, variables)
+	var gqlErrs graphql.Errors
+	if err != nil && errors.As(err, &gqlErrs) {
+		items := make([]GQLErrorItem, len(gqlErrs))
+		for i, e := range gqlErrs {
+			items[i] = GQLErrorItem{
+				Message:    e.Message,
+				Locations:  e.Locations,
+				Path:       e.Path,
+				Extensions: e.Extensions,
+				Type:       e.Type,
+			}
+		}
+		err = &GQLError{items}
+	}
+	return err
 }
 
 // Mutate wraps MutateWithContext using context.Background.
@@ -123,7 +139,22 @@ func (c *GQLClient) Mutate(name string, m interface{}, variables map[string]inte
 // The query argument should be a pointer to struct that corresponds
 // to the GitHub GraphQL schema.
 func (c *GQLClient) QueryWithContext(ctx context.Context, name string, q interface{}, variables map[string]interface{}) error {
-	return c.client.QueryNamed(ctx, name, q, variables)
+	err := c.client.QueryNamed(ctx, name, q, variables)
+	var gqlErrs graphql.Errors
+	if err != nil && errors.As(err, &gqlErrs) {
+		items := make([]GQLErrorItem, len(gqlErrs))
+		for i, e := range gqlErrs {
+			items[i] = GQLErrorItem{
+				Message:    e.Message,
+				Locations:  e.Locations,
+				Path:       e.Path,
+				Extensions: e.Extensions,
+				Type:       e.Type,
+			}
+		}
+		err = &GQLError{items}
+	}
+	return err
 }
 
 // Query wraps QueryWithContext using context.Background.
