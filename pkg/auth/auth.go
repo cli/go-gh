@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cli/go-gh/internal/set"
 	"github.com/cli/go-gh/pkg/config"
 )
 
@@ -76,20 +75,29 @@ func KnownHosts() []string {
 }
 
 func knownHosts(cfg *config.Config) []string {
-	hosts := set.NewStringSet()
-	if host := os.Getenv(ghHost); host != "" {
-		hosts.Add(host)
-	}
-	if token, _ := tokenForHost(cfg, github); token != "" {
-		hosts.Add(github)
-	}
-	if cfg != nil {
-		keys, err := cfg.Keys([]string{hostsKey})
-		if err == nil {
-			hosts.AddValues(keys)
+	var hosts []string
+	hostIndex := map[string]struct{}{}
+	add := func(h string) {
+		h = strings.ToLower(h)
+		if _, found := hostIndex[h]; !found {
+			hosts = append(hosts, h)
+			hostIndex[h] = struct{}{}
 		}
 	}
-	return hosts.ToSlice()
+
+	if host := os.Getenv(ghHost); host != "" {
+		add(host)
+	}
+	if token, _ := tokenForHost(cfg, github); token != "" {
+		add(github)
+	}
+	if cfg != nil {
+		keys, _ := cfg.Keys([]string{hostsKey})
+		for _, k := range keys {
+			add(k)
+		}
+	}
+	return hosts
 }
 
 // DefaultHost retrieves an authenticated host and the source of host.

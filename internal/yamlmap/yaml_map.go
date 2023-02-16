@@ -4,6 +4,7 @@ package yamlmap
 
 import (
 	"errors"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -75,7 +76,7 @@ func (m *Map) FindEntry(key string) (*Map, error) {
 		if i%2 != 0 {
 			continue
 		}
-		if v.Value == key {
+		if strings.EqualFold(v.Value, key) {
 			if i+1 < len(m.Content) {
 				return &Map{m.Content[i+1]}, nil
 			}
