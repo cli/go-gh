@@ -16,8 +16,8 @@ require (
 	github.com/muesli/termenv v0.12.0
 	github.com/stretchr/testify v1.7.0
 	github.com/thlib/go-timezone-local v0.0.0-20210907160436-ef149e42d28e
-	golang.org/x/sys v0.4.0
-	golang.org/x/term v0.4.0
+	golang.org/x/sys v0.5.0
+	golang.org/x/term v0.5.0
 	gopkg.in/h2non/gock.v1 v1.1.2
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -41,6 +41,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/yuin/goldmark v1.4.4 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
-	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )
