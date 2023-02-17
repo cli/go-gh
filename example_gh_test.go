@@ -108,26 +108,26 @@ func ExampleRESTClient_pagination() {
 	}
 	requestPath := "repos/cli/cli/releases"
 	page := 1
-	hasNextPage := true
-	for hasNextPage {
+	for {
 		response, err := client.Request(http.MethodGet, requestPath, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
-		body, err := io.ReadAll(response.Body)
+		data := []struct{ Name string }{}
+		decoder := json.NewDecoder(response.Body)
+		err = decoder.Decode(&data)
 		if err != nil {
 			log.Fatal(err)
 		}
 		if err := response.Body.Close(); err != nil {
 			log.Fatal(err)
 		}
-		data := []struct{ Name string }{}
-		if err := json.Unmarshal(body, &data); err != nil {
-			log.Fatal(err)
-		}
 		fmt.Printf("Page: %d\n", page)
 		fmt.Println(data)
-		requestPath, hasNextPage = findNextPage(response)
+		var hasNextPage bool
+		if requestPath, hasNextPage = findNextPage(response); !hasNextPage {
+			break
+		}
 		page++
 	}
 }
@@ -211,6 +211,8 @@ func ExampleGQLClient_mutate_simple() {
 			}
 		} `graphql:"addStar(input: $input)"`
 	}
+	// Note that the shurcooL/githubv4 package has defined input structs generated from the
+	// GraphQL schema that can be used instead of writing your own.
 	type AddStarInput struct {
 		StarrableID string `json:"starrableId"`
 	}
