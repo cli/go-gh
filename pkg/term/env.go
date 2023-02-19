@@ -16,7 +16,7 @@ import (
 type Term struct {
 	in           *os.File
 	out          *os.File
-	err          *os.File
+	errOut       *os.File
 	isTTY        bool
 	colorEnabled bool
 	is256enabled bool
@@ -65,7 +65,7 @@ func FromEnv() Term {
 	return Term{
 		in:           os.Stdin,
 		out:          os.Stdout,
-		err:          os.Stderr,
+		errOut:       os.Stderr,
 		isTTY:        stdoutIsTTY,
 		colorEnabled: isColorEnabled,
 		is256enabled: isVirtualTerminal || is256ColorSupported(),
@@ -85,9 +85,9 @@ func (t Term) Out() io.Writer {
 	return t.out
 }
 
-// Err is the writer writing to standard error.
-func (t Term) Err() io.Writer {
-	return t.err
+// ErrOut is the writer writing to standard error.
+func (t Term) ErrOut() io.Writer {
+	return t.errOut
 }
 
 // IsTerminalOutput returns true if standard output is connected to a terminal.
