@@ -14,7 +14,9 @@ import (
 
 // Term represents information about the terminal that a process is connected to.
 type Term struct {
+	in           *os.File
 	out          *os.File
+	errOut       *os.File
 	isTTY        bool
 	colorEnabled bool
 	is256enabled bool
@@ -61,7 +63,9 @@ func FromEnv() Term {
 	}
 
 	return Term{
+		in:           os.Stdin,
 		out:          os.Stdout,
+		errOut:       os.Stderr,
 		isTTY:        stdoutIsTTY,
 		colorEnabled: isColorEnabled,
 		is256enabled: isVirtualTerminal || is256ColorSupported(),
@@ -71,9 +75,19 @@ func FromEnv() Term {
 	}
 }
 
+// In is the reader reading from standard input.
+func (t Term) In() io.Reader {
+	return t.in
+}
+
 // Out is the writer writing to standard output.
 func (t Term) Out() io.Writer {
 	return t.out
+}
+
+// ErrOut is the writer writing to standard error.
+func (t Term) ErrOut() io.Writer {
+	return t.errOut
 }
 
 // IsTerminalOutput returns true if standard output is connected to a terminal.
