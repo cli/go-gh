@@ -4,11 +4,13 @@ package auth
 
 import (
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
 	"github.com/cli/go-gh/internal/set"
 	"github.com/cli/go-gh/pkg/config"
+	"github.com/cli/safeexec"
 )
 
 const (
@@ -25,11 +27,30 @@ const (
 	oauthToken            = "oauth_token"
 )
 
-// TokenForHost retrieves an authentication token and the source of
-// that token for the specified host. The source can be either an
-// environment variable or from the configuration file.
+// TokenForHost retrieves an authentication token and the source of that token for the specified
+// host. The source can be either an environment variable, configuration file, or the system
+// keyring. In the latter case, this shells out to "gh config get" to obtain the token.
+//
 // Returns "", "default" if no applicable token is found.
 func TokenForHost(host string) (string, string) {
+	if token, source := TokenFromEnvOrConfig(host); token != "" {
+		return token, source
+	}
+
+	if ghExe, err := safeexec.LookPath("gh"); err == nil {
+		c := exec.Command(ghExe, "config", "get", "oauth_token", "--host", host)
+		if result, err := c.Output(); err == nil {
+			return strings.TrimSpace(string(result)), "gh"
+		}
+	}
+
+	return "", defaultSource
+}
+
+// TokenFromEnvOrConfig retrieves an authentication token from environment variables or the config
+// file as fallback, but does not support reading the token from system keyring. Most consumers
+// should use TokenForHost.
+func TokenFromEnvOrConfig(host string) (string, string) {
 	cfg, _ := config.Read()
 	return tokenForHost(cfg, host)
 }
