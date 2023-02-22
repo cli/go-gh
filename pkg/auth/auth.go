@@ -29,7 +29,7 @@ const (
 
 // TokenForHost retrieves an authentication token and the source of that token for the specified
 // host. The source can be either an environment variable, configuration file, or the system
-// keyring. In the latter case, this shells out to "gh config get" to obtain the token.
+// keyring. In the latter case, this shells out to "gh auth token" to obtain the token.
 //
 // Returns "", "default" if no applicable token is found.
 func TokenForHost(host string) (string, string) {
@@ -38,9 +38,8 @@ func TokenForHost(host string) (string, string) {
 	}
 
 	if ghExe, err := safeexec.LookPath("gh"); err == nil {
-		c := exec.Command(ghExe, "config", "get", "oauth_token", "--host", host)
-		if result, err := c.Output(); err == nil {
-			return strings.TrimSpace(string(result)), "gh"
+		if token, source := tokenFromGh(ghExe, host); token != "" {
+			return token, source
 		}
 	}
 
@@ -85,6 +84,15 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 		return token, oauthToken
 	}
 	return "", defaultSource
+}
+
+func tokenFromGh(path string, host string) (string, string) {
+	cmd := exec.Command(path, "auth", "token", "--hostname", host)
+	result, err := cmd.Output()
+	if err != nil {
+		return "", "gh"
+	}
+	return strings.TrimSpace(string(result)), "gh"
 }
 
 // KnownHosts retrieves a list of hosts that have corresponding
