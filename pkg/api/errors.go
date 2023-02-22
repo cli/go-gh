@@ -45,9 +45,14 @@ type GQLError struct {
 // GQLErrorItem stores additional information about an error response
 // returned from the GitHub GraphQL API.
 type GQLErrorItem struct {
-	Message string
-	Path    []interface{}
-	Type    string
+	Message   string
+	Locations []struct {
+		Line   int
+		Column int
+	}
+	Path       []interface{}
+	Extensions map[string]interface{}
+	Type       string
 }
 
 // Allow GQLError to satisfy error interface.
