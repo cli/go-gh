@@ -87,7 +87,7 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 }
 
 func tokenFromGh(path string, host string) (string, string) {
-	cmd := exec.Command(path, "auth", "token", "--hostname", host)
+	cmd := exec.Command(path, "auth", "token", "--secure-storage", "--hostname", host)
 	result, err := cmd.Output()
 	if err != nil {
 		return "", "gh"
