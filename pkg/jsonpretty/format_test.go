@@ -35,7 +35,7 @@ func TestWrite(t *testing.T) {
 				indent:   "",
 				colorize: true,
 			},
-			wantW:   "\x1b[1;38m{\x1b[m\x1b[1;38m}\x1b[m\n",
+			wantW:   "\x1b[1;38m{\x1b[m\x1b[1;38m}\x1b[m",
 			wantErr: false,
 		},
 		{
@@ -67,7 +67,7 @@ func TestWrite(t *testing.T) {
 				indent:   "",
 				colorize: true,
 			},
-			wantW:   "\x1b[32m\"foo\"\x1b[m\n",
+			wantW:   "\x1b[32m\"foo\"\x1b[m",
 			wantErr: false,
 		},
 		{
@@ -77,8 +77,17 @@ func TestWrite(t *testing.T) {
 				indent:   "",
 				colorize: true,
 			},
-			wantW:   "\x1b[1;38m{\x1b[m\n",
+			wantW:   "\x1b[1;38m{\x1b[m",
 			wantErr: true,
+		},
+		{
+			name: "no indent",
+			args: args{
+				r:        bytes.NewBufferString(`{"hash":{"a":1,"b":2},"array":[3,4]}`),
+				indent:   "",
+				colorize: false,
+			},
+			wantW: `{"hash":{"a":1,"b":2},"array":[3,4]}`,
 		},
 	}
 	for _, tt := range tests {

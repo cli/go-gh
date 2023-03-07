@@ -19,6 +19,7 @@ const (
 )
 
 // Format reads JSON from r and writes a prettified version of it to w.
+// Pass "" to indent to skip all formatting.
 func Format(w io.Writer, r io.Reader, indent string, colorize bool) error {
 	dec := json.NewDecoder(r)
 	dec.UseNumber()
@@ -28,6 +29,13 @@ func Format(w io.Writer, r io.Reader, indent string, colorize bool) error {
 			return ""
 		}
 		return ansi
+	}
+
+	i := func(s string) string {
+		if indent == "" {
+			return ""
+		}
+		return s
 	}
 
 	var idx int
@@ -52,7 +60,7 @@ func Format(w io.Writer, r io.Reader, indent string, colorize bool) error {
 					return err
 				}
 				if dec.More() {
-					if _, err := fmt.Fprint(w, "\n", strings.Repeat(indent, len(stack))); err != nil {
+					if _, err := fmt.Fprint(w, i("\n"), strings.Repeat(indent, len(stack))); err != nil {
 						return err
 					}
 				}
@@ -102,7 +110,7 @@ func Format(w io.Writer, r io.Reader, indent string, colorize bool) error {
 			}
 
 			if isKey {
-				if _, err := fmt.Fprint(w, c(colorDelim), ":", c(colorReset), " "); err != nil {
+				if _, err := fmt.Fprint(w, c(colorDelim), ":", c(colorReset), i(" ")); err != nil {
 					return err
 				}
 				continue
@@ -110,15 +118,15 @@ func Format(w io.Writer, r io.Reader, indent string, colorize bool) error {
 		}
 
 		if dec.More() {
-			if _, err := fmt.Fprint(w, c(colorDelim), ",", c(colorReset), "\n", strings.Repeat(indent, len(stack))); err != nil {
+			if _, err := fmt.Fprint(w, c(colorDelim), ",", c(colorReset), i("\n"), strings.Repeat(indent, len(stack))); err != nil {
 				return err
 			}
 		} else if len(stack) > 0 {
-			if _, err := fmt.Fprint(w, "\n", strings.Repeat(indent, len(stack)-1)); err != nil {
+			if _, err := fmt.Fprint(w, i("\n"), strings.Repeat(indent, len(stack)-1)); err != nil {
 				return err
 			}
 		} else {
-			if _, err := fmt.Fprint(w, "\n"); err != nil {
+			if _, err := fmt.Fprint(w, i("\n")); err != nil {
 				return err
 			}
 		}
