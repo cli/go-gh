@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -85,7 +86,13 @@ func TestHelperProcess(t *testing.T) {
 		return
 	}
 	if err := func(args []string) error {
-		fmt.Fprint(os.Stdout, "hostname github.com\n")
+		if len(args) < 3 || args[2] == "error" {
+			return errors.New("fatal")
+		}
+		if args[2] == "empty.io" {
+			return nil
+		}
+		fmt.Fprintf(os.Stdout, "hostname %s\n", args[2])
 		return nil
 	}(os.Args[3:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -111,32 +118,46 @@ func TestTranslator_caching(t *testing.T) {
 		},
 	}
 
-	u1, err := url.Parse("ssh://github1.com/owner/repo.git")
-	if err != nil {
-		t.Fatalf("error parsing URL: %v", err)
+	tests := []struct {
+		input  string
+		result string
+	}{
+		{
+			input:  "ssh://github1.com/owner/repo.git",
+			result: "github1.com",
+		},
+		{
+			input:  "ssh://github2.com/owner/repo.git",
+			result: "github2.com",
+		},
+		{
+			input:  "ssh://empty.io/owner/repo.git",
+			result: "empty.io",
+		},
+		{
+			input:  "ssh://error/owner/repo.git",
+			result: "error",
+		},
 	}
-	if res := tr.Translate(u1); res.Host != "github.com" {
-		t.Errorf("expected github.com, got: %q", res.Host)
-	}
-	if res := tr.Translate(u1); res.Host != "github.com" {
-		t.Errorf("expected github.com, got: %q", res.Host)
-	}
-
-	u2, err := url.Parse("ssh://github2.com/owner/repo.git")
-	if err != nil {
-		t.Fatalf("error parsing URL: %v", err)
-	}
-	if res := tr.Translate(u2); res.Host != "github.com" {
-		t.Errorf("expected github.com, got: %q", res.Host)
-	}
-	if res := tr.Translate(u2); res.Host != "github.com" {
-		t.Errorf("expected github.com, got: %q", res.Host)
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			u, err := url.Parse(tt.input)
+			if err != nil {
+				t.Fatalf("error parsing URL: %v", err)
+			}
+			if res := tr.Translate(u); res.Host != tt.result {
+				t.Errorf("expected github.com, got: %q", res.Host)
+			}
+			if res := tr.Translate(u); res.Host != tt.result {
+				t.Errorf("expected github.com, got: %q (second call)", res.Host)
+			}
+		})
 	}
 
 	if countLookPath != 1 {
 		t.Errorf("expected lookPath to happen 1 time; actual: %d", countLookPath)
 	}
-	if countNewCommand != 2 {
-		t.Errorf("expected ssh command to shell out 2 times; actual: %d", countNewCommand)
+	if countNewCommand != len(tests) {
+		t.Errorf("expected ssh command to shell out %d times; actual: %d", len(tests), countNewCommand)
 	}
 }

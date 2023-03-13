@@ -95,7 +95,11 @@ func (t *Translator) resolve(hostname string) (string, error) {
 		}
 	}
 
-	_ = sshCmd.Wait()
+	err = sshCmd.Wait()
+	if err != nil || resolvedHost == "" {
+		// handle failures by returning the original hostname unchanged
+		resolvedHost = hostname
+	}
 
 	if t.cacheMap == nil {
 		t.cacheMap = map[string]string{}
