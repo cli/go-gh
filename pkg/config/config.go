@@ -281,18 +281,21 @@ func readFile(filename string) ([]byte, error) {
 	return data, nil
 }
 
-func writeFile(filename string, data []byte) error {
-	err := os.MkdirAll(filepath.Dir(filename), 0771)
-	if err != nil {
-		return err
+func writeFile(filename string, data []byte) (writeErr error) {
+	if writeErr = os.MkdirAll(filepath.Dir(filename), 0771); writeErr != nil {
+		return
 	}
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
+	var file *os.File
+	if file, writeErr = os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600); writeErr != nil {
+		return
 	}
-	defer file.Close()
-	_, err = file.Write(data)
-	return err
+	defer func() {
+		if err := file.Close(); writeErr == nil && err != nil {
+			writeErr = err
+		}
+	}()
+	_, writeErr = file.Write(data)
+	return
 }
 
 var defaultGeneralEntries = `
