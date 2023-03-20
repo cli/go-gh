@@ -34,6 +34,16 @@ func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
 	return run(path, nil, args...)
 }
 
+// Exec gh command interactively with provided arguments.
+func ExecInteractive(args ...string) (err error) {
+	path, err := path()
+	if err != nil {
+		err = fmt.Errorf("could not find gh executable in PATH. error: %w", err)
+		return
+	}
+	return runInteractive(path, nil, args...)
+}
+
 func path() (string, error) {
 	return safeexec.LookPath("gh")
 }
@@ -48,6 +58,22 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 	err = cmd.Run()
 	if err != nil {
 		err = fmt.Errorf("failed to run gh: %s. error: %w", stdErr.String(), err)
+		return
+	}
+	return
+}
+
+func runInteractive(path string, env []string, args ...string) (err error) {
+	cmd := exec.Command(path, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if env != nil {
+		cmd.Env = env
+	}
+	err = cmd.Run()
+	if err != nil {
+		err = fmt.Errorf("failed to run gh. error: %w", err)
 		return
 	}
 	return
