@@ -2,6 +2,7 @@
 package jq
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,11 +10,24 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/cli/go-gh/pkg/jsonpretty"
+
 	"github.com/itchyny/gojq"
 )
 
 // Evaluate a jq expression against an input and write it to an output.
+// Any top-level scalar values produced by the jq expression are written out
+// directly, as raw values and not as JSON scalars, similar to how jq --raw
+// works.
 func Evaluate(input io.Reader, output io.Writer, expr string) error {
+	return EvaluateFormatted(input, output, expr, "", false)
+}
+
+// Evaluate a jq expression against an input and write it to an output,
+// optionally with indentation and colorization.  Any top-level scalar values
+// produced by the jq expression are written out directly, as raw values and not
+// as JSON scalars, similar to how jq --raw works.
+func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent string, colorize bool) error {
 	query, err := gojq.Parse(expr)
 	if err != nil {
 		return err
@@ -39,7 +53,20 @@ func Evaluate(input io.Reader, output io.Writer, expr string) error {
 		return err
 	}
 
-	enc := json.NewEncoder(output)
+	var enc *json.Encoder
+	var buff bytes.Buffer
+	if !colorize {
+		// write straight to the output
+		// we can't use jsonpretty here because it handles indent = ""
+		// differently from json.Encoder (delimiters would be put on
+		// separate lines)
+		enc = json.NewEncoder(output)
+		enc.SetIndent("", indent)
+	} else {
+		// write to a buffer, and and then have jsonpretty format from this
+		buff = bytes.Buffer{}
+		enc = json.NewEncoder(&buff)
+	}
 
 	iter := code.Run(responseData)
 	for {
@@ -56,13 +83,19 @@ func Evaluate(input io.Reader, output io.Writer, expr string) error {
 				return err
 			}
 		} else if tt, ok := v.([]interface{}); ok && tt == nil {
-			_, err = fmt.Fprint(output, "[]\n")
-			if err != nil {
+			if err = jsonpretty.Format(output, bytes.NewBuffer([]byte("[]\n")), indent, colorize); err != nil {
 				return err
 			}
 		} else {
 			if err = enc.Encode(v); err != nil {
 				return err
+			}
+			if colorize {
+				// the encoder has writter to buff, now format it
+				if err = jsonpretty.Format(output, &buff, indent, true); err != nil {
+					return err
+				}
+				buff.Reset()
 			}
 		}
 	}
