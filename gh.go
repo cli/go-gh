@@ -7,6 +7,7 @@ package gh
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -36,14 +37,16 @@ func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
 }
 
 // Exec gh command interactively with provided arguments.
-func ExecInteractive(args ...string) (err error) {
+// A context is accepted in order for the caller to cancel a potentially long
+// running process.
+func ExecInteractive(ctx context.Context, args ...string) (err error) {
 	path, err := path()
 	if err != nil {
 		// No need to wrap error from path(), as it already has an appropriate
 		// form.
 		return
 	}
-	return runInteractive(path, nil, args...)
+	return runInteractive(ctx, path, nil, args...)
 }
 
 func path() (string, error) {
@@ -58,8 +61,8 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 	return
 }
 
-func runInteractive(path string, env []string, args ...string) (err error) {
-	cmd := exec.Command(path, args...)
+func runInteractive(ctx context.Context, path string, env []string, args ...string) (err error) {
+	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
