@@ -43,7 +43,7 @@ func TestRunError(t *testing.T) {
 	stdOut, stdErr, err := run(os.Args[0],
 		[]string{"GH_WANT_HELPER_PROCESS=1"},
 		"-test.run=TestHelperProcess", "--", "gh", "issue", "list", "error")
-	assert.EqualError(t, err, "failed to run gh: process exited with error. error: exit status 1")
+	assert.EqualError(t, err, "gh execution failed: exit status 1")
 	assert.Equal(t, "", stdOut.String())
 	assert.Equal(t, "process exited with error", stdErr.String())
 }

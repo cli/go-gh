@@ -54,14 +54,7 @@ func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer
 	cmd := exec.Command(path, args...)
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
-	if env != nil {
-		cmd.Env = env
-	}
-	err = cmd.Run()
-	if err != nil {
-		err = fmt.Errorf("failed to run gh: %s. error: %w", stdErr.String(), err)
-		return
-	}
+	err = runCmd(cmd, env)
 	return
 }
 
@@ -70,15 +63,19 @@ func runInteractive(path string, env []string, args ...string) (err error) {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	return runCmd(cmd, env)
+}
+
+func runCmd(cmd *exec.Cmd, env []string) (err error) {
 	if env != nil {
 		cmd.Env = env
 	}
 	err = cmd.Run()
 	if err != nil {
-		err = fmt.Errorf("failed to run gh. error: %w", err)
+		err = fmt.Errorf("gh execution failed: %w", err)
 		return
 	}
-	return
+	return nil
 }
 
 // RESTClient builds a client to send requests to GitHub REST API endpoints.
