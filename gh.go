@@ -28,7 +28,8 @@ import (
 func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
 	path, err := path()
 	if err != nil {
-		err = fmt.Errorf("could not find gh executable in PATH. error: %w", err)
+		// No need to wrap error from path(), as it already has an appropriate
+		// form.
 		return
 	}
 	return run(path, nil, args...)
@@ -38,7 +39,8 @@ func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
 func ExecInteractive(args ...string) (err error) {
 	path, err := path()
 	if err != nil {
-		err = fmt.Errorf("could not find gh executable in PATH. error: %w", err)
+		// No need to wrap error from path(), as it already has an appropriate
+		// form.
 		return
 	}
 	return runInteractive(path, nil, args...)
