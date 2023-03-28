@@ -104,7 +104,7 @@ func KnownHosts() []string {
 }
 
 func knownHosts(cfg *config.Config) []string {
-	var hosts []string
+	hosts := []string{}
 	hostIndex := map[string]struct{}{}
 	add := func(h string) {
 		h = strings.ToLower(h)
