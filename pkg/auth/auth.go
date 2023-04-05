@@ -37,7 +37,12 @@ func TokenForHost(host string) (string, string) {
 		return token, source
 	}
 
-	if ghExe, err := safeexec.LookPath("gh"); err == nil {
+	ghExe := os.Getenv("GH_PATH")
+	if ghExe == "" {
+		ghExe, _ = safeexec.LookPath("gh")
+	}
+
+	if ghExe != "" {
 		if token, source := tokenFromGh(ghExe, host); token != "" {
 			return token, source
 		}
