@@ -2,6 +2,7 @@
 package jq
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,11 +10,23 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/cli/go-gh/pkg/jsonpretty"
 	"github.com/itchyny/gojq"
 )
 
 // Evaluate a jq expression against an input and write it to an output.
+// Any top-level scalar values produced by the jq expression are written out
+// directly, as raw values and not as JSON scalars, similar to how jq --raw
+// works.
 func Evaluate(input io.Reader, output io.Writer, expr string) error {
+	return EvaluateFormatted(input, output, expr, "", false)
+}
+
+// Evaluate a jq expression against an input and write it to an output,
+// optionally with indentation and colorization.  Any top-level scalar values
+// produced by the jq expression are written out directly, as raw values and not
+// as JSON scalars, similar to how jq --raw works.
+func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent string, colorize bool) error {
 	query, err := gojq.Parse(expr)
 	if err != nil {
 		return err
@@ -39,7 +52,11 @@ func Evaluate(input io.Reader, output io.Writer, expr string) error {
 		return err
 	}
 
-	enc := json.NewEncoder(output)
+	enc := prettyEncoder{
+		w:        output,
+		indent:   indent,
+		colorize: colorize,
+	}
 
 	iter := code.Run(responseData)
 	for {
@@ -52,11 +69,6 @@ func Evaluate(input io.Reader, output io.Writer, expr string) error {
 		}
 		if text, e := jsonScalarToString(v); e == nil {
 			_, err := fmt.Fprintln(output, text)
-			if err != nil {
-				return err
-			}
-		} else if tt, ok := v.([]interface{}); ok && tt == nil {
-			_, err = fmt.Fprint(output, "[]\n")
 			if err != nil {
 				return err
 			}
@@ -87,4 +99,33 @@ func jsonScalarToString(input interface{}) (string, error) {
 	default:
 		return "", fmt.Errorf("cannot convert type to string: %v", tt)
 	}
+}
+
+type prettyEncoder struct {
+	w        io.Writer
+	indent   string
+	colorize bool
+}
+
+func (p prettyEncoder) Encode(v any) error {
+	var b []byte
+	var err error
+	if p.indent == "" {
+		b, err = json.Marshal(v)
+	} else {
+		b, err = json.MarshalIndent(v, "", p.indent)
+	}
+	if err != nil {
+		return err
+	}
+	if !p.colorize {
+		if _, err := p.w.Write(b); err != nil {
+			return err
+		}
+		if _, err := p.w.Write([]byte{'\n'}); err != nil {
+			return err
+		}
+		return nil
+	}
+	return jsonpretty.Format(p.w, bytes.NewReader(b), p.indent, true)
 }

@@ -10,11 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEvaluate(t *testing.T) {
+func TestEvaluateFormatted(t *testing.T) {
 	t.Setenv("CODE", "code_c")
 	type args struct {
-		json io.Reader
-		expr string
+		json     io.Reader
+		expr     string
+		indent   string
+		colorize bool
 	}
 	tests := []struct {
 		name    string
@@ -25,40 +27,83 @@ func TestEvaluate(t *testing.T) {
 		{
 			name: "simple",
 			args: args{
-				json: strings.NewReader(`{"name":"Mona", "arms":8}`),
-				expr: `.name`,
+				json:     strings.NewReader(`{"name":"Mona", "arms":8}`),
+				expr:     `.name`,
+				indent:   "",
+				colorize: false,
 			},
 			wantW: "Mona\n",
 		},
 		{
 			name: "multiple queries",
 			args: args{
-				json: strings.NewReader(`{"name":"Mona", "arms":8}`),
-				expr: `.name,.arms`,
+				json:     strings.NewReader(`{"name":"Mona", "arms":8}`),
+				expr:     `.name,.arms`,
+				indent:   "",
+				colorize: false,
 			},
 			wantW: "Mona\n8\n",
 		},
 		{
 			name: "object as JSON",
 			args: args{
-				json: strings.NewReader(`{"user":{"login":"monalisa"}}`),
-				expr: `.user`,
+				json:     strings.NewReader(`{"user":{"login":"monalisa"}}`),
+				expr:     `.user`,
+				indent:   "",
+				colorize: false,
 			},
 			wantW: "{\"login\":\"monalisa\"}\n",
 		},
 		{
+			name: "object as JSON, indented",
+			args: args{
+				json:     strings.NewReader(`{"user":{"login":"monalisa"}}`),
+				expr:     `.user`,
+				indent:   "  ",
+				colorize: false,
+			},
+			wantW: "{\n  \"login\": \"monalisa\"\n}\n",
+		},
+		{
+			name: "object as JSON, indented & colorized",
+			args: args{
+				json:     strings.NewReader(`{"user":{"login":"monalisa"}}`),
+				expr:     `.user`,
+				indent:   "  ",
+				colorize: true,
+			},
+			wantW: "\x1b[1;38m{\x1b[m\n" +
+				"  \x1b[1;34m\"login\"\x1b[m\x1b[1;38m:\x1b[m" +
+				" \x1b[32m\"monalisa\"\x1b[m\n" +
+				"\x1b[1;38m}\x1b[m\n",
+		},
+		{
 			name: "empty array",
 			args: args{
-				json: strings.NewReader(`[]`),
-				expr: `.`,
+				json:     strings.NewReader(`[]`),
+				expr:     `.`,
+				indent:   "",
+				colorize: false,
 			},
 			wantW: "[]\n",
 		},
 		{
+			name: "empty array, colorized",
+			args: args{
+				json:     strings.NewReader(`[]`),
+				expr:     `.`,
+				indent:   "",
+				colorize: true,
+			},
+			wantW: "\x1b[1;38m[\x1b[m\x1b[1;38m]\x1b[m\n",
+		},
+		{
 			name: "empty array 2",
 			args: args{
-				json: strings.NewReader(`[]`),
-				expr: `[]`,
+				json:     strings.NewReader(`[]`),
+				expr:     `[]`,
+				indent:   "",
+				colorize: false,
 			},
 			wantW: "[]\n",
 		},
@@ -79,7 +124,9 @@ func TestEvaluate(t *testing.T) {
 						"labels": [{}, {"name":"feature"}]
 					}
 				]`)),
-				expr: `.[] | [.title,(.labels | map(.name) | join(","))] | @tsv`,
+				expr:     `.[] | [.title,(.labels | map(.name) | join(","))] | @tsv`,
+				indent:   "",
+				colorize: false,
 			},
 			wantW: heredoc.Doc(`
 				First title	bug,help wanted
@@ -104,15 +151,41 @@ func TestEvaluate(t *testing.T) {
 						"labels": [{}, {"name":"feature"}]
 					}
 				]`)),
-				expr: `.[] | select(.title == env.CODE) | .labels`,
+				expr:     `.[] | select(.title == env.CODE) | .labels`,
+				indent:   "  ",
+				colorize: false,
 			},
-			wantW: "[{},{\"name\":\"feature\"}]\n",
+			wantW: "[\n  {},\n  {\n    \"name\": \"feature\"\n  }\n]\n",
+		},
+		{
+			name: "mixing scalars, arrays and objects",
+			args: args{
+				json: strings.NewReader(heredoc.Doc(`[
+					"foo",
+					true,
+					42,
+					[17, 23],
+					{"foo": "bar"}
+				]`)),
+				expr:     `.[]`,
+				indent:   "  ",
+				colorize: true,
+			},
+			wantW: "foo\ntrue\n42\n" +
+				"\x1b[1;38m[\x1b[m\n" +
+				"  17\x1b[1;38m,\x1b[m\n" +
+				"  23\n" +
+				"\x1b[1;38m]\x1b[m\n" +
+				"\x1b[1;38m{\x1b[m\n" +
+				"  \x1b[1;34m\"foo\"\x1b[m\x1b[1;38m:\x1b[m" +
+				" \x1b[32m\"bar\"\x1b[m\n" +
+				"\x1b[1;38m}\x1b[m\n",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &bytes.Buffer{}
-			err := Evaluate(tt.args.json, w, tt.args.expr)
+			err := EvaluateFormatted(tt.args.json, w, tt.args.expr, tt.args.indent, tt.args.colorize)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
