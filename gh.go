@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -26,50 +27,47 @@ import (
 )
 
 // Exec invokes a gh command in a subprocess and captures the output and error streams.
-func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
-	path, err := path()
+func Exec(args ...string) (stdout, stderr bytes.Buffer, err error) {
+	ghExe, err := ghLookPath()
 	if err != nil {
 		return
 	}
-	return run(path, nil, args...)
+	err = run(context.Background(), ghExe, nil, nil, &stdout, &stderr, args)
+	return
+}
+
+// ExecContext invokes a gh command in a subprocess and captures the output and error streams.
+func ExecContext(ctx context.Context, args ...string) (stdout, stderr bytes.Buffer, err error) {
+	ghExe, err := ghLookPath()
+	if err != nil {
+		return
+	}
+	err = run(ctx, ghExe, nil, nil, &stdout, &stderr, args)
+	return
 }
 
 // Exec invokes a gh command in a subprocess with its stdin, stdout, and stderr streams connected to
 // those of the parent process. This is suitable for running gh commands with interactive prompts.
-func ExecInteractive(ctx context.Context, args ...string) (err error) {
-	path, err := path()
+func ExecInteractive(ctx context.Context, args ...string) error {
+	ghExe, err := ghLookPath()
 	if err != nil {
-		return
+		return err
 	}
-	return runInteractive(ctx, path, nil, args...)
+	return run(ctx, ghExe, nil, os.Stdin, os.Stdout, os.Stderr, args)
 }
 
-func path() (string, error) {
+func ghLookPath() (string, error) {
 	if ghExe := os.Getenv("GH_PATH"); ghExe != "" {
 		return ghExe, nil
 	}
 	return safeexec.LookPath("gh")
 }
 
-func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer, err error) {
-	cmd := exec.Command(path, args...)
-	cmd.Stdout = &stdOut
-	cmd.Stderr = &stdErr
-	if env != nil {
-		cmd.Env = env
-	}
-	err = cmd.Run()
-	if err != nil {
-		err = fmt.Errorf("gh execution failed: %w", err)
-	}
-	return
-}
-
-func runInteractive(ctx context.Context, path string, env []string, args ...string) error {
-	cmd := exec.CommandContext(ctx, path, args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+func run(ctx context.Context, ghExe string, env []string, stdin io.Reader, stdout, stderr io.Writer, args []string) error {
+	cmd := exec.CommandContext(ctx, ghExe, args...)
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	if env != nil {
 		cmd.Env = env
 	}

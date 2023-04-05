@@ -1,6 +1,7 @@
 package gh
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -45,30 +46,29 @@ func TestHelperProcessLongRunning(t *testing.T) {
 }
 
 func TestRun(t *testing.T) {
-	stdOut, stdErr, err := run(os.Args[0],
-		[]string{"GH_WANT_HELPER_PROCESS=1"},
-		"-test.run=TestHelperProcess", "--", "gh", "issue", "list")
+	var stdout, stderr bytes.Buffer
+	err := run(context.TODO(), os.Args[0], []string{"GH_WANT_HELPER_PROCESS=1"}, nil, &stdout, &stderr,
+		[]string{"-test.run=TestHelperProcess", "--", "gh", "issue", "list"})
 	assert.NoError(t, err)
-	assert.Equal(t, "[gh issue list]", stdOut.String())
-	assert.Equal(t, "", stdErr.String())
+	assert.Equal(t, "[gh issue list]", stdout.String())
+	assert.Equal(t, "", stderr.String())
 }
 
 func TestRunError(t *testing.T) {
-	stdOut, stdErr, err := run(os.Args[0],
-		[]string{"GH_WANT_HELPER_PROCESS=1"},
-		"-test.run=TestHelperProcess", "--", "gh", "issue", "list", "error")
+	var stdout, stderr bytes.Buffer
+	err := run(context.TODO(), os.Args[0], []string{"GH_WANT_HELPER_PROCESS=1"}, nil, &stdout, &stderr,
+		[]string{"-test.run=TestHelperProcess", "--", "gh", "error"})
 	assert.EqualError(t, err, "gh execution failed: exit status 1")
-	assert.Equal(t, "", stdOut.String())
-	assert.Equal(t, "process exited with error", stdErr.String())
+	assert.Equal(t, "", stdout.String())
+	assert.Equal(t, "process exited with error", stderr.String())
 }
 
 func TestRunInteractiveContextCanceled(t *testing.T) {
 	// pass current time to ensure that deadline has already passed
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
 	cancel()
-	err := runInteractive(ctx, os.Args[0],
-		[]string{"GH_WANT_HELPER_PROCESS=1"},
-		"-test.run=TestHelperProcessLongRunning", "--", "gh", "issue", "list")
+	err := run(ctx, os.Args[0], []string{"GH_WANT_HELPER_PROCESS=1"}, nil, nil, nil,
+		[]string{"-test.run=TestHelperProcessLongRunning", "--", "gh", "issue", "list"})
 	assert.EqualError(t, err, "gh execution failed: context deadline exceeded")
 }
 
