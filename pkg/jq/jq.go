@@ -11,7 +11,6 @@ import (
 	"strconv"
 
 	"github.com/cli/go-gh/pkg/jsonpretty"
-
 	"github.com/itchyny/gojq"
 )
 
@@ -53,19 +52,10 @@ func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent st
 		return err
 	}
 
-	var enc *json.Encoder
-	var buff bytes.Buffer
-	if !colorize {
-		// write straight to the output
-		// we can't use jsonpretty here because it handles indent = ""
-		// differently from json.Encoder (delimiters would be put on
-		// separate lines)
-		enc = json.NewEncoder(output)
-		enc.SetIndent("", indent)
-	} else {
-		// write to a buffer, and and then have jsonpretty format from this
-		buff = bytes.Buffer{}
-		enc = json.NewEncoder(&buff)
+	enc := prettyEncoder{
+		w:        output,
+		indent:   indent,
+		colorize: colorize,
 	}
 
 	iter := code.Run(responseData)
@@ -82,20 +72,9 @@ func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent st
 			if err != nil {
 				return err
 			}
-		} else if tt, ok := v.([]interface{}); ok && tt == nil {
-			if err = jsonpretty.Format(output, bytes.NewBuffer([]byte("[]\n")), indent, colorize); err != nil {
-				return err
-			}
 		} else {
 			if err = enc.Encode(v); err != nil {
 				return err
-			}
-			if colorize {
-				// the encoder has writter to buff, now format it
-				if err = jsonpretty.Format(output, &buff, indent, true); err != nil {
-					return err
-				}
-				buff.Reset()
 			}
 		}
 	}
@@ -120,4 +99,33 @@ func jsonScalarToString(input interface{}) (string, error) {
 	default:
 		return "", fmt.Errorf("cannot convert type to string: %v", tt)
 	}
+}
+
+type prettyEncoder struct {
+	w        io.Writer
+	indent   string
+	colorize bool
+}
+
+func (p prettyEncoder) Encode(v any) error {
+	var b []byte
+	var err error
+	if p.indent == "" {
+		b, err = json.Marshal(v)
+	} else {
+		b, err = json.MarshalIndent(v, "", p.indent)
+	}
+	if err != nil {
+		return err
+	}
+	if !p.colorize {
+		if _, err := p.w.Write(b); err != nil {
+			return err
+		}
+		if _, err := p.w.Write([]byte{'\n'}); err != nil {
+			return err
+		}
+		return nil
+	}
+	return jsonpretty.Format(p.w, bytes.NewReader(b), p.indent, true)
 }
