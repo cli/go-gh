@@ -114,9 +114,9 @@ func ParseWithHost(s, host string) (Repository, error) {
 	}
 }
 
-// CurrentRepository uses git remotes to determine the GitHub repository
+// Current uses git remotes to determine the GitHub repository
 // the current directory is tracking.
-func CurrentRepository() (Repository, error) {
+func Current() (Repository, error) {
 	var r Repository
 
 	override := os.Getenv("GH_REPO")

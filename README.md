@@ -4,7 +4,7 @@
 
 Modules from this library will obey GitHub CLI conventions by default:
 
-- [`CurrentRepository()`](https://pkg.go.dev/github.com/cli/go-gh#CurrentRepository) respects the value of the `GH_REPO` environment variable and reads from git remote configuration as fallback.
+- [`repository.Current()`](https://pkg.go.dev/github.com/cli/go-gh/pkg/repository#current) respects the value of the `GH_REPO` environment variable and reads from git remote configuration as fallback.
 
 - GitHub API requests will be authenticated using the same mechanism as `gh`, i.e. using the values of `GH_TOKEN` and `GH_HOST` environment variables and falling back to the user's stored OAuth token.
 
@@ -36,7 +36,7 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println(issueList.String())
-	
+
 	// Use an API helper to grab repository tags
 	client, err := gh.RESTClient(nil)
 	if err != nil {
@@ -58,7 +58,6 @@ See [examples][] for more demonstrations of usage.
 ## Contributing
 
 If anything feels off, or if you feel that some functionality is missing, please check out our [contributing docs][contributing]. There you will find instructions for sharing your feedback and for submitting pull requests to the project. Thank you!
-
 
 [extensions]: https://docs.github.com/en/github-cli/github-cli/creating-github-cli-extensions
 [examples]: ./example_gh_test.go

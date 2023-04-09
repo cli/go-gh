@@ -269,8 +269,8 @@ func ExampleGQLClient_pagination() {
 }
 
 // Get repository for the current directory.
-func ExampleCurrentRepository() {
-	repo, err := repository.CurrentRepository()
+func ExampleCurrent() {
+	repo, err := repository.Current()
 	if err != nil {
 		log.Fatal(err)
 	}
