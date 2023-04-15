@@ -37,14 +37,14 @@ func (err *HTTPError) Error() string {
 	return fmt.Sprintf("HTTP %d (%s)", err.StatusCode, err.RequestURL)
 }
 
-// GQLError represents an error response from GitHub GraphQL API.
-type GQLError struct {
-	Errors []GQLErrorItem
+// GraphQLError represents an error response from GitHub GraphQL API.
+type GraphQLError struct {
+	Errors []GraphQLErrorItem
 }
 
-// GQLErrorItem stores additional information about an error response
+// GraphQLErrorItem stores additional information about an error response
 // returned from the GitHub GraphQL API.
-type GQLErrorItem struct {
+type GraphQLErrorItem struct {
 	Message   string
 	Locations []struct {
 		Line   int
@@ -55,8 +55,8 @@ type GQLErrorItem struct {
 	Type       string
 }
 
-// Allow GQLError to satisfy error interface.
-func (gr *GQLError) Error() string {
+// Allow GraphQLError to satisfy error interface.
+func (gr *GraphQLError) Error() string {
 	errorMessages := make([]string, 0, len(gr.Errors))
 	for _, e := range gr.Errors {
 		msg := e.Message
@@ -68,9 +68,9 @@ func (gr *GQLError) Error() string {
 	return fmt.Sprintf("GraphQL: %s", strings.Join(errorMessages, ", "))
 }
 
-// Match determines if the GQLError is about a specific type on a specific path.
+// Match determines if the GraphQLError is about a specific type on a specific path.
 // If the path argument ends with a ".", it will match all its subpaths.
-func (gr *GQLError) Match(expectType, expectPath string) bool {
+func (gr *GraphQLError) Match(expectType, expectPath string) bool {
 	for _, e := range gr.Errors {
 		if e.Type != expectType || !matchPath(e.pathString(), expectPath) {
 			return false
@@ -79,7 +79,7 @@ func (gr *GQLError) Match(expectType, expectPath string) bool {
 	return true
 }
 
-func (ge GQLErrorItem) pathString() string {
+func (ge GraphQLErrorItem) pathString() string {
 	var res strings.Builder
 	for i, v := range ge.Path {
 		if i > 0 {

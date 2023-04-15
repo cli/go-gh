@@ -133,9 +133,9 @@ func ExampleRESTClient_pagination() {
 	}
 }
 
-// Query tags from cli/cli repository using GQL API.
-func ExampleDefaultGQLClient() {
-	client, err := api.DefaultGQLClient()
+// Query tags from cli/cli repository using GraphQL API.
+func ExampleDefaultGraphQLClient() {
+	client, err := api.DefaultGraphQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -161,14 +161,14 @@ func ExampleDefaultGQLClient() {
 	fmt.Println(query)
 }
 
-// Query tags from cli/cli repository using GQL API.
+// Query tags from cli/cli repository using GraphQL API.
 // Enable caching and request timeout.
-func ExampleGQLClient() {
+func ExampleGraphQLClient() {
 	opts := api.ClientOptions{
 		EnableCache: true,
 		Timeout:     5 * time.Second,
 	}
-	client, err := api.NewGQLClient(opts)
+	client, err := api.NewGraphQLClient(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -194,9 +194,9 @@ func ExampleGQLClient() {
 	fmt.Println(query)
 }
 
-// Add a star to the cli/go-gh repository using the GQL API.
-func ExampleGQLClient_mutate() {
-	client, err := api.DefaultGQLClient()
+// Add a star to the cli/go-gh repository using the GraphQL API.
+func ExampleGraphQLClient_mutate() {
+	client, err := api.DefaultGraphQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -229,9 +229,9 @@ func ExampleGQLClient_mutate() {
 	fmt.Println(mutation.AddStar.Starrable.Repository.StargazerCount)
 }
 
-// Query releases from cli/cli repository using GQL API with paginated results.
-func ExampleGQLClient_pagination() {
-	client, err := api.DefaultGQLClient()
+// Query releases from cli/cli repository using GraphQL API with paginated results.
+func ExampleGraphQLClient_pagination() {
+	client, err := api.DefaultGraphQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}

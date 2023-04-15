@@ -13,23 +13,23 @@ import (
 	graphql "github.com/cli/shurcooL-graphql"
 )
 
-// GQLClient wraps methods for the different types of
+// GraphQLClient wraps methods for the different types of
 // API requests that are supported by the server.
-type GQLClient struct {
+type GraphQLClient struct {
 	client     *graphql.Client
 	host       string
 	httpClient *http.Client
 }
 
-func DefaultGQLClient() (*GQLClient, error) {
-	return NewGQLClient(ClientOptions{})
+func DefaultGraphQLClient() (*GraphQLClient, error) {
+	return NewGraphQLClient(ClientOptions{})
 }
 
-// GQLClient builds a client to send requests to GitHub GraphQL API endpoints.
+// GraphQLClient builds a client to send requests to GitHub GraphQL API endpoints.
 // As part of the configuration a hostname, auth token, default set of headers,
 // and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument.
-func NewGQLClient(opts ClientOptions) (*GQLClient, error) {
+func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
 	if optionsNeedResolution(opts) {
 		var err error
 		opts, err = resolveOptions(opts)
@@ -43,9 +43,9 @@ func NewGQLClient(opts ClientOptions) (*GQLClient, error) {
 		return nil, err
 	}
 
-	endpoint := gqlEndpoint(opts.Host)
+	endpoint := graphQLEndpoint(opts.Host)
 
-	return &GQLClient{
+	return &GraphQLClient{
 		client:     graphql.NewClient(endpoint, httpClient),
 		host:       endpoint,
 		httpClient: httpClient,
@@ -54,7 +54,7 @@ func NewGQLClient(opts ClientOptions) (*GQLClient, error) {
 
 // DoWithContext executes a GraphQL query request.
 // The response is populated into the response argument.
-func (c *GQLClient) DoWithContext(ctx context.Context, query string, variables map[string]interface{}, response interface{}) error {
+func (c *GraphQLClient) DoWithContext(ctx context.Context, query string, variables map[string]interface{}, response interface{}) error {
 	reqBody, err := json.Marshal(map[string]interface{}{"query": query, "variables": variables})
 	if err != nil {
 		return err
@@ -85,21 +85,21 @@ func (c *GQLClient) DoWithContext(ctx context.Context, query string, variables m
 		return err
 	}
 
-	gr := gqlResponse{Data: response}
+	gr := graphQLResponse{Data: response}
 	err = json.Unmarshal(body, &gr)
 	if err != nil {
 		return err
 	}
 
 	if len(gr.Errors) > 0 {
-		return &GQLError{Errors: gr.Errors}
+		return &GraphQLError{Errors: gr.Errors}
 	}
 
 	return nil
 }
 
 // Do wraps DoWithContext using context.Background.
-func (c *GQLClient) Do(query string, variables map[string]interface{}, response interface{}) error {
+func (c *GraphQLClient) Do(query string, variables map[string]interface{}, response interface{}) error {
 	return c.DoWithContext(context.Background(), query, variables, response)
 }
 
@@ -109,13 +109,13 @@ func (c *GQLClient) Do(query string, variables map[string]interface{}, response 
 // The mutation argument should be a pointer to struct that corresponds
 // to the GitHub GraphQL schema.
 // Provided input will be set as a variable named input.
-func (c *GQLClient) MutateWithContext(ctx context.Context, name string, m interface{}, variables map[string]interface{}) error {
+func (c *GraphQLClient) MutateWithContext(ctx context.Context, name string, m interface{}, variables map[string]interface{}) error {
 	err := c.client.MutateNamed(ctx, name, m, variables)
-	var gqlErrs graphql.Errors
-	if err != nil && errors.As(err, &gqlErrs) {
-		items := make([]GQLErrorItem, len(gqlErrs))
-		for i, e := range gqlErrs {
-			items[i] = GQLErrorItem{
+	var graphQLErrs graphql.Errors
+	if err != nil && errors.As(err, &graphQLErrs) {
+		items := make([]GraphQLErrorItem, len(graphQLErrs))
+		for i, e := range graphQLErrs {
+			items[i] = GraphQLErrorItem{
 				Message:    e.Message,
 				Locations:  e.Locations,
 				Path:       e.Path,
@@ -123,13 +123,13 @@ func (c *GQLClient) MutateWithContext(ctx context.Context, name string, m interf
 				Type:       e.Type,
 			}
 		}
-		err = &GQLError{items}
+		err = &GraphQLError{items}
 	}
 	return err
 }
 
 // Mutate wraps MutateWithContext using context.Background.
-func (c *GQLClient) Mutate(name string, m interface{}, variables map[string]interface{}) error {
+func (c *GraphQLClient) Mutate(name string, m interface{}, variables map[string]interface{}) error {
 	return c.MutateWithContext(context.Background(), name, m, variables)
 }
 
@@ -138,13 +138,13 @@ func (c *GQLClient) Mutate(name string, m interface{}, variables map[string]inte
 // response is populated into it.
 // The query argument should be a pointer to struct that corresponds
 // to the GitHub GraphQL schema.
-func (c *GQLClient) QueryWithContext(ctx context.Context, name string, q interface{}, variables map[string]interface{}) error {
+func (c *GraphQLClient) QueryWithContext(ctx context.Context, name string, q interface{}, variables map[string]interface{}) error {
 	err := c.client.QueryNamed(ctx, name, q, variables)
-	var gqlErrs graphql.Errors
-	if err != nil && errors.As(err, &gqlErrs) {
-		items := make([]GQLErrorItem, len(gqlErrs))
-		for i, e := range gqlErrs {
-			items[i] = GQLErrorItem{
+	var graphQLErrs graphql.Errors
+	if err != nil && errors.As(err, &graphQLErrs) {
+		items := make([]GraphQLErrorItem, len(graphQLErrs))
+		for i, e := range graphQLErrs {
+			items[i] = GraphQLErrorItem{
 				Message:    e.Message,
 				Locations:  e.Locations,
 				Path:       e.Path,
@@ -152,22 +152,22 @@ func (c *GQLClient) QueryWithContext(ctx context.Context, name string, q interfa
 				Type:       e.Type,
 			}
 		}
-		err = &GQLError{items}
+		err = &GraphQLError{items}
 	}
 	return err
 }
 
 // Query wraps QueryWithContext using context.Background.
-func (c *GQLClient) Query(name string, q interface{}, variables map[string]interface{}) error {
+func (c *GraphQLClient) Query(name string, q interface{}, variables map[string]interface{}) error {
 	return c.QueryWithContext(context.Background(), name, q, variables)
 }
 
-type gqlResponse struct {
+type graphQLResponse struct {
 	Data   interface{}
-	Errors []GQLErrorItem
+	Errors []GraphQLErrorItem
 }
 
-func gqlEndpoint(host string) string {
+func graphQLEndpoint(host string) string {
 	if isGarage(host) {
 		return fmt.Sprintf("https://%s/api/graphql", host)
 	}
