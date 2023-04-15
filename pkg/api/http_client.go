@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cli/go-gh/pkg/term"
+	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/henvic/httpretty"
 	"github.com/thlib/go-timezone-local/tzlocal"
 )

@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cli/go-gh/internal/set"
-	"github.com/cli/go-gh/pkg/config"
+	"github.com/cli/go-gh/v2/internal/set"
+	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/cli/safeexec"
 )
 

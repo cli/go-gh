@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/cli/go-gh/internal/yamlmap"
+	"github.com/cli/go-gh/v2/internal/yamlmap"
 )
 
 const (

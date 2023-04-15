@@ -13,8 +13,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cli/go-gh/pkg/tableprinter"
-	"github.com/cli/go-gh/pkg/text"
+	"github.com/cli/go-gh/v2/pkg/tableprinter"
+	"github.com/cli/go-gh/v2/pkg/text"
 	color "github.com/mgutz/ansi"
 )
 

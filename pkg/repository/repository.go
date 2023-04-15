@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cli/go-gh/internal/git"
-	"github.com/cli/go-gh/pkg/auth"
-	"github.com/cli/go-gh/pkg/ssh"
+	"github.com/cli/go-gh/v2/internal/git"
+	"github.com/cli/go-gh/v2/pkg/auth"
+	"github.com/cli/go-gh/v2/pkg/ssh"
 )
 
 // Repository holds information representing a GitHub repository.

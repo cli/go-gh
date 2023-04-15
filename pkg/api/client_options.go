@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cli/go-gh/pkg/auth"
-	"github.com/cli/go-gh/pkg/config"
+	"github.com/cli/go-gh/v2/pkg/auth"
+	"github.com/cli/go-gh/v2/pkg/config"
 )
 
 // ClientOptions holds available options to configure API clients.

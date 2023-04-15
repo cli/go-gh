@@ -7,7 +7,7 @@ import (
 	"os/exec"
 
 	cliBrowser "github.com/cli/browser"
-	"github.com/cli/go-gh/pkg/config"
+	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/cli/safeexec"
 	"github.com/google/shlex"
 )

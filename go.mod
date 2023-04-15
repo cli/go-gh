@@ -1,4 +1,4 @@
-module github.com/cli/go-gh
+module github.com/cli/go-gh/v2
 
 go 1.20
 

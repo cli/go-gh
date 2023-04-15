@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cli/go-gh/pkg/text"
+	"github.com/cli/go-gh/v2/pkg/text"
 )
 
 type fieldOption func(*tableField)

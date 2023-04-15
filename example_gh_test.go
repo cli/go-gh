@@ -10,11 +10,11 @@ import (
 	"regexp"
 	"time"
 
-	gh "github.com/cli/go-gh"
-	"github.com/cli/go-gh/pkg/api"
-	"github.com/cli/go-gh/pkg/repository"
-	"github.com/cli/go-gh/pkg/tableprinter"
-	"github.com/cli/go-gh/pkg/term"
+	gh "github.com/cli/go-gh/v2"
+	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/cli/go-gh/v2/pkg/repository"
+	"github.com/cli/go-gh/v2/pkg/tableprinter"
+	"github.com/cli/go-gh/v2/pkg/term"
 	graphql "github.com/cli/shurcooL-graphql"
 )
 

@@ -4,19 +4,19 @@
 
 Modules from this library will obey GitHub CLI conventions by default:
 
-- [`repository.Current()`](https://pkg.go.dev/github.com/cli/go-gh/pkg/repository#current) respects the value of the `GH_REPO` environment variable and reads from git remote configuration as fallback.
+- [`repository.Current()`](https://pkg.go.dev/github.com/cli/go-gh/v2/pkg/repository#current) respects the value of the `GH_REPO` environment variable and reads from git remote configuration as fallback.
 
 - GitHub API requests will be authenticated using the same mechanism as `gh`, i.e. using the values of `GH_TOKEN` and `GH_HOST` environment variables and falling back to the user's stored OAuth token.
 
-- [Terminal capabilities](https://pkg.go.dev/github.com/cli/go-gh/pkg/term) are determined by taking environment variables `GH_FORCE_TTY`, `NO_COLOR`, `CLICOLOR`, etc. into account.
+- [Terminal capabilities](https://pkg.go.dev/github.com/cli/go-gh/v2/pkg/term) are determined by taking environment variables `GH_FORCE_TTY`, `NO_COLOR`, `CLICOLOR`, etc. into account.
 
-- Generating [table](https://pkg.go.dev/github.com/cli/go-gh/pkg/tableprinter) or [Go template](https://pkg.go.dev/github.com/cli/go-gh/pkg/template) output uses the same engine as gh.
+- Generating [table](https://pkg.go.dev/github.com/cli/go-gh/v2/pkg/tableprinter) or [Go template](https://pkg.go.dev/github.com/cli/go-gh/pkg/template) output uses the same engine as gh.
 
-- The [`browser`](https://pkg.go.dev/github.com/cli/go-gh/pkg/browser) module activates the user's preferred web browser.
+- The [`browser`](https://pkg.go.dev/github.com/cli/go-gh/v2/pkg/browser) module activates the user's preferred web browser.
 
 ## Usage
 
-See the full `go-gh`  [reference documentation](https://pkg.go.dev/github.com/cli/go-gh) for more information
+See the full `go-gh`  [reference documentation](https://pkg.go.dev/github.com/cli/go-gh/v2) for more information
 
 ```golang
 package main
@@ -24,7 +24,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"github.com/cli/go-gh"
+	"github.com/cli/go-gh/v2"
 )
 
 func main() {

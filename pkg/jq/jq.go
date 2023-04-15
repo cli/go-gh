@@ -10,7 +10,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/cli/go-gh/pkg/jsonpretty"
+	"github.com/cli/go-gh/v2/pkg/jsonpretty"
 	"github.com/itchyny/gojq"
 )
 
