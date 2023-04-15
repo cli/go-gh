@@ -28,17 +28,17 @@ import (
 )
 
 func main() {
-	// These examples assume `gh` is installed and has been authenticated
+	// These examples assume `gh` is installed and has been authenticated.
 
-	// Shell out to a gh command and read its output
+	// Shell out to a gh command and read its output.
 	issueList, _, err := gh.Exec("issue", "list", "--repo", "cli/cli", "--limit", "5")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(issueList.String())
 
-	// Use an API helper to grab repository tags
-	client, err := gh.RESTClient(nil)
+	// Use an API client to retrieve repository tags.
+	client, err := api.DefaultRESTClient()
 	if err != nil {
 		log.Fatal(err)
 	}
