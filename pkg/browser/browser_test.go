@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/cli/go-gh/pkg/config"
+	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 

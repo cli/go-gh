@@ -10,10 +10,11 @@ import (
 	"regexp"
 	"time"
 
-	gh "github.com/cli/go-gh"
-	"github.com/cli/go-gh/pkg/api"
-	"github.com/cli/go-gh/pkg/tableprinter"
-	"github.com/cli/go-gh/pkg/term"
+	gh "github.com/cli/go-gh/v2"
+	"github.com/cli/go-gh/v2/pkg/api"
+	"github.com/cli/go-gh/v2/pkg/repository"
+	"github.com/cli/go-gh/v2/pkg/tableprinter"
+	"github.com/cli/go-gh/v2/pkg/term"
 	graphql "github.com/cli/shurcooL-graphql"
 )
 
@@ -29,8 +30,8 @@ func ExampleExec() {
 }
 
 // Get tags from cli/cli repository using REST API.
-func ExampleRESTClient_simple() {
-	client, err := gh.RESTClient(nil)
+func ExampleDefaultRESTClient() {
+	client, err := api.DefaultRESTClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,14 +45,14 @@ func ExampleRESTClient_simple() {
 
 // Get tags from cli/cli repository using REST API.
 // Specifying host, auth token, headers and logging to stdout.
-func ExampleRESTClient_advanced() {
+func ExampleRESTClient() {
 	opts := api.ClientOptions{
 		Host:      "github.com",
 		AuthToken: "xxxxxxxxxx", // Replace with valid auth token.
 		Headers:   map[string]string{"Time-Zone": "America/Los_Angeles"},
 		Log:       os.Stdout,
 	}
-	client, err := gh.RESTClient(&opts)
+	client, err := api.NewRESTClient(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,7 +69,7 @@ func ExampleRESTClient_request() {
 	opts := api.ClientOptions{
 		Headers: map[string]string{"Accept": "application/octet-stream"},
 	}
-	client, err := gh.RESTClient(&opts)
+	client, err := api.NewRESTClient(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -102,7 +103,7 @@ func ExampleRESTClient_pagination() {
 		}
 		return "", false
 	}
-	client, err := gh.RESTClient(nil)
+	client, err := api.DefaultRESTClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -132,9 +133,9 @@ func ExampleRESTClient_pagination() {
 	}
 }
 
-// Query tags from cli/cli repository using GQL API.
-func ExampleGQLClient_simple() {
-	client, err := gh.GQLClient(nil)
+// Query tags from cli/cli repository using GraphQL API.
+func ExampleDefaultGraphQLClient() {
+	client, err := api.DefaultGraphQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -160,14 +161,14 @@ func ExampleGQLClient_simple() {
 	fmt.Println(query)
 }
 
-// Query tags from cli/cli repository using GQL API.
+// Query tags from cli/cli repository using GraphQL API.
 // Enable caching and request timeout.
-func ExampleGQLClient_advanced() {
+func ExampleGraphQLClient() {
 	opts := api.ClientOptions{
 		EnableCache: true,
 		Timeout:     5 * time.Second,
 	}
-	client, err := gh.GQLClient(&opts)
+	client, err := api.NewGraphQLClient(opts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -193,9 +194,9 @@ func ExampleGQLClient_advanced() {
 	fmt.Println(query)
 }
 
-// Add a star to the cli/go-gh repository using the GQL API.
-func ExampleGQLClient_mutate_simple() {
-	client, err := gh.GQLClient(nil)
+// Add a star to the cli/go-gh repository using the GraphQL API.
+func ExampleGraphQLClient_mutate() {
+	client, err := api.DefaultGraphQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -228,9 +229,9 @@ func ExampleGQLClient_mutate_simple() {
 	fmt.Println(mutation.AddStar.Starrable.Repository.StargazerCount)
 }
 
-// Query releases from cli/cli repository using GQL API with paginated results.
-func ExampleGQLClient_pagination() {
-	client, err := gh.GQLClient(nil)
+// Query releases from cli/cli repository using GraphQL API with paginated results.
+func ExampleGraphQLClient_pagination() {
+	client, err := api.DefaultGraphQLClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -268,12 +269,12 @@ func ExampleGQLClient_pagination() {
 }
 
 // Get repository for the current directory.
-func ExampleCurrentRepository() {
-	repo, err := gh.CurrentRepository()
+func ExampleCurrent() {
+	repo, err := repository.Current()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("%s/%s/%s\n", repo.Host(), repo.Owner(), repo.Name())
+	fmt.Printf("%s/%s/%s\n", repo.Host, repo.Owner, repo.Name)
 }
 
 // Print tabular data to a terminal or in machine-readable format for scripts.

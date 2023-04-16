@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/cli/go-gh/internal/yamlmap"
+	"github.com/cli/go-gh/v2/internal/yamlmap"
 )
 
 const (
@@ -51,7 +51,7 @@ func (c *Config) Get(keys []string) (string, error) {
 		var err error
 		m, err = m.FindEntry(key)
 		if err != nil {
-			return "", KeyNotFoundError{key}
+			return "", &KeyNotFoundError{key}
 		}
 	}
 	return m.Value, nil
@@ -69,7 +69,7 @@ func (c *Config) Keys(keys []string) ([]string, error) {
 		var err error
 		m, err = m.FindEntry(key)
 		if err != nil {
-			return nil, KeyNotFoundError{key}
+			return nil, &KeyNotFoundError{key}
 		}
 	}
 	return m.Keys(), nil
@@ -89,12 +89,12 @@ func (c *Config) Remove(keys []string) error {
 		key := keys[i]
 		m, err = m.FindEntry(key)
 		if err != nil {
-			return KeyNotFoundError{key}
+			return &KeyNotFoundError{key}
 		}
 	}
 	err := m.RemoveEntry(keys[len(keys)-1])
 	if err != nil {
-		return KeyNotFoundError{keys[len(keys)-1]}
+		return &KeyNotFoundError{keys[len(keys)-1]}
 	}
 	return nil
 }
@@ -179,7 +179,7 @@ func load(generalFilePath, hostsFilePath string) (*Config, error) {
 	if err != nil && !os.IsNotExist(err) {
 		if errors.Is(err, yamlmap.ErrInvalidYaml) ||
 			errors.Is(err, yamlmap.ErrInvalidFormat) {
-			return nil, InvalidConfigFileError{Path: generalFilePath, Err: err}
+			return nil, &InvalidConfigFileError{Path: generalFilePath, Err: err}
 		}
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func load(generalFilePath, hostsFilePath string) (*Config, error) {
 	if err != nil && !os.IsNotExist(err) {
 		if errors.Is(err, yamlmap.ErrInvalidYaml) ||
 			errors.Is(err, yamlmap.ErrInvalidFormat) {
-			return nil, InvalidConfigFileError{Path: hostsFilePath, Err: err}
+			return nil, &InvalidConfigFileError{Path: hostsFilePath, Err: err}
 		}
 		return nil, err
 	}

@@ -6,17 +6,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGQLErrorMatch(t *testing.T) {
+func TestGraphQLErrorMatch(t *testing.T) {
 	tests := []struct {
 		name      string
-		error     GQLError
+		error     GraphQLError
 		kind      string
 		path      string
 		wantMatch bool
 	}{
 		{
 			name: "matches path and type",
-			error: GQLError{Errors: []GQLErrorItem{
+			error: GraphQLError{Errors: []GraphQLErrorItem{
 				{Path: []interface{}{"repository", "issue"}, Type: "NOT_FOUND"},
 			}},
 			kind:      "NOT_FOUND",
@@ -25,7 +25,7 @@ func TestGQLErrorMatch(t *testing.T) {
 		},
 		{
 			name: "matches base path and type",
-			error: GQLError{Errors: []GQLErrorItem{
+			error: GraphQLError{Errors: []GraphQLErrorItem{
 				{Path: []interface{}{"repository", "issue"}, Type: "NOT_FOUND"},
 			}},
 			kind:      "NOT_FOUND",
@@ -34,7 +34,7 @@ func TestGQLErrorMatch(t *testing.T) {
 		},
 		{
 			name: "does not match path but matches type",
-			error: GQLError{Errors: []GQLErrorItem{
+			error: GraphQLError{Errors: []GraphQLErrorItem{
 				{Path: []interface{}{"repository", "issue"}, Type: "NOT_FOUND"},
 			}},
 			kind:      "NOT_FOUND",
@@ -43,7 +43,7 @@ func TestGQLErrorMatch(t *testing.T) {
 		},
 		{
 			name: "matches path but not type",
-			error: GQLError{Errors: []GQLErrorItem{
+			error: GraphQLError{Errors: []GraphQLErrorItem{
 				{Path: []interface{}{"repository", "issue"}, Type: "NOT_FOUND"},
 			}},
 			kind:      "UNKNOWN",

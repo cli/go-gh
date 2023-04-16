@@ -13,8 +13,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/cli/go-gh/pkg/tableprinter"
-	"github.com/cli/go-gh/pkg/text"
+	"github.com/cli/go-gh/v2/pkg/tableprinter"
+	"github.com/cli/go-gh/v2/pkg/text"
 	color "github.com/mgutz/ansi"
 )
 
@@ -33,8 +33,8 @@ type Template struct {
 }
 
 // New initializes a Template.
-func New(w io.Writer, width int, colorEnabled bool) Template {
-	return Template{
+func New(w io.Writer, width int, colorEnabled bool) *Template {
+	return &Template{
 		colorEnabled: colorEnabled,
 		output:       w,
 		tp:           tableprinter.New(w, true, width),

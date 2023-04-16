@@ -7,7 +7,7 @@ import (
 	"os/exec"
 
 	cliBrowser "github.com/cli/browser"
-	"github.com/cli/go-gh/pkg/config"
+	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/cli/safeexec"
 	"github.com/google/shlex"
 )
@@ -27,11 +27,11 @@ type Browser struct {
 // - GH_BROWSER environment variable;
 // - browser option from configuration file;
 // - BROWSER environment variable.
-func New(launcher string, stdout, stderr io.Writer) Browser {
+func New(launcher string, stdout, stderr io.Writer) *Browser {
 	if launcher == "" {
 		launcher = resolveLauncher()
 	}
-	b := Browser{
+	b := &Browser{
 		launcher: launcher,
 		stderr:   stderr,
 		stdout:   stdout,

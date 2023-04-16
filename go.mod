@@ -1,13 +1,13 @@
-module github.com/cli/go-gh
+module github.com/cli/go-gh/v2
 
-go 1.19
+go 1.20
 
 require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/charmbracelet/glamour v0.5.1-0.20220727184942-e70ff2d969da
 	github.com/cli/browser v1.1.0
 	github.com/cli/safeexec v1.0.0
-	github.com/cli/shurcooL-graphql v0.0.2
+	github.com/cli/shurcooL-graphql v0.0.3
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/henvic/httpretty v0.0.6
 	github.com/itchyny/gojq v0.12.8

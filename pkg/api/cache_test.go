@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cli/go-gh/pkg/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,13 +31,17 @@ func TestCacheResponse(t *testing.T) {
 
 	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
 
-	httpClient := NewHTTPClient(
-		&api.ClientOptions{
+	httpClient, err := NewHTTPClient(
+		ClientOptions{
+			Host:         "github.com",
+			AuthToken:    "token",
 			Transport:    fakeHTTP,
 			EnableCache:  true,
 			CacheDir:     cacheDir,
 			LogIgnoreEnv: true,
-		})
+		},
+	)
+	assert.NoError(t, err)
 
 	do := func(method, url string, body io.Reader) (string, error) {
 		req, err := http.NewRequest(method, url, body)
@@ -58,7 +61,6 @@ func TestCacheResponse(t *testing.T) {
 	}
 
 	var res string
-	var err error
 
 	res, err = do("GET", "http://example.com/path", nil)
 	assert.NoError(t, err)
@@ -113,13 +115,17 @@ func TestCacheResponseRequestCacheOptions(t *testing.T) {
 
 	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
 
-	httpClient := NewHTTPClient(
-		&api.ClientOptions{
+	httpClient, err := NewHTTPClient(
+		ClientOptions{
+			Host:         "github.com",
+			AuthToken:    "token",
 			Transport:    fakeHTTP,
 			EnableCache:  false,
 			CacheDir:     cacheDir,
 			LogIgnoreEnv: true,
-		})
+		},
+	)
+	assert.NoError(t, err)
 
 	do := func(method, url string, body io.Reader) (string, error) {
 		req, err := http.NewRequest(method, url, body)
@@ -141,7 +147,6 @@ func TestCacheResponseRequestCacheOptions(t *testing.T) {
 	}
 
 	var res string
-	var err error
 
 	res, err = do("GET", "http://example.com/path", nil)
 	assert.NoError(t, err)
