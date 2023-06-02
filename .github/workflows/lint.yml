@@ -21,6 +21,6 @@ jobs:
           git diff --exit-code go.mod
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v3.1.0
+        uses: golangci/golangci-lint-action@v3.4.0
         with:
-          version: latest
+          version: v1.52
