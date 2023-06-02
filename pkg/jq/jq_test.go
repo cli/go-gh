@@ -81,11 +81,11 @@ func TestEvaluateFormatted(t *testing.T) {
 			name: "empty array",
 			args: args{
 				json:     strings.NewReader(`[]`),
-				expr:     `.`,
+				expr:     `., [], unique`,
 				indent:   "",
 				colorize: false,
 			},
-			wantW: "[]\n",
+			wantW: "[]\n[]\n[]\n",
 		},
 		{
 			name: "empty array, colorized",
@@ -96,16 +96,6 @@ func TestEvaluateFormatted(t *testing.T) {
 				colorize: true,
 			},
 			wantW: "\x1b[1;38m[\x1b[m\x1b[1;38m]\x1b[m\n",
-		},
-		{
-			name: "empty array 2",
-			args: args{
-				json:     strings.NewReader(`[]`),
-				expr:     `[]`,
-				indent:   "",
-				colorize: false,
-			},
-			wantW: "[]\n",
 		},
 		{
 			name: "complex",
