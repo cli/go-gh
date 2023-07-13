@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"github.com/cli/go-gh/v2"
+	"github.com/cli/go-gh/v2/pkg/api"
 )
 
 func main() {
