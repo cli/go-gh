@@ -1,7 +1,7 @@
 // Package asciisanitizer implements an ASCII control character sanitizer for UTF-8 strings.
-// It will transform ASCII control codes into equivalent inert characters the are safe for display in the terminal.
+// It will transform ASCII control codes into equivalent inert characters that are safe for display in the terminal.
 // Without sanitization these ASCII control characters will be interpreted by the terminal.
-// This behaviour can be used maliciously as an attack vector, especially the ASCII control characters \u001B and \u009B.
+// This behaviour can be used maliciously as an attack vector, especially the ASCII control characters \x1B and \x9B.
 package asciisanitizer
 
 import (
@@ -16,14 +16,15 @@ import (
 
 // Sanitizer implements transform.Transformer interface.
 type Sanitizer struct {
-	// Set to true if the string being sanitized is going to be marshalled to JSON.
+	// JSON tells the Sanitizer to replace strings that will be transformed
+	// into control characters when the string is marshaled to JSON. Set to
+	// true if the string being sanitized represents JSON formatted data.
 	JSON      bool
 	addEscape bool
 }
 
 // Transform uses a sliding window algorithm to detect C0 and C1 control characters as they are read and replaces
 // them with equivalent inert characters. Bytes that are not part of a control character are not modified.
-// If JSON format is specified it will also replace strings that would be changed to control chatacters when marshaling to JSON.
 func (t *Sanitizer) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	transfer := func(write, read []byte) error {
 		readLength := len(read)
@@ -40,7 +41,7 @@ func (t *Sanitizer) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err 
 	}
 
 	for len(src) > 0 {
-		// When sanitizing JSON strings make sure that we always have 6 bytes if available.
+		// When sanitizing JSON strings make sure that we have 6 bytes if available.
 		if t.JSON && len(src) < 6 && !atEOF {
 			err = transform.ErrShortSrc
 			return

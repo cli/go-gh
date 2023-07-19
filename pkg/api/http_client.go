@@ -239,18 +239,15 @@ func (srt sanitizerRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	if err != nil || !jsonTypeRE.MatchString(resp.Header.Get(contentType)) {
 		return resp, err
 	}
-	resp.Body = sanitizedReadCloser(resp.Body)
-	return resp, err
-}
-
-func sanitizedReadCloser(rc io.ReadCloser) io.ReadCloser {
-	return struct {
+	sanitizedReadCloser := struct {
 		io.Reader
 		io.Closer
 	}{
-		Reader: transform.NewReader(rc, &asciisanitizer.Sanitizer{JSON: true}),
-		Closer: rc,
+		Reader: transform.NewReader(resp.Body, &asciisanitizer.Sanitizer{JSON: true}),
+		Closer: resp.Body,
 	}
+	resp.Body = sanitizedReadCloser
+	return resp, err
 }
 
 func currentTimeZone() string {

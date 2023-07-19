@@ -92,9 +92,7 @@ func TestSanitizerTransform(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sanitizer := &Sanitizer{
-				JSON: tt.json,
-			}
+			sanitizer := &Sanitizer{JSON: tt.json}
 			reader := bytes.NewReader([]byte(tt.input))
 			transformReader := transform.NewReader(reader, sanitizer)
 			err := iotest.TestReader(transformReader, []byte(tt.want))
