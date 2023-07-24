@@ -18,7 +18,7 @@ import (
 
 // Exec invokes a gh command in a subprocess and captures the output and error streams.
 func Exec(args ...string) (stdout, stderr bytes.Buffer, err error) {
-	ghExe, err := ghLookPath()
+	ghExe, err := Path()
 	if err != nil {
 		return
 	}
@@ -28,7 +28,7 @@ func Exec(args ...string) (stdout, stderr bytes.Buffer, err error) {
 
 // ExecContext invokes a gh command in a subprocess and captures the output and error streams.
 func ExecContext(ctx context.Context, args ...string) (stdout, stderr bytes.Buffer, err error) {
-	ghExe, err := ghLookPath()
+	ghExe, err := Path()
 	if err != nil {
 		return
 	}
@@ -39,14 +39,16 @@ func ExecContext(ctx context.Context, args ...string) (stdout, stderr bytes.Buff
 // Exec invokes a gh command in a subprocess with its stdin, stdout, and stderr streams connected to
 // those of the parent process. This is suitable for running gh commands with interactive prompts.
 func ExecInteractive(ctx context.Context, args ...string) error {
-	ghExe, err := ghLookPath()
+	ghExe, err := Path()
 	if err != nil {
 		return err
 	}
 	return run(ctx, ghExe, nil, os.Stdin, os.Stdout, os.Stderr, args)
 }
 
-func ghLookPath() (string, error) {
+// Path searches for an executable named "gh" in the directories named by the PATH environment variable.
+// If the executable is found the result is an absolute path.
+func Path() (string, error) {
 	if ghExe := os.Getenv("GH_PATH"); ghExe != "" {
 		return ghExe, nil
 	}
