@@ -6,13 +6,13 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
 
 	"github.com/cli/go-gh/v2/pkg/asciisanitizer"
+	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/cli/go-gh/v2/pkg/term"
 	"github.com/henvic/httpretty"
 	"github.com/thlib/go-timezone-local/tzlocal"
@@ -68,7 +68,7 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	transport = newSanitizerRoundTripper(transport)
 
 	if opts.CacheDir == "" {
-		opts.CacheDir = filepath.Join(os.TempDir(), "gh-cli-cache")
+		opts.CacheDir = config.CacheDir()
 	}
 	if opts.EnableCache && opts.CacheTTL == 0 {
 		opts.CacheTTL = time.Hour * 24

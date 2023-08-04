@@ -268,6 +268,11 @@ func DataDir() string {
 	return path
 }
 
+// CacheDir returns the default path for gh cli cache.
+func CacheDir() string {
+	return filepath.Join(os.TempDir(), "gh-cli-cache")
+}
+
 func readFile(filename string) ([]byte, error) {
 	f, err := os.Open(filename)
 	if err != nil {
