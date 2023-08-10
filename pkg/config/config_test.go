@@ -219,6 +219,12 @@ func TestDataDir(t *testing.T) {
 	}
 }
 
+func TestCacheDir(t *testing.T) {
+	expected := filepath.Join(os.TempDir(), "gh-cli-cache")
+	actual := CacheDir()
+	assert.Equal(t, expected, actual)
+}
+
 func TestLoad(t *testing.T) {
 	tempDir := t.TempDir()
 	globalFilePath := filepath.Join(tempDir, "config.yml")
