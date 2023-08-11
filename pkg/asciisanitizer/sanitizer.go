@@ -47,7 +47,7 @@ func (t *Sanitizer) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err 
 			return
 		}
 		r, size := utf8.DecodeRune(src)
-		if r == utf8.RuneError && size == 1 {
+		if r == utf8.RuneError && size < 2 {
 			if !atEOF {
 				err = transform.ErrShortSrc
 				return
