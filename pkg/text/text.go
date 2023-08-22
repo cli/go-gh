@@ -6,9 +6,13 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/muesli/reflow/ansi"
 	"github.com/muesli/reflow/truncate"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -83,4 +87,20 @@ func RelativeTimeAgo(a, b time.Time) string {
 	}
 
 	return fmtDuration(int(ago.Hours()/24/365), "year")
+}
+
+// RemoveDiacritics returns the input value without "diacritics", or accent marks.
+func RemoveDiacritics(value string) string {
+	// Mn = "Mark, nonspacing" unicode character category
+	removeMnTransfomer := runes.Remove(runes.In(unicode.Mn))
+
+	// 1. Decompose the text into characters and diacritical marks
+	// 2. Remove the diacriticals marks
+	// 3. Recompose the text
+	t := transform.Chain(norm.NFD, removeMnTransfomer, norm.NFC)
+	normalized, _, err := transform.String(t, value)
+	if err != nil {
+		return value
+	}
+	return normalized
 }
