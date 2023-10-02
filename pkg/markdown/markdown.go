@@ -30,7 +30,7 @@ func WithWrap(w int) glamour.TermRendererOption {
 
 // WithTheme is a rendering option that sets the theme to use while rendering the markdown.
 // It can be used in conjunction with [term.Theme].
-// If the enviornment variable GLAMOUR_STYLE is set, it will take precedence over the provided theme.
+// If the environment variable GLAMOUR_STYLE is set, it will take precedence over the provided theme.
 func WithTheme(theme string) glamour.TermRendererOption {
 	style := os.Getenv("GLAMOUR_STYLE")
 	if style == "" || style == "auto" {
