@@ -169,6 +169,9 @@ func (c *Config) Migrate() (bool, error) {
 	// by not treating it as a host later)
 	migratedHostsEntry.SetEntry("version", yamlmap.StringValue(hostsVersionAfterMigration))
 
+	// For this spike, let's add a revert field that we can use to easily revert this migration
+	migratedHostsEntry.SetEntry("revert", hostsEntry)
+
 	// Finally, let's write our hosts file and mark that entry as unmodified so it doesn't get
 	// written again.
 	if err = writeFile(hostsConfigFile(), []byte(migratedHostsEntry.String())); err != nil {
@@ -177,6 +180,37 @@ func (c *Config) Migrate() (bool, error) {
 	migratedHostsEntry.SetUnmodified()
 
 	return true, nil
+}
+
+// The opposite of Migrate
+func (c *Config) Revert() (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Get the entry in the yamlmap for hosts, which is a map that has a structure like:
+	hostsEntry, err := c.entries.FindEntry("hosts")
+	if err != nil {
+		return false, &KeyNotFoundError{"hosts"}
+	}
+
+	// Find the "revert" key, if it doesn't exist then the migration hasn't been applied (probably)
+	// The only error that can be returned here is ErrNotFound
+	revertEntry, err := hostsEntry.FindEntry("revert")
+	if err != nil {
+		return false, nil
+	}
+
+	// Link the value of the revert entry to the top level hosts (overwriting the migrated hosts)
+	c.entries.SetEntry("hosts", revertEntry)
+
+	// Finally, let's write our hosts file and mark that entry as unmodified so it doesn't get
+	// written again.
+	if err = writeFile(hostsConfigFile(), []byte(revertEntry.String())); err != nil {
+		return true, err
+	}
+	revertEntry.SetUnmodified()
+
+	return false, nil
 }
 
 // Get a string value from a Config.
