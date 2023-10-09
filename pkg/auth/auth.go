@@ -121,6 +121,10 @@ func knownHosts(cfg *config.Config) []string {
 	}
 	if cfg != nil {
 		keys, err := cfg.Keys([]string{hostsKey})
+		// TODO: remove this hack
+		keys = remove(keys, "version")
+		keys = remove(keys, "revert")
+		// END hack
 		if err == nil {
 			hosts.AddValues(keys)
 		}
@@ -163,4 +167,13 @@ func normalizeHostname(host string) string {
 		return localhost
 	}
 	return hostname
+}
+
+func remove[T comparable](l []T, item T) []T {
+	for i, other := range l {
+		if other == item {
+			return append(l[:i], l[i+1:]...)
+		}
+	}
+	return l
 }
