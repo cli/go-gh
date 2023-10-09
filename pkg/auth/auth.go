@@ -74,7 +74,8 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 			}
 		}
 		if cfg != nil {
-			token, _ := cfg.Get([]string{hostsKey, host, oauthToken})
+			activeUser, _ := cfg.Get([]string{hostsKey, host, "active_user"})
+			token, _ := cfg.Get([]string{hostsKey, host, "users", activeUser, oauthToken})
 			return token, oauthToken
 		}
 	}
@@ -85,7 +86,8 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 		return token, githubToken
 	}
 	if cfg != nil {
-		token, _ := cfg.Get([]string{hostsKey, host, oauthToken})
+		activeUser, _ := cfg.Get([]string{hostsKey, host, "active_user"})
+		token, _ := cfg.Get([]string{hostsKey, host, "users", activeUser, oauthToken})
 		return token, oauthToken
 	}
 	return "", defaultSource
