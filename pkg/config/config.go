@@ -38,6 +38,147 @@ type Config struct {
 	mu      sync.RWMutex
 }
 
+func (c *Config) String() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.entries.String()
+}
+
+// TODO: consider passing in something that actually handles the migration
+// like a v1v2Migrator, and then we can also do v2v1Migrator to go backwards
+// For now, I'm just spiking and gotta spike hard.
+//
+// This migration exists to take a hosts section of the following structure:
+//
+//	github.com:
+//	  user: williammartin
+//	  git_protocol: https
+//	  editor: vim
+//	github.localhost:
+//	  user: monalisa
+//	  git_protocol: https
+//
+// We want this to migrate to something like:
+//
+// github.com:
+//
+//	williammartin:
+//	  active: true
+//	  git_protocol: https
+//	  editor: vim
+//
+// github.localhost:
+//
+//	monalisa:
+//	  active: true
+//	  git_protocol: https
+//
+// The reason for this is that we can then add new users under a host.
+// For some reason gofmt is messing up the structure of that yaml data above.
+func (c *Config) Migrate() (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	hostsVersionAfterMigration := "2"
+
+	// Get the entry in the yamlmap for hosts, which is a map that has a structure like:
+	//
+	// 	github.com:
+	//    user: williammartin
+	//    git_protocol: https
+	//    editor: vim
+	//  github.localhost:
+	//    user: monalisa
+	//    git_protocol: https
+	hostsEntry, err := c.entries.FindEntry("hosts")
+	if err != nil {
+		return false, &KeyNotFoundError{"hosts"}
+	}
+
+	// Let's check to see whether our migration has already been applied.
+	// The only error that can be returned here is ErrNotFound.
+	if versionEntry, err := hostsEntry.FindEntry("version"); err == nil {
+		if versionEntry.Value == hostsVersionAfterMigration {
+			return false, nil
+		}
+	}
+
+	// Create a new map in which to store our migrated data
+	migratedHostsEntry := yamlmap.MapValue()
+
+	// Iterate over the keys of the host entry, which are the hostnames like
+	// [github.com, ghe.io]
+	// TODO: Consider creating a .Entries() method that returns a struct
+	// containing Key and Value, so that we don't have to .FindEntry()
+	// for each key. I did this and it works, but I wanted to avoid extraneous
+	// details in this spike.
+	for _, hostKey := range hostsEntry.Keys() {
+
+		// Find the entry for that host, which is a map that has a structure like:
+		//
+		// user: williammartin
+		// git_protocol: https
+		// editor: vim
+		hostEntry, err := hostsEntry.FindEntry(hostKey)
+		if err != nil {
+			return true, &KeyNotFoundError{hostKey}
+		}
+
+		// Create new maps in which to store the migrated data. Note that we
+		// are doing something special with the user entry, because we need
+		// to add a new layer in our map that wasn't there before.
+		migratedHostEntry := yamlmap.MapValue()
+		migratedUserEntry := yamlmap.MapValue()
+		var username string
+
+		// Iterate over the keys of the host entry, which are config values like:
+		// [user, editor, git_protocol]
+		for _, hostCfgKey := range hostEntry.Keys() {
+
+			// Find the entry for that config value, which should be string values like
+			// williammartin, https or vim
+			hostCfgEntry, err := hostEntry.FindEntry(hostCfgKey)
+			if err != nil {
+				return true, &KeyNotFoundError{hostCfgKey}
+			}
+
+			// If this is the user entry, then we'll store the username for our new layer
+			// and then since this is a migration and we know we only had one user before this,
+			// we'll add an "active" key with value "true".
+			if hostCfgKey == "user" {
+				username = hostCfgEntry.Value
+				migratedUserEntry.SetEntry("active", yamlmap.StringValue("true"))
+				continue
+			}
+
+			// If this wasn't a user entry, then we'll take that configuration data and put
+			// it under our migrated user entry
+			migratedUserEntry.SetEntry(hostCfgKey, yamlmap.StringValue(hostCfgEntry.Value))
+		}
+
+		// Link the username key we stored earlier with our migrated user entry, on the migrated host entry
+		migratedHostEntry.SetEntry(username, migratedUserEntry)
+
+		// And link our migrated host to the migrated hosts entry
+		migratedHostsEntry.SetEntry(hostKey, migratedHostEntry)
+	}
+
+	// Link our migrated hosts to the top level hosts key
+	c.entries.SetEntry("hosts", migratedHostsEntry)
+	// Set a version so that we know we've applied this migration (kind of gross and we'll need to account for it,
+	// by not treating it as a host later)
+	migratedHostsEntry.SetEntry("version", yamlmap.StringValue(hostsVersionAfterMigration))
+
+	// Finally, let's write our hosts file and mark that entry as unmodified so it doesn't get
+	// written again.
+	if err = writeFile(hostsConfigFile(), []byte(migratedHostsEntry.String())); err != nil {
+		return true, err
+	}
+	migratedHostsEntry.SetUnmodified()
+
+	return true, nil
+}
+
 // Get a string value from a Config.
 // The keys argument is a sequence of key values so that nested
 // entries can be retrieved. A undefined string will be returned
