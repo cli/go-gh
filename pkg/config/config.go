@@ -60,21 +60,27 @@ func (c *Config) String() string {
 //
 // We want this to migrate to something like:
 //
+// ```
 // github.com:
 //
-//	williammartin:
-//	  active: true
-//	  git_protocol: https
-//	  editor: vim
+//	 active: williammartin
+//		users:
+//		  williammartin:
+//		    active: true
+//		    git_protocol: https
+//		    editor: vim
 //
 // github.localhost:
 //
-//	monalisa:
-//	  active: true
-//	  git_protocol: https
+//	 active: monalisa
+//		  monalisa:
+//		    active: true
+//		    git_protocol: https
+//
+// ```
 //
 // The reason for this is that we can then add new users under a host.
-// For some reason gofmt is messing up the structure of that yaml data above.
+// For some reason gofmt is messing up the structure of that yaml data above which is awful.
 func (c *Config) Migrate() (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -126,8 +132,11 @@ func (c *Config) Migrate() (bool, error) {
 
 		// Create new maps in which to store the migrated data. Note that we
 		// are doing something special with the user entry, because we need
-		// to add a new layer in our map that wasn't there before.
+		// to add two new layers in our map that wasn't there before.
 		migratedHostEntry := yamlmap.MapValue()
+		migratedUsersEntry := yamlmap.MapValue()
+		migratedHostEntry.SetEntry("users", migratedUsersEntry)
+
 		migratedUserEntry := yamlmap.MapValue()
 		var username string
 
@@ -147,7 +156,6 @@ func (c *Config) Migrate() (bool, error) {
 			// we'll add an "active" key with value "true".
 			if hostCfgKey == "user" {
 				username = hostCfgEntry.Value
-				migratedUserEntry.SetEntry("active", yamlmap.StringValue("true"))
 				continue
 			}
 
@@ -157,7 +165,9 @@ func (c *Config) Migrate() (bool, error) {
 		}
 
 		// Link the username key we stored earlier with our migrated user entry, on the migrated host entry
-		migratedHostEntry.SetEntry(username, migratedUserEntry)
+		// And set the active user to this username, since we know we only had one user before the migration
+		migratedUsersEntry.AddEntry(username, migratedUserEntry)
+		migratedHostEntry.SetEntry("active_user", yamlmap.StringValue(username))
 
 		// And link our migrated host to the migrated hosts entry
 		migratedHostsEntry.SetEntry(hostKey, migratedHostEntry)
