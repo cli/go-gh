@@ -12,12 +12,26 @@ import (
 	"github.com/cli/go-gh/v2/pkg/text"
 )
 
+type tableOption func(TablePrinter)
+
 type fieldOption func(*tableField)
 
 type TablePrinter interface {
 	AddField(string, ...fieldOption)
 	EndRow()
 	Render() error
+}
+
+func WithHeaders(colorFunc func(string) string, headers ...string) tableOption {
+	return func(t TablePrinter) {
+		if tp, ok := t.(*ttyTablePrinter); ok {
+			tp.hasHeaders = true
+			for _, header := range headers {
+				tp.AddField(header, WithColor(colorFunc))
+			}
+			tp.EndRow()
+		}
+	}
 }
 
 // WithTruncate overrides the truncation function for the field. The function should transform a string
@@ -40,16 +54,23 @@ func WithColor(fn func(string) string) fieldOption {
 // New initializes a table printer with terminal mode and terminal width. When terminal mode is enabled, the
 // output will be human-readable, column-formatted to fit available width, and rendered with color support.
 // In non-terminal mode, the output is tab-separated and all truncation of values is disabled.
-func New(w io.Writer, isTTY bool, maxWidth int) TablePrinter {
+func New(w io.Writer, isTTY bool, maxWidth int, opts ...tableOption) TablePrinter {
+	var tp TablePrinter
 	if isTTY {
-		return &ttyTablePrinter{
+		tp = &ttyTablePrinter{
 			out:      w,
 			maxWidth: maxWidth,
 		}
+	} else {
+		tp = &tsvTablePrinter{
+			out: w,
+		}
 	}
-	return &tsvTablePrinter{
-		out: w,
+
+	for _, opt := range opts {
+		opt(tp)
 	}
+	return tp
 }
 
 type tableField struct {
@@ -59,9 +80,10 @@ type tableField struct {
 }
 
 type ttyTablePrinter struct {
-	out      io.Writer
-	maxWidth int
-	rows     [][]tableField
+	out        io.Writer
+	maxWidth   int
+	hasHeaders bool
+	rows       [][]tableField
 }
 
 func (t *ttyTablePrinter) AddField(s string, opts ...fieldOption) {
@@ -92,7 +114,7 @@ func (t *ttyTablePrinter) Render() error {
 	numCols := len(t.rows[0])
 	colWidths := t.calculateColumnWidths(len(delim))
 
-	for _, row := range t.rows {
+	for i, row := range t.rows {
 		for col, field := range row {
 			if col > 0 {
 				_, err := fmt.Fprint(t.out, delim)
@@ -104,7 +126,7 @@ func (t *ttyTablePrinter) Render() error {
 			if field.truncateFunc != nil {
 				truncVal = field.truncateFunc(colWidths[col], field.text)
 			}
-			if col < numCols-1 {
+			if col < numCols-1 || i == 0 && t.hasHeaders {
 				// pad value with spaces on the right
 				if padWidth := colWidths[col] - text.DisplayWidth(field.text); padWidth > 0 {
 					truncVal += strings.Repeat(" ", padWidth)
