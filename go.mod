@@ -15,7 +15,7 @@ require (
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/muesli/reflow v0.3.0
 	github.com/muesli/termenv v0.13.0
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.4
 	github.com/thlib/go-timezone-local v0.0.0-20210907160436-ef149e42d28e
 	golang.org/x/sys v0.13.0
 	golang.org/x/term v0.13.0

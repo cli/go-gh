@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigDir(t *testing.T) {
@@ -630,6 +632,140 @@ func TestDefaultGeneralEntries(t *testing.T) {
 	unknown, err := cfg.Get([]string{"unknown"})
 	assert.EqualError(t, err, `could not find key "unknown"`)
 	assert.Equal(t, "", unknown)
+}
+
+func TestMigrationAppliedSuccessfully(t *testing.T) {
+	// Create a location for our tests to write,
+	// Note that using env var here makes these tests unparallelisable.
+	tempDir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", tempDir)
+
+	// Given we have a migrator that writes some keys to the top level config
+	// and hosts key
+	cfg := ReadFromString(testFullConfig())
+	topLevelKey := []string{"toplevelkey"}
+	newHostKey := []string{"hosts", "newhost"}
+
+	migrator := &MigrationMock{
+		DoFunc: func(config *Config) (bool, error) {
+			config.Set(topLevelKey, "toplevelvalue")
+			config.Set(newHostKey, "newhostvalue")
+			return true, nil
+		},
+	}
+
+	// When we run the migration
+	require.NoError(t, Migrate(cfg, migrator))
+
+	// Then our original config is updated with the migration applied
+	requireKeyWithValue(t, cfg, topLevelKey, "toplevelvalue")
+	requireKeyWithValue(t, cfg, newHostKey, "newhostvalue")
+
+	// And our config / hosts changes are persisted to their relevant files
+	persistedCfg, err := load(generalConfigFile(), hostsConfigFile())
+	require.NoError(t, err)
+	requireKeyWithValue(t, persistedCfg, topLevelKey, "toplevelvalue")
+	requireKeyWithValue(t, persistedCfg, newHostKey, "newhostvalue")
+
+	// And we have a backup file with the contents of the original config
+	backupCfg, err := load(filepath.Join(tempDir, "config.yml.bak"), filepath.Join(tempDir, "hosts.yml.bak"))
+	require.NoError(t, err)
+	requireNoKey(t, backupCfg, topLevelKey)
+	requireNoKey(t, backupCfg, newHostKey)
+}
+
+func TestMigrationNotRequiredWritesNoFiles(t *testing.T) {
+	// Create a location for our tests to write,
+	// Note that using env var here makes these tests unparallelisable.
+	tempDir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", tempDir)
+
+	// Given we have a migrator that returns that no migration is required
+	cfg := ReadFromString(testFullConfig())
+	migrator := &MigrationMock{
+		DoFunc: func(config *Config) (bool, error) {
+			return false, nil
+		},
+	}
+
+	// When we run the migration
+	require.NoError(t, Migrate(cfg, migrator))
+
+	// Then no files are written to disk
+	files, err := os.ReadDir(tempDir)
+	require.NoError(t, err)
+	require.Len(t, files, 0)
+}
+
+func TestMigrationErrorWritesNoFiles(t *testing.T) {
+	// Create a location for our tests to write,
+	// Note that using env var here makes these tests unparallelisable.
+	tempDir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", tempDir)
+
+	// Given we have a migrator that errors
+	cfg := ReadFromString(testFullConfig())
+	migrator := &MigrationMock{
+		DoFunc: func(config *Config) (bool, error) {
+			return true, errors.New("failed to migrate in test")
+		},
+	}
+
+	// When we run the migration
+	err := Migrate(cfg, migrator)
+
+	// Then the error is wrapped and bubbled
+	require.EqualError(t, err, "failed to migrate config: failed to migrate in test")
+
+	// And no files are written to disk
+	files, err := os.ReadDir(tempDir)
+	require.NoError(t, err)
+	require.Len(t, files, 0)
+}
+
+func TestMigrationBackupWriteError(t *testing.T) {
+	// Create a location for our tests to write,
+	// Note that using env var here makes these tests unparallelisable.
+	tempDir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", tempDir)
+
+	// Given we error when writing files (because we explicitly disallow it via this chmod)
+	require.NoError(t, os.Chmod(tempDir, 0000))
+	cfg := ReadFromString(testFullConfig())
+	topLevelKey := []string{"toplevelkey"}
+
+	migration := &MigrationMock{
+		DoFunc: func(c *Config) (bool, error) {
+			c.Set(topLevelKey, "toplevelvalue")
+			return true, nil
+		},
+	}
+
+	// When we run the migration
+	err := Migrate(cfg, migration)
+
+	// Then the error is wrapped and bubbled
+	require.ErrorContains(t, err, "failed to write config backup after migration")
+
+	// And our config is not updated
+	requireNoKey(t, cfg, topLevelKey)
+}
+
+func requireKeyWithValue(t *testing.T, cfg *Config, keys []string, value string) {
+	t.Helper()
+
+	actual, err := cfg.Get(keys)
+	require.NoError(t, err)
+
+	require.Equal(t, value, actual)
+}
+
+func requireNoKey(t *testing.T, cfg *Config, keys []string) {
+	t.Helper()
+
+	_, err := cfg.Get(keys)
+	var keyNotFoundError *KeyNotFoundError
+	require.ErrorAs(t, err, &keyNotFoundError)
 }
 
 func testConfig() *Config {
