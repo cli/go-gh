@@ -12,26 +12,13 @@ import (
 	"github.com/cli/go-gh/v2/pkg/text"
 )
 
-type tableOption func(TablePrinter)
-
 type fieldOption func(*tableField)
 
 type TablePrinter interface {
+	AddHeaders([]string, ...fieldOption)
 	AddField(string, ...fieldOption)
 	EndRow()
 	Render() error
-}
-
-func WithHeaders(colorFunc func(string) string, headers ...string) tableOption {
-	return func(t TablePrinter) {
-		if tp, ok := t.(*ttyTablePrinter); ok {
-			tp.hasHeaders = true
-			for _, header := range headers {
-				tp.AddField(header, WithColor(colorFunc))
-			}
-			tp.EndRow()
-		}
-	}
 }
 
 // WithTruncate overrides the truncation function for the field. The function should transform a string
@@ -54,23 +41,17 @@ func WithColor(fn func(string) string) fieldOption {
 // New initializes a table printer with terminal mode and terminal width. When terminal mode is enabled, the
 // output will be human-readable, column-formatted to fit available width, and rendered with color support.
 // In non-terminal mode, the output is tab-separated and all truncation of values is disabled.
-func New(w io.Writer, isTTY bool, maxWidth int, opts ...tableOption) TablePrinter {
-	var tp TablePrinter
+func New(w io.Writer, isTTY bool, maxWidth int) TablePrinter {
 	if isTTY {
-		tp = &ttyTablePrinter{
+		return &ttyTablePrinter{
 			out:      w,
 			maxWidth: maxWidth,
 		}
-	} else {
-		tp = &tsvTablePrinter{
-			out: w,
-		}
 	}
 
-	for _, opt := range opts {
-		opt(tp)
+	return &tsvTablePrinter{
+		out: w,
 	}
-	return tp
 }
 
 type tableField struct {
@@ -84,6 +65,18 @@ type ttyTablePrinter struct {
 	maxWidth   int
 	hasHeaders bool
 	rows       [][]tableField
+}
+
+func (t *ttyTablePrinter) AddHeaders(headers []string, opts ...fieldOption) {
+	if t.hasHeaders {
+		return
+	}
+
+	t.hasHeaders = true
+	for _, header := range headers {
+		t.AddField(header, opts...)
+	}
+	t.EndRow()
 }
 
 func (t *ttyTablePrinter) AddField(s string, opts ...fieldOption) {
@@ -234,6 +227,8 @@ type tsvTablePrinter struct {
 	out        io.Writer
 	currentCol int
 }
+
+func (t *tsvTablePrinter) AddHeaders(_ []string, _ ...fieldOption) {}
 
 func (t *tsvTablePrinter) AddField(text string, opts ...fieldOption) {
 	if t.currentCol > 0 {

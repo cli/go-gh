@@ -2,9 +2,12 @@ package tableprinter
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"os"
 	"testing"
+
+	"github.com/MakeNowJust/heredoc"
 )
 
 func ExampleTablePrinter() {
@@ -69,6 +72,35 @@ func Test_ttyTablePrinter_WithTruncate(t *testing.T) {
 	}
 
 	expected := "long SHA     he\nanother SHA  wo\n"
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}
+
+func Test_ttyTablePrinter_AddHeaders(t *testing.T) {
+	buf := bytes.Buffer{}
+	tp := New(&buf, true, 80)
+
+	tp.AddHeaders([]string{"ONE", "TWO", "THREE"}, WithColor(func(s string) string {
+		return fmt.Sprintf("\x1b[4m%s\x1b[m", s)
+	}))
+	tp.AddHeaders([]string{"SHOULD", "NOT", "EXIST"})
+
+	tp.AddField("hello")
+	tp.AddField("beautiful")
+	tp.AddField("people")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Assert the last column header is padded to support underlines, background styles, etc.
+	expected := heredoc.Docf(`
+		%[1]s[4mONE  %[1]s[m  %[1]s[4mTWO      %[1]s[m  %[1]s[4mTHREE %[1]s[m
+		hello  beautiful  people
+	`, "\x1b")
 	if buf.String() != expected {
 		t.Errorf("expected: %q, got: %q", expected, buf.String())
 	}
