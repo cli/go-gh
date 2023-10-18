@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/MakeNowJust/heredoc"
@@ -77,14 +78,14 @@ func Test_ttyTablePrinter_WithTruncate(t *testing.T) {
 	}
 }
 
-func Test_ttyTablePrinter_AddHeaders(t *testing.T) {
+func Test_ttyTablePrinter_AddHeader(t *testing.T) {
 	buf := bytes.Buffer{}
 	tp := New(&buf, true, 80)
 
-	tp.AddHeaders([]string{"ONE", "TWO", "THREE"}, WithColor(func(s string) string {
+	tp.AddHeader([]string{"ONE", "TWO", "THREE"}, WithColor(func(s string) string {
 		return fmt.Sprintf("\x1b[4m%s\x1b[m", s)
 	}))
-	tp.AddHeaders([]string{"SHOULD", "NOT", "EXIST"})
+	tp.AddHeader([]string{"SHOULD", "NOT", "EXIST"})
 
 	tp.AddField("hello")
 	tp.AddField("beautiful")
@@ -96,11 +97,39 @@ func Test_ttyTablePrinter_AddHeaders(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Assert the last column header is padded to support underlines, background styles, etc.
 	expected := heredoc.Docf(`
-		%[1]s[4mONE  %[1]s[m  %[1]s[4mTWO      %[1]s[m  %[1]s[4mTHREE %[1]s[m
+		%[1]s[4mONE  %[1]s[m  %[1]s[4mTWO      %[1]s[m  %[1]s[4mTHREE%[1]s[m
 		hello  beautiful  people
 	`, "\x1b")
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}
+
+func Test_ttyTablePrinter_WithPadding(t *testing.T) {
+	buf := bytes.Buffer{}
+	tp := New(&buf, true, 80)
+
+	// Center the headers.
+	tp.AddHeader([]string{"A", "B", "C"}, WithPadding(func(width int, s string) string {
+		left := (width - len(s)) / 2
+		return strings.Repeat(" ", left) + s + strings.Repeat(" ", width-left-len(s))
+	}))
+
+	tp.AddField("hello")
+	tp.AddField("beautiful")
+	tp.AddField("people")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := heredoc.Doc(`
+		  A        B        C   
+		hello  beautiful  people
+	`)
 	if buf.String() != expected {
 		t.Errorf("expected: %q, got: %q", expected, buf.String())
 	}

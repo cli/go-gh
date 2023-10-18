@@ -15,7 +15,7 @@ import (
 type fieldOption func(*tableField)
 
 type TablePrinter interface {
-	AddHeaders([]string, ...fieldOption)
+	AddHeader([]string, ...fieldOption)
 	AddField(string, ...fieldOption)
 	EndRow()
 	Render() error
@@ -23,15 +23,27 @@ type TablePrinter interface {
 
 // WithTruncate overrides the truncation function for the field. The function should transform a string
 // argument into a string that fits within the given display width. The default behavior is to truncate the
-// value by adding "..." in the end. Pass nil to disable truncation for this value.
+// value by adding "..." in the end. The truncation function will be called before padding and coloring.
+// Pass nil to disable truncation for this value.
 func WithTruncate(fn func(int, string) string) fieldOption {
 	return func(f *tableField) {
 		f.truncateFunc = fn
 	}
 }
 
+// WithPadding overrides the padding function for the field. The function should transform a string argument
+// into a string that is padded to fit within the given display width. The default behavior is to pad fields
+// with spaces except for the last field. The padding function will be called after truncation and before coloring.
+// Pass nil to disable padding for this value.
+func WithPadding(fn func(int, string) string) fieldOption {
+	return func(f *tableField) {
+		f.paddingFunc = fn
+	}
+}
+
 // WithColor sets the color function for the field. The function should transform a string value by wrapping
 // it in ANSI escape codes. The color function will not be used if the table was initialized in non-terminal mode.
+// The color function will be called before truncation and padding.
 func WithColor(fn func(string) string) fieldOption {
 	return func(f *tableField) {
 		f.colorFunc = fn
@@ -57,6 +69,7 @@ func New(w io.Writer, isTTY bool, maxWidth int) TablePrinter {
 type tableField struct {
 	text         string
 	truncateFunc func(int, string) string
+	paddingFunc  func(int, string) string
 	colorFunc    func(string) string
 }
 
@@ -67,14 +80,14 @@ type ttyTablePrinter struct {
 	rows       [][]tableField
 }
 
-func (t *ttyTablePrinter) AddHeaders(headers []string, opts ...fieldOption) {
+func (t *ttyTablePrinter) AddHeader(columns []string, opts ...fieldOption) {
 	if t.hasHeaders {
 		return
 	}
 
 	t.hasHeaders = true
-	for _, header := range headers {
-		t.AddField(header, opts...)
+	for _, column := range columns {
+		t.AddField(column, opts...)
 	}
 	t.EndRow()
 }
@@ -107,7 +120,7 @@ func (t *ttyTablePrinter) Render() error {
 	numCols := len(t.rows[0])
 	colWidths := t.calculateColumnWidths(len(delim))
 
-	for i, row := range t.rows {
+	for _, row := range t.rows {
 		for col, field := range row {
 			if col > 0 {
 				_, err := fmt.Fprint(t.out, delim)
@@ -119,7 +132,9 @@ func (t *ttyTablePrinter) Render() error {
 			if field.truncateFunc != nil {
 				truncVal = field.truncateFunc(colWidths[col], field.text)
 			}
-			if col < numCols-1 || i == 0 && t.hasHeaders {
+			if field.paddingFunc != nil {
+				truncVal = field.paddingFunc(colWidths[col], truncVal)
+			} else if col < numCols-1 {
 				// pad value with spaces on the right
 				if padWidth := colWidths[col] - text.DisplayWidth(field.text); padWidth > 0 {
 					truncVal += strings.Repeat(" ", padWidth)
@@ -228,7 +243,7 @@ type tsvTablePrinter struct {
 	currentCol int
 }
 
-func (t *tsvTablePrinter) AddHeaders(_ []string, _ ...fieldOption) {}
+func (t *tsvTablePrinter) AddHeader(_ []string, _ ...fieldOption) {}
 
 func (t *tsvTablePrinter) AddField(text string, opts ...fieldOption) {
 	if t.currentCol > 0 {
