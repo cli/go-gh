@@ -134,8 +134,6 @@ var Read = func() (*Config, error) {
 }
 
 // ReadFromString takes a yaml string and returns a Config.
-// Note: This is only used for testing, and should not be
-// relied upon in production.
 func ReadFromString(str string) *Config {
 	m, _ := mapFromString(str)
 	if m == nil {
