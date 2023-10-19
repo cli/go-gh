@@ -172,6 +172,129 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
+func TestPadRight(t *testing.T) {
+	type args struct {
+		max int
+		s   string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "empty",
+			args: args{
+				s:   "",
+				max: 5,
+			},
+			want: "     ",
+		},
+		{
+			name: "short",
+			args: args{
+				s:   "hello",
+				max: 7,
+			},
+			want: "hello  ",
+		},
+		{
+			name: "long",
+			args: args{
+				s:   "hello world",
+				max: 5,
+			},
+			want: "hello world",
+		},
+		{
+			name: "exact",
+			args: args{
+				s:   "hello world",
+				max: 11,
+			},
+			want: "hello world",
+		},
+		{
+			name: "Japanese",
+			args: args{
+				s:   "テストテスト",
+				max: 13,
+			},
+			want: "テストテスト ",
+		},
+		{
+			name: "Japanese filled",
+			args: args{
+				s:   "aテスト",
+				max: 9,
+			},
+			want: "aテスト  ",
+		},
+		{
+			name: "Chinese",
+			args: args{
+				s:   "幫新舉報違章工廠新增編號",
+				max: 26,
+			},
+			want: "幫新舉報違章工廠新增編號  ",
+		},
+		{
+			name: "Chinese filled",
+			args: args{
+				s:   "a幫新舉報違章工廠新增編號",
+				max: 26,
+			},
+			want: "a幫新舉報違章工廠新增編號 ",
+		},
+		{
+			name: "Korean",
+			args: args{
+				s:   "프로젝트 내의",
+				max: 15,
+			},
+			want: "프로젝트 내의  ",
+		},
+		{
+			name: "Korean filled",
+			args: args{
+				s:   "a프로젝트 내의",
+				max: 15,
+			},
+			want: "a프로젝트 내의 ",
+		},
+		{
+			name: "Emoji",
+			args: args{
+				s:   "💡💡💡💡",
+				max: 10,
+			},
+			want: "💡💡💡💡  ",
+		},
+		{
+			name: "Accented characters",
+			args: args{
+				s:   "é́́é́́é́́é́́é́́",
+				max: 7,
+			},
+			want: "é́́é́́é́́é́́é́́  ",
+		},
+		{
+			name: "Red accented characters",
+			args: args{
+				s:   "\x1b[0;31mé́́é́́é́́é́́é́́\x1b[0m",
+				max: 7,
+			},
+			want: "\x1b[0;31mé́́é́́é́́é́́é́́\x1b[0m  ",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := PadRight(tt.args.max, tt.args.s)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestDisplayWidth(t *testing.T) {
 	tests := []struct {
 		name string

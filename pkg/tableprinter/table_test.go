@@ -2,9 +2,13 @@ package tableprinter
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/MakeNowJust/heredoc"
 )
 
 func ExampleTablePrinter() {
@@ -74,6 +78,64 @@ func Test_ttyTablePrinter_WithTruncate(t *testing.T) {
 	}
 }
 
+func Test_ttyTablePrinter_AddHeader(t *testing.T) {
+	buf := bytes.Buffer{}
+	tp := New(&buf, true, 80)
+
+	tp.AddHeader([]string{"ONE", "TWO", "THREE"}, WithColor(func(s string) string {
+		return fmt.Sprintf("\x1b[4m%s\x1b[m", s)
+	}))
+	// Subsequent calls to AddHeader are ignored.
+	tp.AddHeader([]string{"SHOULD", "NOT", "EXIST"})
+
+	tp.AddField("hello")
+	tp.AddField("beautiful")
+	tp.AddField("people")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := heredoc.Docf(`
+		%[1]s[4mONE  %[1]s[m  %[1]s[4mTWO      %[1]s[m  %[1]s[4mTHREE%[1]s[m
+		hello  beautiful  people
+	`, "\x1b")
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}
+
+func Test_ttyTablePrinter_WithPadding(t *testing.T) {
+	buf := bytes.Buffer{}
+	tp := New(&buf, true, 80)
+
+	// Center the headers.
+	tp.AddHeader([]string{"A", "B", "C"}, WithPadding(func(width int, s string) string {
+		left := (width - len(s)) / 2
+		return strings.Repeat(" ", left) + s + strings.Repeat(" ", width-left-len(s))
+	}))
+
+	tp.AddField("hello")
+	tp.AddField("beautiful")
+	tp.AddField("people")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := heredoc.Doc(`
+		  A        B        C   
+		hello  beautiful  people
+	`)
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}
+
 func Test_tsvTablePrinter(t *testing.T) {
 	buf := bytes.Buffer{}
 	tp := New(&buf, false, 0)
@@ -91,6 +153,33 @@ func Test_tsvTablePrinter(t *testing.T) {
 	}
 
 	expected := "1\thello\n2\tworld\n"
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}
+
+func Test_tsvTablePrinter_AddHeader(t *testing.T) {
+	buf := bytes.Buffer{}
+	tp := New(&buf, false, 0)
+
+	// Headers are not output in TSV output.
+	tp.AddHeader([]string{"ONE", "TWO", "THREE"})
+
+	tp.AddField("hello")
+	tp.AddField("beautiful")
+	tp.AddField("people")
+	tp.EndRow()
+	tp.AddField("1")
+	tp.AddField("2")
+	tp.AddField("3")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := "hello\tbeautiful\tpeople\n1\t2\t3\n"
 	if buf.String() != expected {
 		t.Errorf("expected: %q, got: %q", expected, buf.String())
 	}
