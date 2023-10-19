@@ -144,65 +144,32 @@ func ReadFromString(str string) *Config {
 	return &Config{entries: m}
 }
 
-type WriteOpts struct {
-	IsBackup bool
-}
-
-type WriteOpt func(*WriteOpts)
-
-func asBackup() WriteOpt {
-	return func(wo *WriteOpts) {
-		wo.IsBackup = true
-	}
-}
-
 // Write gh configuration files to the local file system.
 // It will only write gh configuration files that have been modified
 // since last being read.
-func Write(c *Config, optFns ...WriteOpt) error {
+//
+// Note that a large portion of this is duplicated into the writeBackup
+// function so any changes here might also be required there.
+func Write(c *Config) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	return writeAssumingLockHeld(c, optFns...)
-}
-
-// writeAssumingLockHeld assumes you hold a write mutex for the provided config.
-// It is a programmer error not to hold the lock.
-func writeAssumingLockHeld(c *Config, optFns ...WriteOpt) error {
-	wo := WriteOpts{
-		IsBackup: false,
-	}
-	for _, opt := range optFns {
-		opt(&wo)
-	}
-
 	hosts, err := c.entries.FindEntry("hosts")
-	if err == nil && (hosts.IsModified() || wo.IsBackup) {
-		hostsConfigFile := hostsConfigFile()
-		if wo.IsBackup {
-			hostsConfigFile += ".bak"
-		}
-
-		err := writeFile(hostsConfigFile, []byte(hosts.String()))
+	if err == nil && hosts.IsModified() {
+		err := writeFile(hostsConfigFile(), []byte(hosts.String()))
 		if err != nil {
 			return err
 		}
 		hosts.SetUnmodified()
 	}
 
-	if c.entries.IsModified() || wo.IsBackup {
+	if c.entries.IsModified() {
 		// Hosts gets written to a different file above so remove it
 		// before writing and add it back in after writing.
 		hostsMap, hostsErr := c.entries.FindEntry("hosts")
 		if hostsErr == nil {
 			_ = c.entries.RemoveEntry("hosts")
 		}
-		generalConfigFile := generalConfigFile()
-		if wo.IsBackup {
-			generalConfigFile += ".bak"
-		}
-
-		err := writeFile(generalConfigFile, []byte(c.entries.String()))
+		err := writeFile(generalConfigFile(), []byte(c.entries.String()))
 		if err != nil {
 			return err
 		}
@@ -386,13 +353,13 @@ func Migrate(c *Config, m Migration) error {
 	}
 
 	// Otherwise we'll write our current hosts config to a backup file
-	if err := writeAssumingLockHeld(c, asBackup()); err != nil {
+	if err := writeBackup(c); err != nil {
 		return fmt.Errorf("failed to write config backup after migration: %s", err)
 	}
 
 	// Then write out our migrated config. Note that since this is a deep copy, all the modified
 	// flags will be set to true, so we'll write out both config and hosts unconditionally.
-	if err := writeAssumingLockHeld(copiedCfg); err != nil {
+	if err := Write(copiedCfg); err != nil {
 		// Note that this error case is not tested as it was not easily possible to force an error
 		// here, and not on the backup write above, without introducing new abstractions which
 		// seemed to complicate the whole affair.
@@ -402,5 +369,36 @@ func Migrate(c *Config, m Migration) error {
 	// Finally, swap in the copied config entries last, since we know the file has been successfully
 	// persisted.
 	c.entries = copiedCfg.entries
+	return nil
+}
+
+// Note that writeBackup is mostly copied from the Write function, so any changes
+// here might also be required there.
+//
+// It differs from the Write function in that it does not consider whether any
+// modification of entries has occured, and just writes the files out unconditionally.
+func writeBackup(c *Config) error {
+	hosts, hostsErr := c.entries.FindEntry("hosts")
+	hadHostsEntry := hostsErr == nil
+	if hadHostsEntry {
+		backupFilePath := hostsConfigFile() + ".bak"
+		if err := writeFile(backupFilePath, []byte(hosts.String())); err != nil {
+			return err
+		}
+	}
+
+	// Hosts gets written to a different file above so remove it
+	// before writing and add it back in after writing.
+	_ = c.entries.RemoveEntry("hosts")
+
+	generalConfigFilePath := generalConfigFile() + ".bak"
+	if err := writeFile(generalConfigFilePath, []byte(c.entries.String())); err != nil {
+		return fmt.Errorf("failed to write config backup: %w", err)
+	}
+
+	if hadHostsEntry {
+		c.entries.AddEntry("hosts", hosts)
+	}
+
 	return nil
 }
