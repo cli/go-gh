@@ -723,32 +723,66 @@ func TestMigrationErrorWritesNoFiles(t *testing.T) {
 	require.Len(t, files, 0)
 }
 
-func TestMigrationBackupWriteError(t *testing.T) {
-	// Create a location for our tests to write,
-	// Note that using env var here makes these tests unparallelisable.
-	tempDir := t.TempDir()
-	t.Setenv("GH_CONFIG_DIR", tempDir)
-
-	// Given we error when writing files (because we explicitly disallow it via this chmod)
-	require.NoError(t, os.Chmod(tempDir, 0000))
-	cfg := ReadFromString(testFullConfig())
-	topLevelKey := []string{"toplevelkey"}
-
-	migration := &MigrationMock{
-		DoFunc: func(c *Config) (bool, error) {
-			c.Set(topLevelKey, "toplevelvalue")
-			return true, nil
+func TestMigrationWriteErrors(t *testing.T) {
+	tests := []struct {
+		name            string
+		unwriteableFile string
+		wantErrContains string
+	}{
+		{
+			name:            "failure to write hosts backup",
+			unwriteableFile: "hosts.yml.bak",
+			wantErrContains: "failed to write hosts backup",
+		},
+		{
+			name:            "failure to write config backup",
+			unwriteableFile: "config.yml.bak",
+			wantErrContains: "failed to write config backup",
+		},
+		{
+			name:            "failure to write hosts",
+			unwriteableFile: "hosts.yml",
+			wantErrContains: "failed to write config after migration",
+		},
+		{
+			name:            "failure to write config",
+			unwriteableFile: "config.yml",
+			wantErrContains: "failed to write config after migration",
 		},
 	}
 
-	// When we run the migration
-	err := Migrate(cfg, migration)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a location for our tests to write,
+			// Note that using env var here makes these tests unparallelisable.
+			tempDir := t.TempDir()
+			t.Setenv("GH_CONFIG_DIR", tempDir)
 
-	// Then the error is wrapped and bubbled
-	require.ErrorContains(t, err, "failed to write config backup after migration")
+			// Given we error when writing the hosts backup (because we chmod the files as trickery)
+			makeFileUnwriteable(t, filepath.Join(tempDir, tt.unwriteableFile))
 
-	// And our config is not updated
-	requireNoKey(t, cfg, topLevelKey)
+			cfg := ReadFromString(testFullConfig())
+			topLevelKey := []string{"toplevelkey"}
+			hostsKey := []string{"hosts", "newhost"}
+
+			migration := &MigrationMock{
+				DoFunc: func(c *Config) (bool, error) {
+					c.Set(topLevelKey, "toplevelvalue")
+					c.Set(hostsKey, "newhostvalue")
+					return true, nil
+				},
+			}
+
+			// When we run the migration
+			err := Migrate(cfg, migration)
+
+			// Then the error is wrapped and bubbled
+			require.ErrorContains(t, err, tt.wantErrContains)
+
+			// And our config is not updated
+			requireNoKey(t, cfg, topLevelKey)
+		})
+	}
 }
 
 func requireKeyWithValue(t *testing.T, cfg *Config, keys []string, value string) {
@@ -766,6 +800,16 @@ func requireNoKey(t *testing.T, cfg *Config, keys []string) {
 	_, err := cfg.Get(keys)
 	var keyNotFoundError *KeyNotFoundError
 	require.ErrorAs(t, err, &keyNotFoundError)
+}
+
+func makeFileUnwriteable(t *testing.T, file string) {
+	t.Helper()
+
+	f, err := os.Create(file)
+	require.NoError(t, err)
+	f.Close()
+
+	require.NoError(t, os.Chmod(file, 0000))
 }
 
 func testConfig() *Config {

@@ -381,7 +381,7 @@ func writeBackup(c *Config) error {
 	if hadHostsEntry {
 		backupFilePath := hostsConfigFile() + ".bak"
 		if err := writeFile(backupFilePath, []byte(hosts.String())); err != nil {
-			return err
+			return fmt.Errorf("failed to write hosts backup: %w", err)
 		}
 	}
 
