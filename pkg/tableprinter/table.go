@@ -7,7 +7,6 @@ package tableprinter
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/text"
 )
@@ -135,10 +134,7 @@ func (t *ttyTablePrinter) Render() error {
 			if field.paddingFunc != nil {
 				truncVal = field.paddingFunc(colWidths[col], truncVal)
 			} else if col < numCols-1 {
-				// pad value with spaces on the right
-				if padWidth := colWidths[col] - text.DisplayWidth(field.text); padWidth > 0 {
-					truncVal += strings.Repeat(" ", padWidth)
-				}
+				truncVal = text.PadRight(colWidths[col], truncVal)
 			}
 			if field.colorFunc != nil {
 				truncVal = field.colorFunc(truncVal)
@@ -245,7 +241,7 @@ type tsvTablePrinter struct {
 
 func (t *tsvTablePrinter) AddHeader(_ []string, _ ...fieldOption) {}
 
-func (t *tsvTablePrinter) AddField(text string, opts ...fieldOption) {
+func (t *tsvTablePrinter) AddField(text string, _ ...fieldOption) {
 	if t.currentCol > 0 {
 		fmt.Fprint(t.out, "\t")
 	}

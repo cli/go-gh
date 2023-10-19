@@ -85,6 +85,7 @@ func Test_ttyTablePrinter_AddHeader(t *testing.T) {
 	tp.AddHeader([]string{"ONE", "TWO", "THREE"}, WithColor(func(s string) string {
 		return fmt.Sprintf("\x1b[4m%s\x1b[m", s)
 	}))
+	// Subsequent calls to AddHeader are ignored.
 	tp.AddHeader([]string{"SHOULD", "NOT", "EXIST"})
 
 	tp.AddField("hello")
@@ -152,6 +153,33 @@ func Test_tsvTablePrinter(t *testing.T) {
 	}
 
 	expected := "1\thello\n2\tworld\n"
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}
+
+func Test_tsvTablePrinter_AddHeader(t *testing.T) {
+	buf := bytes.Buffer{}
+	tp := New(&buf, false, 0)
+
+	// Headers are not output in TSV output.
+	tp.AddHeader([]string{"ONE", "TWO", "THREE"})
+
+	tp.AddField("hello")
+	tp.AddField("beautiful")
+	tp.AddField("people")
+	tp.EndRow()
+	tp.AddField("1")
+	tp.AddField("2")
+	tp.AddField("3")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := "hello\tbeautiful\tpeople\n1\t2\t3\n"
 	if buf.String() != expected {
 		t.Errorf("expected: %q, got: %q", expected, buf.String())
 	}

@@ -53,6 +53,15 @@ func Truncate(maxWidth int, s string) string {
 	return r
 }
 
+// PadRight returns a copy of the string s that has been padded on the right with whitespace to fit
+// the maximum display width.
+func PadRight(maxWidth int, s string) string {
+	if padWidth := maxWidth - DisplayWidth(s); padWidth > 0 {
+		s += strings.Repeat(" ", padWidth)
+	}
+	return s
+}
+
 // Pluralize returns a concatenated string with num and the plural form of thing if necessary.
 func Pluralize(num int, thing string) string {
 	if num == 1 {
