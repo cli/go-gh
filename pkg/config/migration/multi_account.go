@@ -70,22 +70,14 @@ func (m MultiAccount) Do(c *config.Config) (bool, error) {
 		return false, nil
 	}
 
-	// Check to see if we are on the old version of the hosts file by getting the user key
+	// If there is no "user" key then we don't need a migration.
+	// Initially, we looked for "active_user" but looking for "user" actually allows the following
+	// flow to work:
+	//   1. gh auth login (old code)
+	//   2. gh auth login (new code)
+	//   3. gh auth login (new code)
 	_, err = c.Get(append(hostsKey, hostnames[0], "user"))
-	hasPreMigrationData := err == nil
-
-	// And check to see whether we have a new version of the hosts file by getting the active_user key
-	_, err = c.Get(append(hostsKey, hostnames[0], "active_user"))
-	hasPostMigrationData := err == nil
-
-	// If we have both then ther user has been naughty. They must have gone back and used an older
-	// version of gh with a newer hosts file and now they are going to be in trouble!
-	if hasPreMigrationData && hasPostMigrationData {
-		return false, CowardlyRefusalError{"hosts file has a mix of old and new formats, did you use an older version of gh?"}
-	}
-
-	// Otherwise if they have just the new version, then we don't need to migrate
-	if hasPostMigrationData {
+	if errors.As(err, &keyNotFoundError) {
 		return false, nil
 	}
 
@@ -108,12 +100,10 @@ func (m MultiAccount) Do(c *config.Config) (bool, error) {
 			// e.g. [williammartin, https, vim, gho_xyz...] but it's possible that a manually
 			// edited config file might nest further but we don't support that.
 			//
-			// We could consider throwing away the nested values, but I suppose
-			// I'd rather make the user take a destructive action even if we have a backup.
-			// If they have configuration here, it's probably for a reason.
+			// We throw away deeply nested values because we don't support them.
 			keys, err := c.Keys(append(hostsKey, hostname, configEntryKey))
 			if err == nil && len(keys) > 0 {
-				return false, CowardlyRefusalError{"hosts file has entries that are surprisingly deeply nested"}
+				continue
 			}
 
 			configEntryValue, err := c.Get(append(hostsKey, hostname, configEntryKey))
