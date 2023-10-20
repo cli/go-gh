@@ -697,6 +697,56 @@ func TestMigrationNotRequiredWritesNoFiles(t *testing.T) {
 	require.Len(t, files, 0)
 }
 
+func TestMigrationUpdatesConfigVersion(t *testing.T) {
+	tests := []struct {
+		name            string
+		startingVersion string
+		expectedVersion string
+	}{
+		{
+			name:            "when there is no version, it starts at 1",
+			startingVersion: "",
+			expectedVersion: "1",
+		},
+		{
+			name:            "when there is an integer version, it increments by 1",
+			startingVersion: "1",
+			expectedVersion: "2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a location for our tests to write,
+			// Note that using env var here makes these tests unparallelisable.
+			tempDir := t.TempDir()
+			t.Setenv("GH_CONFIG_DIR", tempDir)
+
+			// Given we have a migrator that returns that a migration is required
+			cfg := ReadFromString(testFullConfig())
+			migrator := &MigrationMock{
+				DoFunc: func(config *Config) (bool, error) {
+					return true, nil
+				},
+			}
+
+			// And the config version is configured
+			if tt.startingVersion != "" {
+				cfg.Set([]string{"version"}, tt.startingVersion)
+			}
+
+			// When we run the migration
+			require.NoError(t, Migrate(cfg, migrator))
+
+			// Then the version has been updated as expected
+			version, err := cfg.Get([]string{"version"})
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedVersion, version)
+		})
+	}
+
+}
+
 func TestMigrationErrorWritesNoFiles(t *testing.T) {
 	// Create a location for our tests to write,
 	// Note that using env var here makes these tests unparallelisable.

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 
 	"github.com/cli/go-gh/v2/internal/yamlmap"
@@ -335,6 +336,9 @@ browser:
 // as necessary. After migration has completed, the modified config contents
 // will be used.
 //
+// Any updates to the config version key are ignored. The calling function
+// is responsible for updating the version key after migration has completed.
+//
 // If a migration is not required, because it has already been done, then
 // the migration should return false as the first return value. In this case,
 // any changes to the copied config will be ignored.
@@ -363,6 +367,25 @@ func Migrate(c *Config, m Migration) error {
 	// Otherwise we'll write our current hosts config to a backup file
 	if err := writeBackup(c); err != nil {
 		return fmt.Errorf("failed to write config backup after migration: %s", err)
+	}
+
+	// Update the version as necessary
+	versionKey := []string{"version"}
+	version, err := copiedCfg.Get(versionKey)
+
+	// If there was no key then we start by saying it was version 0
+	var keyNotFoundError *KeyNotFoundError
+	if errors.As(err, &keyNotFoundError) {
+		copiedCfg.Set(versionKey, "1")
+	} else if err != nil {
+		return fmt.Errorf("failed to get config version after migration: %s", err)
+	} else {
+		// Otherwise we do some gross string to integer, increment and back to string conversions
+		versionNo, err := strconv.Atoi(version)
+		if err != nil {
+			return fmt.Errorf("failed to parse config version after migration: %s", err)
+		}
+		copiedCfg.Set(versionKey, strconv.Itoa(versionNo+1))
 	}
 
 	// Then write out our migrated config. Note that since this is a deep copy, all the modified
