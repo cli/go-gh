@@ -26,6 +26,7 @@ var hostsKey = []string{"hosts"}
 //	github.localhost:
 //	  user: monalisa
 //	  git_protocol: https
+//    oauth_token: xyz
 //
 // We want this to migrate to something like:
 //
@@ -38,11 +39,16 @@ var hostsKey = []string{"hosts"}
 //
 // github.localhost:
 //	 active_user: monalisa
-//     users:
-//	     monalisa:
-//		   git_protocol: https
+//   oauth_token: xyz
+//   users:
+//	   monalisa:
+//	     git_protocol: https
+//	     oauth_token: xyz
 //
 // The reason for this is that we can then add new users under a host.
+// Note that it's important we duplicate and hoist the oauth_token with an unchanged key
+// so that existing users of the go-gh auth package don't break. In practice
+// it represents the "active_oauth_token" if there is one (due to insecure storage).
 
 type MultiAccount struct{}
 
