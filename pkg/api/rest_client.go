@@ -156,7 +156,7 @@ func restURL(hostname string, pathOrURL string) string {
 }
 
 func restPrefix(hostname string) string {
-	if isGarage(hostname) {
+	if isGarage(hostname) || isReviewLab(hostname) {
 		return fmt.Sprintf("https://%s/api/v3/", hostname)
 	}
 	hostname = normalizeHostname(hostname)

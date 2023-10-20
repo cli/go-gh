@@ -134,6 +134,10 @@ func isGarage(host string) bool {
 	return strings.EqualFold(host, "garage.github.com")
 }
 
+func isReviewLab(host string) bool {
+	return strings.Contains(host, "review-lab.github.com")
+}
+
 func isEnterprise(host string) bool {
 	return host != github && host != localhost
 }
