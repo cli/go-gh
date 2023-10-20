@@ -55,7 +55,17 @@ hosts:
 	require.ErrorContains(t, err, "hosts file has entries that are surprisingly deeply nested")
 }
 
-func TestMigrationReturnsNotRequredWhenNoHosts(t *testing.T) {
+func TestMigrationReturnsNotRequiredWhenNoHostsEntry(t *testing.T) {
+	cfg := config.ReadFromString(``)
+
+	var m migration.MultiAccount
+	required, err := m.Do(cfg)
+
+	require.NoError(t, err)
+	require.False(t, required, "migration should not be required when already migrated")
+}
+
+func TestMigrationReturnsNotRequredWhenEmptyHosts(t *testing.T) {
 	cfg := config.ReadFromString(`
 hosts:
 `)

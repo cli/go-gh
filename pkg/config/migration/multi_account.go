@@ -1,6 +1,7 @@
 package migration
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/cli/go-gh/v2/pkg/config"
@@ -55,6 +56,10 @@ type MultiAccount struct{}
 func (m MultiAccount) Do(c *config.Config) (bool, error) {
 	hostnames, err := c.Keys(hostsKey)
 	// [github.com, github.localhost]
+	var keyNotFoundError *config.KeyNotFoundError
+	if errors.As(err, &keyNotFoundError) {
+		return false, nil
+	}
 	if err != nil {
 		return false, CowardlyRefusalError{"couldn't get hosts configuration"}
 	}
