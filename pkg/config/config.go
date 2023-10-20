@@ -328,6 +328,16 @@ browser:
 `
 
 //go:generate moq -rm -out migration_mock.go . Migration
+
+// Migration is the interace that config migrations must implement.
+//
+// Migrations will receive a copy of the config, and should modify that copy
+// as necessary. After migration has completed, the modified config contents
+// will be used.
+//
+// If a migration is not required, because it has already been done, then
+// the migration should return false as the first return value. In this case,
+// any changes to the copied config will be ignored.
 type Migration interface {
 	Do(*Config) (bool, error)
 }
