@@ -77,7 +77,7 @@ func (m MultiAccount) Do(c *config.Config) (bool, error) {
 	// Otherwise let's get to the business of migrating!
 	for _, hostname := range hostnames {
 		configEntryKeys, err := c.Keys(append(hostsKey, hostname))
-		// e.g. [user, git_protocol, editor]
+		// e.g. [user, git_protocol, editor, ouath_token]
 		if err != nil {
 			return false, CowardlyRefusalError{fmt.Sprintf("couldn't get host configuration despite %q existing", hostname)}
 		}
@@ -90,7 +90,7 @@ func (m MultiAccount) Do(c *config.Config) (bool, error) {
 
 		for _, configEntryKey := range configEntryKeys {
 			// We would expect that these keys map directly to values
-			// e.g. [williammartin, https, vim] but it's possible that a manually
+			// e.g. [williammartin, https, vim, gho_xyz...] but it's possible that a manually
 			// edited config file might nest further but we don't support that.
 			//
 			// We could consider throwing away the nested values, but I suppose
@@ -115,6 +115,12 @@ func (m MultiAccount) Do(c *config.Config) (bool, error) {
 			// now part of the final structure.
 			if configEntryKey == "user" {
 				continue
+			}
+
+			// And if it's the oauth_token, we want to duplicate it up a layer to ensure the go-gh auth
+			// package continues to work.
+			if configEntryKey == "oauth_token" {
+				c.Set(append(hostsKey, hostname, "oauth_token"), configEntryValue)
 			}
 
 			// Set these entries in their new location under the user

@@ -30,10 +30,14 @@ hosts:
 	// Do some simple checks here for depth and multiple migrations
 	// but I don't really want to write a full tree traversal matcher.
 	requireKeyWithValue(t, cfg, []string{"hosts", "github.com", "active_user"}, "user1")
+	requireKeyWithValue(t, cfg, []string{"hosts", "github.com", "oauth_token"}, "xxxxxxxxxxxxxxxxxxxx")
 	requireKeyWithValue(t, cfg, []string{"hosts", "github.com", "users", "user1", "git_protocol"}, "ssh")
+	requireKeyWithValue(t, cfg, []string{"hosts", "github.com", "users", "user1", "oauth_token"}, "xxxxxxxxxxxxxxxxxxxx")
 
 	requireKeyWithValue(t, cfg, []string{"hosts", "enterprise.com", "active_user"}, "user2")
+	requireKeyWithValue(t, cfg, []string{"hosts", "enterprise.com", "oauth_token"}, "yyyyyyyyyyyyyyyyyyyy")
 	requireKeyWithValue(t, cfg, []string{"hosts", "enterprise.com", "users", "user2", "git_protocol"}, "https")
+	requireKeyWithValue(t, cfg, []string{"hosts", "enterprise.com", "users", "user2", "oauth_token"}, "yyyyyyyyyyyyyyyyyyyy")
 }
 
 func TestMigrationErrorsWithDeeplyNestedEntries(t *testing.T) {
