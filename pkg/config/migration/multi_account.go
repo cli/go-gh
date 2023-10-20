@@ -70,12 +70,22 @@ func (m MultiAccount) Do(c *config.Config) (bool, error) {
 		return false, nil
 	}
 
-	// If there is an active user set for the first host then we must have already
-	// migrated, so no migration is required. Note that this is a little janky but
-	// without introducing a version into the hosts (which would require special handling elsewhere),
-	// or a version into the config (which would require config backup to move in sync with hosts backup)
-	// it seems like the best option for now.
-	if _, err := c.Get(append(hostsKey, hostnames[0], "active_user")); err == nil {
+	// Check to see if we are on the old version of the hosts file by getting the user key
+	_, err = c.Get(append(hostsKey, hostnames[0], "user"))
+	hasPreMigrationData := err == nil
+
+	// And check to see whether we have a new version of the hosts file by getting the active_user key
+	_, err = c.Get(append(hostsKey, hostnames[0], "active_user"))
+	hasPostMigrationData := err == nil
+
+	// If we have both then ther user has been naughty. They must have gone back and used an older
+	// version of gh with a newer hosts file and now they are going to be in trouble!
+	if hasPreMigrationData && hasPostMigrationData {
+		return false, CowardlyRefusalError{"hosts file has a mix of old and new formats, did you use an older version of gh?"}
+	}
+
+	// Otherwise if they have just the new version, then we don't need to migrate
+	if hasPostMigrationData {
 		return false, nil
 	}
 
