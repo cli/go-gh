@@ -646,16 +646,14 @@ func TestMigrationAppliedSuccessfully(t *testing.T) {
 	topLevelKey := []string{"toplevelkey"}
 	newHostKey := []string{"hosts", "newhost"}
 
-	migrator := &MigrationMock{
-		DoFunc: func(config *Config) (bool, error) {
-			config.Set(topLevelKey, "toplevelvalue")
-			config.Set(newHostKey, "newhostvalue")
-			return true, nil
-		},
-	}
+	migration := mockMigration(func(config *Config) error {
+		config.Set(topLevelKey, "toplevelvalue")
+		config.Set(newHostKey, "newhostvalue")
+		return nil
+	})
 
 	// When we run the migration
-	require.NoError(t, Migrate(cfg, migrator))
+	require.NoError(t, Migrate(cfg, migration))
 
 	// Then our original config is updated with the migration applied
 	requireKeyWithValue(t, cfg, topLevelKey, "toplevelvalue")
@@ -666,35 +664,79 @@ func TestMigrationAppliedSuccessfully(t *testing.T) {
 	require.NoError(t, err)
 	requireKeyWithValue(t, persistedCfg, topLevelKey, "toplevelvalue")
 	requireKeyWithValue(t, persistedCfg, newHostKey, "newhostvalue")
-
-	// And we have a backup file with the contents of the original config
-	backupCfg, err := load(filepath.Join(tempDir, "config.yml.bak"), filepath.Join(tempDir, "hosts.yml.bak"))
-	require.NoError(t, err)
-	requireNoKey(t, backupCfg, topLevelKey)
-	requireNoKey(t, backupCfg, newHostKey)
 }
 
-func TestMigrationNotRequiredWritesNoFiles(t *testing.T) {
+func TestMigrationAppliedBumpsVersion(t *testing.T) {
 	// Create a location for our tests to write,
 	// Note that using env var here makes these tests unparallelisable.
 	tempDir := t.TempDir()
 	t.Setenv("GH_CONFIG_DIR", tempDir)
 
-	// Given we have a migrator that returns that no migration is required
+	// Given we have a migration with a pre version that matches
+	// the version in the config
 	cfg := ReadFromString(testFullConfig())
-	migrator := &MigrationMock{
-		DoFunc: func(config *Config) (bool, error) {
-			return false, nil
+	cfg.Set([]string{"version"}, "expected-pre-version")
+	topLevelKey := []string{"toplevelkey"}
+
+	migration := &MigrationMock{
+		DoFunc: func(config *Config) error {
+			config.Set(topLevelKey, "toplevelvalue")
+			return nil
+		},
+		PreVersionFunc: func() string {
+			return "expected-pre-version"
+		},
+		PostVersionFunc: func() string {
+			return "expected-post-version"
 		},
 	}
 
-	// When we run the migration
-	require.NoError(t, Migrate(cfg, migrator))
+	// When we migrate
+	require.NoError(t, Migrate(cfg, migration))
 
-	// Then no files are written to disk
-	files, err := os.ReadDir(tempDir)
+	// Then our original config is updated with the migration applied
+	requireKeyWithValue(t, cfg, topLevelKey, "toplevelvalue")
+	requireKeyWithValue(t, cfg, []string{"version"}, "expected-post-version")
+
+	// And our config / hosts changes are persisted to their relevant files
+	persistedCfg, err := load(generalConfigFile(), hostsConfigFile())
 	require.NoError(t, err)
-	require.Len(t, files, 0)
+	requireKeyWithValue(t, persistedCfg, topLevelKey, "toplevelvalue")
+	requireKeyWithValue(t, persistedCfg, []string{"version"}, "expected-post-version")
+}
+
+func TestMigrationErrorsWhenPreVersionMismatch(t *testing.T) {
+	// Create a location for our tests to write,
+	// Note that using env var here makes these tests unparallelisable.
+	tempDir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", tempDir)
+
+	// Given we have a migration with a pre version that does not match
+	// the version in the config
+	cfg := ReadFromString(testFullConfig())
+	cfg.Set([]string{"version"}, "not-expected-pre-version")
+	topLevelKey := []string{"toplevelkey"}
+
+	migration := &MigrationMock{
+		DoFunc: func(config *Config) error {
+			config.Set(topLevelKey, "toplevelvalue")
+			return nil
+		},
+		PreVersionFunc: func() string {
+			return "expected-pre-version"
+		},
+		PostVersionFunc: func() string {
+			return "not-expected"
+		},
+	}
+
+	// When we run Migrate
+	err := Migrate(cfg, migration)
+
+	// Then there is an error the migration is not applied and the version is not modified
+	require.ErrorContains(t, err, `failed to migrate as "expected-pre-version" pre migration version did not match config version "not-expected-pre-version"`)
+	requireNoKey(t, cfg, topLevelKey)
+	requireKeyWithValue(t, cfg, []string{"version"}, "not-expected-pre-version")
 }
 
 func TestMigrationErrorWritesNoFiles(t *testing.T) {
@@ -705,14 +747,12 @@ func TestMigrationErrorWritesNoFiles(t *testing.T) {
 
 	// Given we have a migrator that errors
 	cfg := ReadFromString(testFullConfig())
-	migrator := &MigrationMock{
-		DoFunc: func(config *Config) (bool, error) {
-			return true, errors.New("failed to migrate in test")
-		},
-	}
+	migration := mockMigration(func(config *Config) error {
+		return errors.New("failed to migrate in test")
+	})
 
 	// When we run the migration
-	err := Migrate(cfg, migrator)
+	err := Migrate(cfg, migration)
 
 	// Then the error is wrapped and bubbled
 	require.EqualError(t, err, "failed to migrate config: failed to migrate in test")
@@ -729,16 +769,6 @@ func TestMigrationWriteErrors(t *testing.T) {
 		unwriteableFile string
 		wantErrContains string
 	}{
-		{
-			name:            "failure to write hosts backup",
-			unwriteableFile: "hosts.yml.bak",
-			wantErrContains: "failed to write hosts backup",
-		},
-		{
-			name:            "failure to write config backup",
-			unwriteableFile: "config.yml.bak",
-			wantErrContains: "failed to write config backup",
-		},
 		{
 			name:            "failure to write hosts",
 			unwriteableFile: "hosts.yml",
@@ -758,20 +788,18 @@ func TestMigrationWriteErrors(t *testing.T) {
 			tempDir := t.TempDir()
 			t.Setenv("GH_CONFIG_DIR", tempDir)
 
-			// Given we error when writing the hosts backup (because we chmod the files as trickery)
+			// Given we error when writing the files (because we chmod the files as trickery)
 			makeFileUnwriteable(t, filepath.Join(tempDir, tt.unwriteableFile))
 
 			cfg := ReadFromString(testFullConfig())
 			topLevelKey := []string{"toplevelkey"}
 			hostsKey := []string{"hosts", "newhost"}
 
-			migration := &MigrationMock{
-				DoFunc: func(c *Config) (bool, error) {
-					c.Set(topLevelKey, "toplevelvalue")
-					c.Set(hostsKey, "newhostvalue")
-					return true, nil
-				},
-			}
+			migration := mockMigration(func(c *Config) error {
+				c.Set(topLevelKey, "toplevelvalue")
+				c.Set(hostsKey, "newhostvalue")
+				return nil
+			})
 
 			// When we run the migration
 			err := Migrate(cfg, migration)
@@ -810,6 +838,19 @@ func makeFileUnwriteable(t *testing.T, file string) {
 	f.Close()
 
 	require.NoError(t, os.Chmod(file, 0000))
+}
+
+func mockMigration(doFunc func(config *Config) error) *MigrationMock {
+	return &MigrationMock{
+		DoFunc: doFunc,
+		PreVersionFunc: func() string {
+			return ""
+		},
+		PostVersionFunc: func() string {
+			return "not-expected"
+		},
+	}
+
 }
 
 func testConfig() *Config {

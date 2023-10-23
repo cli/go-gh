@@ -145,9 +145,6 @@ func ReadFromString(str string) *Config {
 // Write gh configuration files to the local file system.
 // It will only write gh configuration files that have been modified
 // since last being read.
-//
-// Note that a large portion of this is duplicated into the writeBackup
-// function so any changes here might also be required there.
 func Write(c *Config) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -335,11 +332,16 @@ browser:
 // as necessary. After migration has completed, the modified config contents
 // will be used.
 //
-// If a migration is not required, because it has already been done, then
-// the migration should return false as the first return value. In this case,
-// any changes to the copied config will be ignored.
+// The calling code is expected to verify that the current version of the config
+// matches the PreVersion of the migration before calling Do, and will set the
+// config version to the PostVersion after the migration has completed successfully.
 type Migration interface {
-	Do(*Config) (bool, error)
+	// PreVersion is the required config version for this to be applied
+	PreVersion() string
+	// PostVersion is the config version that must be applied after migration
+	PostVersion() string
+	// Do is expected to apply any necessary changes to the config in place
+	Do(*Config) error
 }
 
 func Migrate(c *Config, m Migration) error {
@@ -350,63 +352,28 @@ func Migrate(c *Config, m Migration) error {
 	// case of errors.
 	copiedCfg := c.deepCopyEntries()
 
-	requiredMigration, err := m.Do(copiedCfg)
-	if err != nil {
+	// Find out version from copiedCfg to avoid deadlock with c.
+	// It is expected initially that there is no version key because we don't
+	// have one to begin with, so an error is expected.
+	version, _ := copiedCfg.Get([]string{"version"})
+	if m.PreVersion() != version {
+		return fmt.Errorf("failed to migrate as %q pre migration version did not match config version %q", m.PreVersion(), version)
+	}
+
+	if err := m.Do(copiedCfg); err != nil {
 		return fmt.Errorf("failed to migrate config: %s", err)
 	}
 
-	// If there was no migration required, we're done
-	if !requiredMigration {
-		return nil
-	}
-
-	// Otherwise we'll write our current hosts config to a backup file
-	if err := writeBackup(c); err != nil {
-		return fmt.Errorf("failed to write config backup after migration: %s", err)
-	}
+	copiedCfg.Set([]string{"version"}, m.PostVersion())
 
 	// Then write out our migrated config. Note that since this is a deep copy, all the modified
 	// flags will be set to true, so we'll write out both config and hosts unconditionally.
 	if err := Write(copiedCfg); err != nil {
-		// Note that this error case is not tested as it was not easily possible to force an error
-		// here, and not on the backup write above, without introducing new abstractions which
-		// seemed to complicate the whole affair.
 		return fmt.Errorf("failed to write config after migration: %s", err)
 	}
 
 	// Finally, swap in the copied config entries last, since we know the file has been successfully
 	// persisted.
 	c.entries = copiedCfg.entries
-	return nil
-}
-
-// Note that writeBackup is mostly copied from the Write function, so any changes
-// here might also be required there.
-//
-// It differs from the Write function in that it does not consider whether any
-// modification of entries has occured, and just writes the files out unconditionally.
-func writeBackup(c *Config) error {
-	hosts, hostsErr := c.entries.FindEntry("hosts")
-	hadHostsEntry := hostsErr == nil
-	if hadHostsEntry {
-		backupFilePath := hostsConfigFile() + ".bak"
-		if err := writeFile(backupFilePath, []byte(hosts.String())); err != nil {
-			return fmt.Errorf("failed to write hosts backup: %w", err)
-		}
-	}
-
-	// Hosts gets written to a different file above so remove it
-	// before writing and add it back in after writing.
-	_ = c.entries.RemoveEntry("hosts")
-
-	generalConfigFilePath := generalConfigFile() + ".bak"
-	if err := writeFile(generalConfigFilePath, []byte(c.entries.String())); err != nil {
-		return fmt.Errorf("failed to write config backup: %w", err)
-	}
-
-	if hadHostsEntry {
-		c.entries.AddEntry("hosts", hosts)
-	}
-
 	return nil
 }
