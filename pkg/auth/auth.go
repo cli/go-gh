@@ -55,7 +55,7 @@ func TokenForHost(host string) (string, string) {
 // file as fallback, but does not support reading the token from system keyring. Most consumers
 // should use TokenForHost.
 func TokenFromEnvOrConfig(host string) (string, string) {
-	cfg, _ := config.Read()
+	cfg, _ := config.Read(nil)
 	return tokenForHost(cfg, host)
 }
 
@@ -105,7 +105,7 @@ func tokenFromGh(path string, host string) (string, string) {
 // or from the configuration file.
 // Returns an empty string slice if no hosts are found.
 func KnownHosts() []string {
-	cfg, _ := config.Read()
+	cfg, _ := config.Read(nil)
 	return knownHosts(cfg)
 }
 
@@ -131,7 +131,7 @@ func knownHosts(cfg *config.Config) []string {
 // configuration file.
 // Returns "github.com", "default" if no viable host is found.
 func DefaultHost() (string, string) {
-	cfg, _ := config.Read()
+	cfg, _ := config.Read(nil)
 	return defaultHost(cfg)
 }
 

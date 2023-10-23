@@ -247,7 +247,7 @@ func defaultHeaders() http.Header {
 func stubConfig(t *testing.T, cfgStr string) {
 	t.Helper()
 	old := config.Read
-	config.Read = func() (*config.Config, error) {
+	config.Read = func(_ *config.Config) (*config.Config, error) {
 		return config.ReadFromString(cfgStr), nil
 	}
 	t.Cleanup(func() {

@@ -89,7 +89,7 @@ func optionsNeedResolution(opts ClientOptions) bool {
 }
 
 func resolveOptions(opts ClientOptions) (ClientOptions, error) {
-	cfg, _ := config.Read()
+	cfg, _ := config.Read(nil)
 	if opts.Host == "" {
 		opts.Host, _ = auth.DefaultHost()
 	}
