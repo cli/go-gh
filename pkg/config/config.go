@@ -119,18 +119,23 @@ func (c *Config) Set(keys []string, value string) {
 	m.SetEntry(keys[len(keys)-1], yamlmap.StringValue(value))
 }
 
+func (c *Config) deepCopy() *Config {
+	return ReadFromString(c.entries.String())
+}
+
 // Read gh configuration files from the local file system and
-// return a Config.
-var Read = func() (*Config, error) {
+// returns a Config. A copy of the fallback configuration will
+// be returned when there are no configuration files to load.
+// If there are no configuration files and no fallback configuration
+// an empty configuration will be returned.
+var Read = func(fallback *Config) (*Config, error) {
 	once.Do(func() {
-		cfg, loadErr = load(generalConfigFile(), hostsConfigFile())
+		cfg, loadErr = load(generalConfigFile(), hostsConfigFile(), fallback)
 	})
 	return cfg, loadErr
 }
 
 // ReadFromString takes a yaml string and returns a Config.
-// Note: This is only used for testing, and should not be
-// relied upon in production.
 func ReadFromString(str string) *Config {
 	m, _ := mapFromString(str)
 	if m == nil {
@@ -174,7 +179,7 @@ func Write(c *Config) error {
 	return nil
 }
 
-func load(generalFilePath, hostsFilePath string) (*Config, error) {
+func load(generalFilePath, hostsFilePath string, fallback *Config) (*Config, error) {
 	generalMap, err := mapFromFile(generalFilePath)
 	if err != nil && !os.IsNotExist(err) {
 		if errors.Is(err, yamlmap.ErrInvalidYaml) ||
@@ -184,8 +189,8 @@ func load(generalFilePath, hostsFilePath string) (*Config, error) {
 		return nil, err
 	}
 
-	if generalMap == nil || generalMap.Empty() {
-		generalMap, _ = mapFromString(defaultGeneralEntries)
+	if generalMap == nil {
+		generalMap = yamlmap.MapValue()
 	}
 
 	hostsMap, err := mapFromFile(hostsFilePath)
@@ -199,6 +204,10 @@ func load(generalFilePath, hostsFilePath string) (*Config, error) {
 
 	if hostsMap != nil && !hostsMap.Empty() {
 		generalMap.AddEntry("hosts", hostsMap)
+	}
+
+	if generalMap.Empty() && fallback != nil {
+		return fallback.deepCopy(), nil
 	}
 
 	return &Config{entries: generalMap}, nil
@@ -302,21 +311,3 @@ func writeFile(filename string, data []byte) (writeErr error) {
 	_, writeErr = file.Write(data)
 	return
 }
-
-var defaultGeneralEntries = `
-# What protocol to use when performing git operations. Supported values: ssh, https
-git_protocol: https
-# What editor gh should run when creating issues, pull requests, etc. If blank, will refer to environment.
-editor:
-# When to interactively prompt. This is a global config that cannot be overridden by hostname. Supported values: enabled, disabled
-prompt: enabled
-# A pager program to send command output to, e.g. "less". Set the value to "cat" to disable the pager.
-pager:
-# Aliases allow you to create nicknames for gh commands
-aliases:
-  co: pr checkout
-# The path to a unix socket through which send HTTP connections. If blank, HTTP traffic will be handled by net/http.DefaultTransport.
-http_unix_socket:
-# What web browser gh should use when opening URLs. If blank, will refer to environment.
-browser:
-`

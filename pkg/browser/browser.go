@@ -70,7 +70,7 @@ func resolveLauncher() string {
 	if ghBrowser := os.Getenv("GH_BROWSER"); ghBrowser != "" {
 		return ghBrowser
 	}
-	cfg, err := config.Read()
+	cfg, err := config.Read(nil)
 	if err == nil {
 		if cfgBrowser, _ := cfg.Get([]string{"browser"}); cfgBrowser != "" {
 			return cfgBrowser

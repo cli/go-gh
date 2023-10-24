@@ -89,7 +89,7 @@ func TestResolveLauncher(t *testing.T) {
 			}
 			if tt.config != nil {
 				old := config.Read
-				config.Read = func() (*config.Config, error) {
+				config.Read = func(_ *config.Config) (*config.Config, error) {
 					return tt.config, nil
 				}
 				defer func() { config.Read = old }()

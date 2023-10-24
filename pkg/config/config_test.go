@@ -244,11 +244,11 @@ func TestLoad(t *testing.T) {
 		name             string
 		globalConfigPath string
 		hostsConfigPath  string
+		fallback         *Config
 		wantGitProtocol  string
 		wantToken        string
 		wantErr          bool
 		wantErrMsg       string
-		wantGetErr       bool
 	}{
 		{
 			name:             "global and hosts files exist",
@@ -274,7 +274,7 @@ func TestLoad(t *testing.T) {
 			name:             "global file does not exist and hosts file exist",
 			globalConfigPath: "",
 			hostsConfigPath:  hostsFilePath,
-			wantGitProtocol:  "https",
+			wantGitProtocol:  "",
 			wantToken:        "yyyyyyyyyyyyyyyyyyyy",
 		},
 		{
@@ -282,28 +282,51 @@ func TestLoad(t *testing.T) {
 			globalConfigPath: globalFilePath,
 			hostsConfigPath:  "",
 			wantGitProtocol:  "ssh",
-			wantGetErr:       true,
+			wantToken:        "",
+		},
+		{
+			name:             "global file does not exist and hosts file does not exist with no fallback",
+			globalConfigPath: "",
+			hostsConfigPath:  "",
+			wantGitProtocol:  "",
+			wantToken:        "",
+		},
+		{
+			name:             "global file does not exist and hosts file does not exist with fallback",
+			globalConfigPath: "",
+			hostsConfigPath:  "",
+			fallback:         ReadFromString(testFullConfig()),
+			wantGitProtocol:  "ssh",
+			wantToken:        "yyyyyyyyyyyyyyyyyyyy",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := load(tt.globalConfigPath, tt.hostsConfigPath)
+			cfg, err := load(tt.globalConfigPath, tt.hostsConfigPath, tt.fallback)
 			if tt.wantErr {
 				assert.EqualError(t, err, tt.wantErrMsg)
 				return
 			}
 			assert.NoError(t, err)
-			protocol, err := cfg.Get([]string{"git_protocol"})
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantGitProtocol, protocol)
-			token, err := cfg.Get([]string{"hosts", "enterprise.com", "oauth_token"})
-			if tt.wantGetErr {
-				assert.EqualError(t, err, `could not find key "hosts"`)
+
+			if tt.wantGitProtocol == "" {
+				assertNoKey(t, cfg, []string{"git_protocol"})
 			} else {
-				assert.NoError(t, err)
+				assertKeyWithValue(t, cfg, []string{"git_protocol"}, tt.wantGitProtocol)
 			}
-			assert.Equal(t, tt.wantToken, token)
+
+			if tt.wantToken == "" {
+				assertNoKey(t, cfg, []string{"hosts", "enterprise.com", "oauth_token"})
+			} else {
+				assertKeyWithValue(t, cfg, []string{"hosts", "enterprise.com", "oauth_token"}, tt.wantToken)
+			}
+
+			if tt.fallback != nil {
+				// Assert that load returns an equivalent copy of fallvback.
+				assert.Equal(t, tt.fallback.entries.String(), cfg.entries.String())
+				assert.False(t, tt.fallback == cfg)
+			}
 		})
 	}
 }
@@ -324,6 +347,14 @@ func TestWrite(t *testing.T) {
 				cfg.Set([]string{"hosts", "github.com", "git_protocol"}, "https")
 				return cfg
 			},
+			wantConfig: func() *Config {
+				// Same as created config as both a global property and host property has
+				// been edited.
+				cfg := ReadFromString(testFullConfig())
+				cfg.Set([]string{"editor"}, "vim")
+				cfg.Set([]string{"hosts", "github.com", "git_protocol"}, "https")
+				return cfg
+			},
 		},
 		{
 			name: "only writes hosts file",
@@ -333,9 +364,8 @@ func TestWrite(t *testing.T) {
 				return cfg
 			},
 			wantConfig: func() *Config {
-				// The hosts file is writen but not the general config file.
-				// When we use Read in the test the defaultGeneralEntries are used.
-				cfg := ReadFromString(defaultGeneralEntries)
+				// The hosts file is writen but not the global config file.
+				cfg := ReadFromString("")
 				cfg.Set([]string{"hosts", "github.com", "user"}, "user1")
 				cfg.Set([]string{"hosts", "github.com", "oauth_token"}, "xxxxxxxxxxxxxxxxxxxx")
 				cfg.Set([]string{"hosts", "github.com", "git_protocol"}, "ssh")
@@ -346,26 +376,16 @@ func TestWrite(t *testing.T) {
 			},
 		},
 		{
-			name: "only writes config file",
+			name: "only writes global config file",
 			createConfig: func() *Config {
 				cfg := ReadFromString(testFullConfig())
 				cfg.Set([]string{"editor"}, "vim")
 				return cfg
 			},
 			wantConfig: func() *Config {
-				// The general config file is written but not the hosts config file.
-				// When we use Read in the test there will not be any hosts entries.
-				cfg := ReadFromString(testFullConfig())
+				// The global config file is written but not the hosts config file.
+				cfg := ReadFromString(testGlobalData())
 				cfg.Set([]string{"editor"}, "vim")
-				_ = cfg.Remove([]string{"hosts"})
-				return cfg
-			},
-		},
-		{
-			name: "write default config file keeps comments",
-			createConfig: func() *Config {
-				cfg := ReadFromString(defaultGeneralEntries)
-				cfg.entries.SetModified()
 				return cfg
 			},
 		},
@@ -378,12 +398,9 @@ func TestWrite(t *testing.T) {
 			cfg := tt.createConfig()
 			err := Write(cfg)
 			assert.NoError(t, err)
-			loadedCfg, err := load(generalConfigFile(), hostsConfigFile())
+			loadedCfg, err := load(generalConfigFile(), hostsConfigFile(), nil)
 			assert.NoError(t, err)
-			wantCfg := cfg
-			if tt.wantConfig != nil {
-				wantCfg = tt.wantConfig()
-			}
+			wantCfg := tt.wantConfig()
 			assert.Equal(t, wantCfg.entries.String(), loadedCfg.entries.String())
 		})
 	}
@@ -391,11 +408,10 @@ func TestWrite(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	tests := []struct {
-		name       string
-		keys       []string
-		wantValue  string
-		wantErr    bool
-		wantErrMsg string
+		name      string
+		keys      []string
+		wantValue string
+		wantErr   bool
 	}{
 		{
 			name:      "get git_protocol value",
@@ -418,11 +434,9 @@ func TestGet(t *testing.T) {
 			wantValue: "less",
 		},
 		{
-			name:       "non-existant key",
-			keys:       []string{"unknown"},
-			wantErr:    true,
-			wantErrMsg: `could not find key "unknown"`,
-			wantValue:  "",
+			name:    "non-existant key",
+			keys:    []string{"unknown"},
+			wantErr: true,
 		},
 		{
 			name:      "nested key",
@@ -435,24 +449,20 @@ func TestGet(t *testing.T) {
 			wantValue: "more",
 		},
 		{
-			name:       "nested non-existant key",
-			keys:       []string{"nested", "invalid"},
-			wantErr:    true,
-			wantErrMsg: `could not find key "invalid"`,
-			wantValue:  "",
+			name:    "nested non-existant key",
+			keys:    []string{"nested", "invalid"},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
-			value, err := cfg.Get(tt.keys)
 			if tt.wantErr {
-				assert.EqualError(t, err, tt.wantErrMsg)
+				assertNoKey(t, cfg, tt.keys)
 			} else {
-				assert.NoError(t, err)
+				assertKeyWithValue(t, cfg, tt.keys, tt.wantValue)
 			}
-			assert.Equal(t, tt.wantValue, value)
 			assert.False(t, cfg.entries.IsModified())
 		})
 	}
@@ -544,8 +554,7 @@ func TestRemove(t *testing.T) {
 				assert.NoError(t, err)
 				assert.True(t, cfg.entries.IsModified())
 			}
-			_, getErr := cfg.Get(tt.keys)
-			assert.Error(t, getErr)
+			assertNoKey(t, cfg, tt.keys)
 		})
 	}
 }
@@ -593,43 +602,9 @@ func TestSet(t *testing.T) {
 			cfg := testConfig()
 			cfg.Set(tt.keys, tt.value)
 			assert.True(t, cfg.entries.IsModified())
-			value, err := cfg.Get(tt.keys)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.value, value)
+			assertKeyWithValue(t, cfg, tt.keys, tt.value)
 		})
 	}
-}
-
-func TestDefaultGeneralEntries(t *testing.T) {
-	cfg := ReadFromString(defaultGeneralEntries)
-
-	protocol, err := cfg.Get([]string{"git_protocol"})
-	assert.NoError(t, err)
-	assert.Equal(t, "https", protocol)
-
-	editor, err := cfg.Get([]string{"editor"})
-	assert.NoError(t, err)
-	assert.Equal(t, "", editor)
-
-	prompt, err := cfg.Get([]string{"prompt"})
-	assert.NoError(t, err)
-	assert.Equal(t, "enabled", prompt)
-
-	pager, err := cfg.Get([]string{"pager"})
-	assert.NoError(t, err)
-	assert.Equal(t, "", pager)
-
-	socket, err := cfg.Get([]string{"http_unix_socket"})
-	assert.NoError(t, err)
-	assert.Equal(t, "", socket)
-
-	browser, err := cfg.Get([]string{"browser"})
-	assert.NoError(t, err)
-	assert.Equal(t, "", browser)
-
-	unknown, err := cfg.Get([]string{"unknown"})
-	assert.EqualError(t, err, `could not find key "unknown"`)
-	assert.Equal(t, "", unknown)
 }
 
 func testConfig() *Config {
@@ -686,4 +661,18 @@ hosts:
     git_protocol: https
 `
 	return data
+}
+
+func assertNoKey(t *testing.T, cfg *Config, keys []string) {
+	t.Helper()
+	_, err := cfg.Get(keys)
+	var keyNotFoundError *KeyNotFoundError
+	assert.ErrorAs(t, err, &keyNotFoundError)
+}
+
+func assertKeyWithValue(t *testing.T, cfg *Config, keys []string, value string) {
+	t.Helper()
+	actual, err := cfg.Get(keys)
+	assert.NoError(t, err)
+	assert.Equal(t, value, actual)
 }
