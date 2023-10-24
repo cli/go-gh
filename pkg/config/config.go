@@ -119,11 +119,15 @@ func (c *Config) Set(keys []string, value string) {
 	m.SetEntry(keys[len(keys)-1], yamlmap.StringValue(value))
 }
 
+func (c *Config) deepCopy() *Config {
+	return ReadFromString(c.entries.String())
+}
+
 // Read gh configuration files from the local file system and
-// return a Config. The fallback configuration will be returned
-// when there are no configuration files to load. If there are
-// no configuration files and no fallback configuration an empty
-// configuration will be returned.
+// returns a Config. A copy of the fallback configuration will
+// be returned when there are no configuration files to load.
+// If there are no configuration files and no fallback configuration
+// an empty configuration will be returned.
 var Read = func(fallback *Config) (*Config, error) {
 	once.Do(func() {
 		cfg, loadErr = load(generalConfigFile(), hostsConfigFile(), fallback)
@@ -185,7 +189,7 @@ func load(generalFilePath, hostsFilePath string, fallback *Config) (*Config, err
 		return nil, err
 	}
 
-	if generalMap == nil || generalMap.Empty() {
+	if generalMap == nil {
 		generalMap = yamlmap.MapValue()
 	}
 
@@ -203,8 +207,7 @@ func load(generalFilePath, hostsFilePath string, fallback *Config) (*Config, err
 	}
 
 	if generalMap.Empty() && fallback != nil {
-		//TODO: Do we need to copy fallback?
-		return fallback, nil
+		return fallback.deepCopy(), nil
 	}
 
 	return &Config{entries: generalMap}, nil

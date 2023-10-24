@@ -310,22 +310,22 @@ func TestLoad(t *testing.T) {
 			}
 			assert.NoError(t, err)
 
-			fmt.Println(cfg)
-
-			protocol, err := cfg.Get([]string{"git_protocol"})
 			if tt.wantGitProtocol == "" {
-				assert.EqualError(t, err, `could not find key "git_protocol"`)
+				assertNoKey(t, cfg, []string{"git_protocol"})
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.wantGitProtocol, protocol)
+				assertKeyWithValue(t, cfg, []string{"git_protocol"}, tt.wantGitProtocol)
 			}
 
-			token, err := cfg.Get([]string{"hosts", "enterprise.com", "oauth_token"})
 			if tt.wantToken == "" {
-				assert.EqualError(t, err, `could not find key "hosts"`)
+				assertNoKey(t, cfg, []string{"hosts", "enterprise.com", "oauth_token"})
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.wantToken, token)
+				assertKeyWithValue(t, cfg, []string{"hosts", "enterprise.com", "oauth_token"}, tt.wantToken)
+			}
+
+			if tt.fallback != nil {
+				// Assert that load returns an equivalent copy of fallvback.
+				assert.Equal(t, tt.fallback.entries.String(), cfg.entries.String())
+				assert.False(t, tt.fallback == cfg)
 			}
 		})
 	}
@@ -408,11 +408,10 @@ func TestWrite(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	tests := []struct {
-		name       string
-		keys       []string
-		wantValue  string
-		wantErr    bool
-		wantErrMsg string
+		name      string
+		keys      []string
+		wantValue string
+		wantErr   bool
 	}{
 		{
 			name:      "get git_protocol value",
@@ -435,11 +434,9 @@ func TestGet(t *testing.T) {
 			wantValue: "less",
 		},
 		{
-			name:       "non-existant key",
-			keys:       []string{"unknown"},
-			wantErr:    true,
-			wantErrMsg: `could not find key "unknown"`,
-			wantValue:  "",
+			name:    "non-existant key",
+			keys:    []string{"unknown"},
+			wantErr: true,
 		},
 		{
 			name:      "nested key",
@@ -452,24 +449,20 @@ func TestGet(t *testing.T) {
 			wantValue: "more",
 		},
 		{
-			name:       "nested non-existant key",
-			keys:       []string{"nested", "invalid"},
-			wantErr:    true,
-			wantErrMsg: `could not find key "invalid"`,
-			wantValue:  "",
+			name:    "nested non-existant key",
+			keys:    []string{"nested", "invalid"},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := testConfig()
-			value, err := cfg.Get(tt.keys)
 			if tt.wantErr {
-				assert.EqualError(t, err, tt.wantErrMsg)
+				assertNoKey(t, cfg, tt.keys)
 			} else {
-				assert.NoError(t, err)
+				assertKeyWithValue(t, cfg, tt.keys, tt.wantValue)
 			}
-			assert.Equal(t, tt.wantValue, value)
 			assert.False(t, cfg.entries.IsModified())
 		})
 	}
@@ -561,8 +554,7 @@ func TestRemove(t *testing.T) {
 				assert.NoError(t, err)
 				assert.True(t, cfg.entries.IsModified())
 			}
-			_, getErr := cfg.Get(tt.keys)
-			assert.Error(t, getErr)
+			assertNoKey(t, cfg, tt.keys)
 		})
 	}
 }
@@ -610,9 +602,7 @@ func TestSet(t *testing.T) {
 			cfg := testConfig()
 			cfg.Set(tt.keys, tt.value)
 			assert.True(t, cfg.entries.IsModified())
-			value, err := cfg.Get(tt.keys)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.value, value)
+			assertKeyWithValue(t, cfg, tt.keys, tt.value)
 		})
 	}
 }
@@ -671,4 +661,18 @@ hosts:
     git_protocol: https
 `
 	return data
+}
+
+func assertNoKey(t *testing.T, cfg *Config, keys []string) {
+	t.Helper()
+	_, err := cfg.Get(keys)
+	var keyNotFoundError *KeyNotFoundError
+	assert.ErrorAs(t, err, &keyNotFoundError)
+}
+
+func assertKeyWithValue(t *testing.T, cfg *Config, keys []string, value string) {
+	t.Helper()
+	actual, err := cfg.Get(keys)
+	assert.NoError(t, err)
+	assert.Equal(t, value, actual)
 }
