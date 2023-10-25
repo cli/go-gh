@@ -102,7 +102,12 @@ func (c *Config) Remove(keys []string) error {
 // Set a string value in a Config.
 // The keys argument is a sequence of key values so that nested
 // entries can be set. If any of the keys do not exist they will
-// be created.
+// be created. If the string value to be set is empty it will be
+// represented as null not an empty string when written.
+//
+//	var c *Config
+//	c.Set([]string{"key"}, "")
+//	Write(c) // writes `key: ` not `key: ""`
 func (c *Config) Set(keys []string, value string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -116,7 +121,11 @@ func (c *Config) Set(keys []string, value string) {
 		}
 		m = entry
 	}
-	m.SetEntry(keys[len(keys)-1], yamlmap.StringValue(value))
+	val := yamlmap.StringValue(value)
+	if value == "" {
+		val = yamlmap.NullValue()
+	}
+	m.SetEntry(keys[len(keys)-1], val)
 }
 
 func (c *Config) deepCopy() *Config {

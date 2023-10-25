@@ -406,6 +406,18 @@ func TestWrite(t *testing.T) {
 	}
 }
 
+func TestWriteEmptyValues(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", tempDir)
+	cfg := ReadFromString(testFullConfig())
+	cfg.Set([]string{"editor"}, "")
+	err := Write(cfg)
+	assert.NoError(t, err)
+	data, err := os.ReadFile(generalConfigFile())
+	assert.NoError(t, err)
+	assert.Equal(t, "git_protocol: ssh\neditor:\nprompt: enabled\npager: less\n", string(data))
+}
+
 func TestGet(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -594,6 +606,11 @@ func TestSet(t *testing.T) {
 			name:  "set non-existant nest",
 			keys:  []string{"johnny", "test"},
 			value: "dukey",
+		},
+		{
+			name:  "set empty value",
+			keys:  []string{"empty"},
+			value: "",
 		},
 	}
 
