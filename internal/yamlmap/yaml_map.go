@@ -35,6 +35,13 @@ func MapValue() *Map {
 	}}
 }
 
+func NullValue() *Map {
+	return &Map{&yaml.Node{
+		Kind: yaml.ScalarNode,
+		Tag:  "!!null",
+	}}
+}
+
 func Unmarshal(data []byte) (*Map, error) {
 	var root yaml.Node
 	err := yaml.Unmarshal(data, &root)
