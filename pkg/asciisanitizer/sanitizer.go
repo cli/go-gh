@@ -73,6 +73,7 @@ func (t *Sanitizer) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err 
 					// Add an escape character when necessary to prevent creating
 					// invalid JSON with our replacements.
 					repl = append([]byte{'\\'}, repl...)
+					t.addEscape = false
 				}
 				err = transfer(repl, src[:6])
 				if err != nil {

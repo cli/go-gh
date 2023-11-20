@@ -24,8 +24,8 @@ func TestSanitizerTransform(t *testing.T) {
 		{
 			name:  "JSON sanitization maintains valid JSON",
 			json:  true,
-			input: `\u001B \\u001B \\\u001B \\\\u001B`,
-			want:  `^[ \\^[ \\^[ \\\\^[`,
+			input: `\u001B \\u001B \\\u001B \\\\u001B \\u001B\\u001B`,
+			want:  `^[ \\^[ \\^[ \\\\^[ \\^[\\^[`,
 		},
 		{
 			name:  "JSON C0 control character",
