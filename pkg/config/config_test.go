@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfigDir(t *testing.T) {
@@ -622,6 +623,27 @@ func TestSet(t *testing.T) {
 			assertKeyWithValue(t, cfg, tt.keys, tt.value)
 		})
 	}
+}
+
+func TestEntriesShouldBeModifiedOnLoad(t *testing.T) {
+	// Given we have a persisted config and hosts file
+	tempDir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", tempDir)
+
+	require.NoError(t, writeFile(hostsConfigFile(), []byte(testHostsData())))
+	require.NoError(t, writeFile(generalConfigFile(), []byte(testGlobalData())))
+
+	// When we load that config
+	cfg, err := load(generalConfigFile(), hostsConfigFile(), nil)
+	require.NoError(t, err)
+
+	// Then the general and host entries should be unmodified
+	// because we didn't mutate anything yet
+	require.False(t, cfg.entries.IsModified())
+
+	hosts, err := cfg.entries.FindEntry("hosts")
+	require.NoError(t, err)
+	require.False(t, hosts.IsModified())
 }
 
 func testConfig() *Config {

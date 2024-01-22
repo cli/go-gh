@@ -213,6 +213,7 @@ func load(generalFilePath, hostsFilePath string, fallback *Config) (*Config, err
 
 	if hostsMap != nil && !hostsMap.Empty() {
 		generalMap.AddEntry("hosts", hostsMap)
+		generalMap.SetUnmodified()
 	}
 
 	if generalMap.Empty() && fallback != nil {
