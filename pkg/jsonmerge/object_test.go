@@ -72,3 +72,27 @@ func TestObjectMerger_multiplePages(t *testing.T) {
 	require.NoError(t, merger.Close())
 	assert.JSONEq(t, `{"a":1,"b":3,"c":{"d":4},"arr":["a","b","c","d"]}`, w.String())
 }
+
+func TestObjectMerger_invalidJSON(t *testing.T) {
+	w := &bytes.Buffer{}
+	merger := NewObjectMerger(w)
+
+	r1 := bytes.NewBufferString(`invalid`)
+	p1 := merger.NewPage(r1, true)
+	n, err := io.Copy(w, p1)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), n)
+	assert.Error(t, p1.Close())
+}
+
+func TestObjectMerger_array(t *testing.T) {
+	w := &bytes.Buffer{}
+	merger := NewObjectMerger(w)
+
+	r1 := bytes.NewBufferString(`[]`)
+	p1 := merger.NewPage(r1, true)
+	n, err := io.Copy(w, p1)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), n)
+	assert.Error(t, p1.Close())
+}

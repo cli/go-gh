@@ -46,21 +46,14 @@ type objectMergerPage struct {
 	buffer bytes.Buffer
 }
 
+// Read caches the data in an internal buffer to be merged in Close.
+// No data is copied into p so it's not written to stdout.
 func (page *objectMergerPage) Read(p []byte) (int, error) {
-	// Read into a temporary buffer to be merged and written later.
-	p = make([]byte, len(p))
-	n, err := page.Reader.Read(p)
-	if err != nil {
-		return 0, err
-	}
-	if n == 0 {
-		return 0, io.EOF
-	}
-
-	_, err = page.buffer.Write(p[:n])
+	_, err := io.CopyN(&page.buffer, page.Reader, int64(len(p)))
 	return 0, err
 }
 
+// Close converts the internal buffer to a JSON object and merges it with the final JSON object.
 func (page *objectMergerPage) Close() error {
 	var src map[string]interface{}
 
