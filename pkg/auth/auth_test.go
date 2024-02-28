@@ -288,6 +288,16 @@ func TestNormalizeHostname(t *testing.T) {
 			host:     "mygithub.com",
 			wantHost: "mygithub.com",
 		},
+		{
+			name:     "bare tenant",
+			host:     "tenant.ghe.com",
+			wantHost: "tenant.ghe.com",
+		},
+		{
+			name:     "subdomained tenant",
+			host:     "api.tenant.ghe.com",
+			wantHost: "tenant.ghe.com",
+		},
 	}
 
 	for _, tt := range tests {
