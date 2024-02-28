@@ -247,6 +247,11 @@ func TestIsEnterprise(t *testing.T) {
 			host:    "mygithub.com",
 			wantOut: true,
 		},
+		{
+			name:    "tenant",
+			host:    "tenant.ghe.com",
+			wantOut: false,
+		},
 	}
 
 	for _, tt := range tests {
