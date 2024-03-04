@@ -84,6 +84,30 @@ func TestTokenForHost(t *testing.T) {
 			wantToken:  "yyyyyyyyyyyyyyyyyyyy",
 			wantSource: "oauth_token",
 		},
+		{
+			name:        "token for tenant with GH_TOKEN, GITHUB_TOKEN, and config token",
+			host:        "tenant.ghe.com",
+			ghToken:     "GH_TOKEN",
+			githubToken: "GITHUB_TOKEN",
+			config:      testHostsConfig(),
+			wantToken:   "GH_TOKEN",
+			wantSource:  "GH_TOKEN",
+		},
+		{
+			name:        "token for tenant with GITHUB_TOKEN, and config token",
+			host:        "tenant.ghe.com",
+			githubToken: "GITHUB_TOKEN",
+			config:      testHostsConfig(),
+			wantToken:   "GITHUB_TOKEN",
+			wantSource:  "GITHUB_TOKEN",
+		},
+		{
+			name:       "token for tenant with config token",
+			host:       "tenant.ghe.com",
+			config:     testHostsConfig(),
+			wantToken:  "zzzzzzzzzzzzzzzzzzzz",
+			wantSource: "oauth_token",
+		},
 	}
 
 	for _, tt := range tests {
@@ -171,7 +195,7 @@ func TestKnownHosts(t *testing.T) {
 		{
 			name:      "includes authenticated hosts",
 			config:    testHostsConfig(),
-			wantHosts: []string{"github.com", "enterprise.com"},
+			wantHosts: []string{"github.com", "enterprise.com", "tenant.ghe.com"},
 		},
 		{
 			name:      "includes default host if environment auth token",
@@ -184,7 +208,7 @@ func TestKnownHosts(t *testing.T) {
 			config:    testHostsConfig(),
 			ghHost:    "test.com",
 			ghToken:   "TOKEN",
-			wantHosts: []string{"test.com", "github.com", "enterprise.com"},
+			wantHosts: []string{"test.com", "github.com", "enterprise.com", "tenant.ghe.com"},
 		},
 	}
 
@@ -223,6 +247,11 @@ func TestIsEnterprise(t *testing.T) {
 			host:    "mygithub.com",
 			wantOut: true,
 		},
+		{
+			name:    "tenant",
+			host:    "tenant.ghe.com",
+			wantOut: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -258,6 +287,16 @@ func TestNormalizeHostname(t *testing.T) {
 			name:     "enterprise domain",
 			host:     "mygithub.com",
 			wantHost: "mygithub.com",
+		},
+		{
+			name:     "bare tenant",
+			host:     "tenant.ghe.com",
+			wantHost: "tenant.ghe.com",
+		},
+		{
+			name:     "subdomained tenant",
+			host:     "api.tenant.ghe.com",
+			wantHost: "tenant.ghe.com",
 		},
 	}
 
@@ -295,6 +334,10 @@ hosts:
   enterprise.com:
     user: user2
     oauth_token: yyyyyyyyyyyyyyyyyyyy
+    git_protocol: https
+  tenant.ghe.com:
+    user: user3
+    oauth_token: zzzzzzzzzzzzzzzzzzzz
     git_protocol: https
 `
 	return config.ReadFromString(data)

@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -148,8 +149,15 @@ func defaultHost(cfg *config.Config) (string, string) {
 	return github, defaultSource
 }
 
+// TenancyHost is the domain name of a tenancy GitHub instance.
+const tenancyHost = "ghe.com"
+
 func isEnterprise(host string) bool {
-	return host != github && host != localhost
+	return host != github && host != localhost && !isTenancy(host)
+}
+
+func isTenancy(host string) bool {
+	return strings.HasSuffix(host, "."+tenancyHost)
 }
 
 func normalizeHostname(host string) string {
@@ -160,5 +168,21 @@ func normalizeHostname(host string) string {
 	if strings.HasSuffix(hostname, "."+localhost) {
 		return localhost
 	}
+	// This has been copied over from the cli/cli NormalizeHostname function
+	// to ensure compatible behaviour but we don't fully understand when or
+	// why it would be useful here. We can't see what harm will come of
+	// duplicating the logic.
+	if before, found := cutSuffix(hostname, "."+tenancyHost); found {
+		idx := strings.LastIndex(before, ".")
+		return fmt.Sprintf("%s.%s", before[idx+1:], tenancyHost)
+	}
 	return hostname
+}
+
+// Backport strings.CutSuffix from Go 1.20.
+func cutSuffix(s, suffix string) (string, bool) {
+	if !strings.HasSuffix(s, suffix) {
+		return s, false
+	}
+	return s[:len(s)-len(suffix)], true
 }
