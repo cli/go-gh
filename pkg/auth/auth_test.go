@@ -256,7 +256,43 @@ func TestIsEnterprise(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := isEnterprise(tt.host)
+			out := IsEnterprise(tt.host)
+			assert.Equal(t, tt.wantOut, out)
+		})
+	}
+}
+
+func TestIsTenancy(t *testing.T) {
+	tests := []struct {
+		name    string
+		host    string
+		wantOut bool
+	}{
+		{
+			name:    "github",
+			host:    "github.com",
+			wantOut: false,
+		},
+		{
+			name:    "localhost",
+			host:    "github.localhost",
+			wantOut: false,
+		},
+		{
+			name:    "enterprise",
+			host:    "mygithub.com",
+			wantOut: false,
+		},
+		{
+			name:    "tenant",
+			host:    "tenant.ghe.com",
+			wantOut: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := IsTenancy(tt.host)
 			assert.Equal(t, tt.wantOut, out)
 		})
 	}
