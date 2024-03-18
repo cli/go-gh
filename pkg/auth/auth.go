@@ -153,11 +153,13 @@ func defaultHost(cfg *config.Config) (string, string) {
 const tenancyHost = "ghe.com"
 
 func IsEnterprise(host string) bool {
-	return host != github && host != localhost && !IsTenancy(host)
+	normalizedHost := normalizeHostname(host)
+	return normalizedHost != github && normalizedHost != localhost && !IsTenancy(normalizedHost)
 }
 
 func IsTenancy(host string) bool {
-	return strings.HasSuffix(host, "."+tenancyHost)
+	normalizedHost := normalizeHostname(host)
+	return strings.HasSuffix(normalizedHost, "."+tenancyHost)
 }
 
 func normalizeHostname(host string) string {
