@@ -288,7 +288,7 @@ func DataDir() string {
 	return path
 }
 
-// Cache path precedence: XDG_CACHE_HOME, LocalAppData (windows only), HOME.
+// Cache path precedence: XDG_CACHE_HOME, LocalAppData (windows only), HOME, legacy gh-cli-cache.
 func CacheDir() string {
 	if a := os.Getenv(xdgCacheHome); a != "" {
 		return filepath.Join(a, "gh")
