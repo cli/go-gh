@@ -221,9 +221,73 @@ func TestDataDir(t *testing.T) {
 }
 
 func TestCacheDir(t *testing.T) {
-	expected := filepath.Join(os.TempDir(), "gh-cli-cache")
-	actual := CacheDir()
-	assert.Equal(t, expected, actual)
+	expectedCacheDir := "/expected-cache-dir"
+	unexpectedCacheDir := "/unexpected-cache-dir"
+
+	tests := []struct {
+		name        string
+		onlyWindows bool
+		env         map[string]string
+		output      string
+	}{
+		{
+			name: "XDG_CACHE_HOME is highest precedence",
+			env: map[string]string{
+				"XDG_CACHE_HOME": expectedCacheDir,
+				"LocalAppData":   unexpectedCacheDir,
+				"USERPROFILE":    unexpectedCacheDir,
+				"HOME":           unexpectedCacheDir,
+			},
+			output: filepath.Join(expectedCacheDir, "gh"),
+		},
+		{
+			name:        "on windows, LocalAppData is preferred to home dir",
+			onlyWindows: true,
+			env: map[string]string{
+				"XDG_CACHE_HOME": "",
+				"LocalAppData":   expectedCacheDir,
+				"USERPROFILE":    unexpectedCacheDir,
+				"HOME":           unexpectedCacheDir,
+			},
+			output: filepath.Join(expectedCacheDir, "GitHub CLI"),
+		},
+		{
+			name: "tries to use the home dir cache directory",
+			env: map[string]string{
+				"XDG_CACHE_HOME": "",
+				"LocalAppData":   "",
+				"USERPROFILE":    expectedCacheDir,
+				"HOME":           expectedCacheDir,
+			},
+			output: filepath.Join(expectedCacheDir, ".cache", "gh"),
+		},
+		{
+			name: "finally falls back to tmpdir",
+			// We set the env vars to empty strings so that no home dir should be found
+			env: map[string]string{
+				"XDG_CACHE_HOME": "",
+				"LocalAppData":   "",
+				"USERPROFILE":    "",
+				"HOME":           "",
+			},
+			output: filepath.Join(os.TempDir(), "gh-cli-cache"),
+		},
+	}
+
+	for _, tt := range tests {
+		if tt.onlyWindows && runtime.GOOS != "windows" {
+			continue
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.env != nil {
+				for k, v := range tt.env {
+					t.Setenv(k, v)
+				}
+			}
+			assert.Equal(t, tt.output, CacheDir())
+		})
+	}
+
 }
 
 func TestLoad(t *testing.T) {
