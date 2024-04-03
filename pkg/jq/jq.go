@@ -4,11 +4,13 @@ package jq
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/jsonpretty"
 	"github.com/itchyny/gojq"
@@ -29,6 +31,14 @@ func Evaluate(input io.Reader, output io.Writer, expr string) error {
 func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent string, colorize bool) error {
 	query, err := gojq.Parse(expr)
 	if err != nil {
+		var e *gojq.ParseError
+		if errors.As(err, &e) {
+			str, line, column := getLineColumn(expr, e.Offset-len(e.Token))
+			return fmt.Errorf(
+				"failed to parse jq expression (line %d, column %d)\n    %s\n    %*c  %w",
+				line, column, str, column, '^', err,
+			)
+		}
 		return err
 	}
 
@@ -65,6 +75,10 @@ func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent st
 			break
 		}
 		if err, isErr := v.(error); isErr {
+			var e *gojq.HaltError
+			if errors.As(err, &e) && e.Value() == nil {
+				break
+			}
 			return err
 		}
 		if text, e := jsonScalarToString(v); e == nil {
@@ -128,4 +142,18 @@ func (p prettyEncoder) Encode(v any) error {
 		return nil
 	}
 	return jsonpretty.Format(p.w, bytes.NewReader(b), p.indent, true)
+}
+
+func getLineColumn(expr string, offset int) (string, int, int) {
+	for line := 1; ; line++ {
+		index := strings.Index(expr, "\n")
+		if index < 0 {
+			return expr, line, offset + 1
+		}
+		if index >= offset {
+			return expr[:index], line, offset + 1
+		}
+		expr = expr[index+1:]
+		offset -= index + 1
+	}
 }
