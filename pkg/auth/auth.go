@@ -152,11 +152,15 @@ func defaultHost(cfg *config.Config) (string, string) {
 // TenancyHost is the domain name of a tenancy GitHub instance.
 const tenancyHost = "ghe.com"
 
+// IsEnterprise determines if a provided host is a GitHub Enterprise Server instance,
+// rather than GitHub.com or a tenancy GitHub instance.
 func IsEnterprise(host string) bool {
 	normalizedHost := normalizeHostname(host)
 	return normalizedHost != github && normalizedHost != localhost && !IsTenancy(normalizedHost)
 }
 
+// IsTenancy determines if a provided host is a tenancy GitHub instance,
+// rather than GitHub.com or a GitHub Enterprise Server instance.
 func IsTenancy(host string) bool {
 	normalizedHost := normalizeHostname(host)
 	return strings.HasSuffix(normalizedHost, "."+tenancyHost)
