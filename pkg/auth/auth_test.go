@@ -238,8 +238,18 @@ func TestIsEnterprise(t *testing.T) {
 			wantOut: false,
 		},
 		{
+			name:    "github API",
+			host:    "api.github.com",
+			wantOut: false,
+		},
+		{
 			name:    "localhost",
 			host:    "github.localhost",
+			wantOut: false,
+		},
+		{
+			name:    "localhost API",
+			host:    "api.github.localhost",
 			wantOut: false,
 		},
 		{
@@ -250,6 +260,11 @@ func TestIsEnterprise(t *testing.T) {
 		{
 			name:    "tenant",
 			host:    "tenant.ghe.com",
+			wantOut: false,
+		},
+		{
+			name:    "tenant API",
+			host:    "api.tenant.ghe.com",
 			wantOut: false,
 		},
 	}
