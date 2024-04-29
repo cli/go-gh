@@ -352,6 +352,11 @@ func TestDisplayWidth(t *testing.T) {
 			want: 2,
 		},
 		{
+			name: "multi-byte emoji",
+			text: `👨‍💻`,
+			want: 2,
+		},
+		{
 			name: "accent character",
 			text: `é́́`,
 			want: 1,
