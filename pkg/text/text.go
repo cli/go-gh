@@ -8,8 +8,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/muesli/reflow/ansi"
 	"github.com/muesli/reflow/truncate"
+	"github.com/rivo/uniseg"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -33,7 +33,7 @@ func Indent(s, indent string) string {
 
 // DisplayWidth calculates what the rendered width of string s will be.
 func DisplayWidth(s string) int {
-	return ansi.PrintableRuneWidth(s)
+	return uniseg.StringWidth(s)
 }
 
 // Truncate returns a copy of the string s that has been shortened to fit the maximum display width.
