@@ -238,8 +238,18 @@ func TestIsEnterprise(t *testing.T) {
 			wantOut: false,
 		},
 		{
+			name:    "github API",
+			host:    "api.github.com",
+			wantOut: false,
+		},
+		{
 			name:    "localhost",
 			host:    "github.localhost",
+			wantOut: false,
+		},
+		{
+			name:    "localhost API",
+			host:    "api.github.localhost",
 			wantOut: false,
 		},
 		{
@@ -252,11 +262,67 @@ func TestIsEnterprise(t *testing.T) {
 			host:    "tenant.ghe.com",
 			wantOut: false,
 		},
+		{
+			name:    "tenant API",
+			host:    "api.tenant.ghe.com",
+			wantOut: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := isEnterprise(tt.host)
+			out := IsEnterprise(tt.host)
+			assert.Equal(t, tt.wantOut, out)
+		})
+	}
+}
+
+func TestIsTenancy(t *testing.T) {
+	tests := []struct {
+		name    string
+		host    string
+		wantOut bool
+	}{
+		{
+			name:    "github",
+			host:    "github.com",
+			wantOut: false,
+		},
+		{
+			name:    "github API",
+			host:    "api.github.com",
+			wantOut: false,
+		},
+		{
+			name:    "localhost",
+			host:    "github.localhost",
+			wantOut: false,
+		},
+		{
+			name:    "localhost API",
+			host:    "api.github.localhost",
+			wantOut: false,
+		},
+		{
+			name:    "enterprise",
+			host:    "mygithub.com",
+			wantOut: false,
+		},
+		{
+			name:    "tenant",
+			host:    "tenant.ghe.com",
+			wantOut: true,
+		},
+		{
+			name:    "tenant API",
+			host:    "api.tenant.ghe.com",
+			wantOut: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := IsTenancy(tt.host)
 			assert.Equal(t, tt.wantOut, out)
 		})
 	}
