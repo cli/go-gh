@@ -21,6 +21,7 @@ const (
 	xdgConfigHome = "XDG_CONFIG_HOME"
 	xdgDataHome   = "XDG_DATA_HOME"
 	xdgStateHome  = "XDG_STATE_HOME"
+	xdgCacheHome  = "XDG_CACHE_HOME"
 )
 
 var (
@@ -287,9 +288,21 @@ func DataDir() string {
 	return path
 }
 
-// CacheDir returns the default path for gh cli cache.
+// Cache path precedence: XDG_CACHE_HOME, LocalAppData (windows only), HOME, legacy gh-cli-cache.
 func CacheDir() string {
-	return filepath.Join(os.TempDir(), "gh-cli-cache")
+	if a := os.Getenv(xdgCacheHome); a != "" {
+		return filepath.Join(a, "gh")
+	} else if b := os.Getenv(localAppData); runtime.GOOS == "windows" && b != "" {
+		return filepath.Join(b, "GitHub CLI")
+	} else if c, err := os.UserHomeDir(); err == nil {
+		return filepath.Join(c, ".cache", "gh")
+	} else {
+		// Note that this has a minor security issue because /tmp is world-writeable.
+		// As such, it is possible for other users on a shared system to overwrite cached data.
+		// The practical risk of this is low, but it's worth calling out as a risk.
+		// I've included this here for backwards compatibility but we should consider removing it.
+		return filepath.Join(os.TempDir(), "gh-cli-cache")
+	}
 }
 
 func readFile(filename string) ([]byte, error) {

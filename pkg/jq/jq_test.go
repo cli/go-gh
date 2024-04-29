@@ -19,10 +19,11 @@ func TestEvaluateFormatted(t *testing.T) {
 		colorize bool
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantW   string
-		wantErr bool
+		name       string
+		args       args
+		wantW      string
+		wantErr    bool
+		wantErrMsg string
 	}{
 		{
 			name: "simple",
@@ -171,6 +172,59 @@ func TestEvaluateFormatted(t *testing.T) {
 				" \x1b[32m\"bar\"\x1b[m\n" +
 				"\x1b[1;38m}\x1b[m\n",
 		},
+		{
+			name: "halt function",
+			args: args{
+				json: strings.NewReader("{}"),
+				expr: `1,halt,2`,
+			},
+			wantW: "1\n",
+		},
+		{
+			name: "halt_error function",
+			args: args{
+				json: strings.NewReader("{}"),
+				expr: `1,halt_error,2`,
+			},
+			wantW:      "1\n",
+			wantErr:    true,
+			wantErrMsg: "halt error: {}",
+		},
+		{
+			name: "invalid one-line query",
+			args: args{
+				json: strings.NewReader("{}"),
+				expr: `[1,2,,3]`,
+			},
+			wantErr: true,
+			wantErrMsg: `failed to parse jq expression (line 1, column 6)
+    [1,2,,3]
+         ^  unexpected token ","`,
+		},
+		{
+			name: "invalid multi-line query",
+			args: args{
+				json: strings.NewReader("{}"),
+				expr: `[
+  1,,2
+  ,3]`,
+			},
+			wantErr: true,
+			wantErrMsg: `failed to parse jq expression (line 2, column 5)
+      1,,2
+        ^  unexpected token ","`,
+		},
+		{
+			name: "invalid unterminated query",
+			args: args{
+				json: strings.NewReader("{}"),
+				expr: `[1,`,
+			},
+			wantErr: true,
+			wantErrMsg: `failed to parse jq expression (line 1, column 4)
+    [1,
+       ^  unexpected EOF`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -178,6 +232,7 @@ func TestEvaluateFormatted(t *testing.T) {
 			err := EvaluateFormatted(tt.args.json, w, tt.args.expr, tt.args.indent, tt.args.colorize)
 			if tt.wantErr {
 				assert.Error(t, err)
+				assert.EqualError(t, err, tt.wantErrMsg)
 				return
 			}
 			assert.NoError(t, err)
