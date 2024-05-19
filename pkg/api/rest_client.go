@@ -98,6 +98,11 @@ func (c *RESTClient) DoWithContext(ctx context.Context, method string, path stri
 	if resp.StatusCode == http.StatusNoContent {
 		return nil
 	}
+
+	if resp.StatusCode == http.StatusResetContent {
+		return nil
+	}
+
 	defer resp.Body.Close()
 
 	b, err := io.ReadAll(resp.Body)
