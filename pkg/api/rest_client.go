@@ -105,9 +105,11 @@ func (c *RESTClient) DoWithContext(ctx context.Context, method string, path stri
 		return err
 	}
 
-	err = json.Unmarshal(b, &response)
-	if err != nil {
-		return err
+	if len(b) > 0 {
+		err = json.Unmarshal(b, &response)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -303,6 +303,25 @@ func TestRESTClientPatch(t *testing.T) {
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
+// Covers https://docs.github.com/en/rest/activity/notifications?apiVersion=2022-11-28#mark-a-thread-as-read
+func TestRESTClientPatchNoResponseBody(t *testing.T) {
+	t.Cleanup(gock.Off)
+	gock.New("https://api.github.com").
+		Patch("/some/path/here").
+		BodyString(`{}`).
+		Reply(205).
+		BodyString("")
+	client, _ := NewRESTClient(ClientOptions{
+		Host:      "github.com",
+		AuthToken: "token",
+		Transport: http.DefaultTransport,
+	})
+	r := bytes.NewReader([]byte(`{}`))
+	err := client.Patch("some/path/here", r, nil)
+	assert.NoError(t, err)
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
 func TestRESTClientPost(t *testing.T) {
 	t.Cleanup(gock.Off)
 	gock.New("https://api.github.com").
