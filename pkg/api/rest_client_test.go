@@ -474,6 +474,11 @@ func TestRestPrefix(t *testing.T) {
 			host:         "enterprise.com",
 			wantEndpoint: "https://enterprise.com/api/v3/",
 		},
+		{
+			name:         "tenant",
+			host:         "tenant.ghe.com",
+			wantEndpoint: "https://api.tenant.ghe.com/",
+		},
 	}
 
 	for _, tt := range tests {

@@ -293,6 +293,11 @@ func TestGraphQLEndpoint(t *testing.T) {
 			host:         "enterprise.com",
 			wantEndpoint: "https://enterprise.com/api/graphql",
 		},
+		{
+			name:         "tenant",
+			host:         "tenant.ghe.com",
+			wantEndpoint: "https://api.tenant.ghe.com/graphql",
+		},
 	}
 
 	for _, tt := range tests {
