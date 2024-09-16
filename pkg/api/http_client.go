@@ -135,7 +135,14 @@ func isGarage(host string) bool {
 }
 
 func isEnterprise(host string) bool {
-	return host != github && host != localhost
+	return host != github && host != localhost && !isTenancy(host)
+}
+
+// tenancyHost is the domain name of a tenancy GitHub instance.
+const tenancyHost = "ghe.com"
+
+func isTenancy(host string) bool {
+	return strings.HasSuffix(host, "."+tenancyHost)
 }
 
 func normalizeHostname(hostname string) string {
@@ -145,6 +152,14 @@ func normalizeHostname(hostname string) string {
 	}
 	if strings.HasSuffix(hostname, "."+localhost) {
 		return localhost
+	}
+	// This has been copied over from the cli/cli NormalizeHostname function
+	// to ensure compatible behaviour but we don't fully understand when or
+	// why it would be useful here. We can't see what harm will come of
+	// duplicating the logic.
+	if before, found := strings.CutSuffix(hostname, "."+tenancyHost); found {
+		idx := strings.LastIndex(before, ".")
+		return fmt.Sprintf("%s.%s", before[idx+1:], tenancyHost)
 	}
 	return hostname
 }
