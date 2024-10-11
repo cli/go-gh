@@ -29,8 +29,6 @@ const (
 	modulePath      = "github.com/cli/go-gh"
 	timeZone        = "Time-Zone"
 	userAgent       = "User-Agent"
-	// tenancyHost is the domain name of a tenancy GitHub instance.
-	tenancyHost = "ghe.com"
 )
 
 var jsonTypeRE = regexp.MustCompile(`[/+]json($|;)`)

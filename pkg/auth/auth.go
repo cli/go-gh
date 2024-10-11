@@ -26,6 +26,8 @@ const (
 	hostsKey              = "hosts"
 	localhost             = "github.localhost"
 	oauthToken            = "oauth_token"
+	// TenancyHost is the domain name of a tenancy GitHub instance.
+	tenancyHost = "ghe.com"
 )
 
 // TokenForHost retrieves an authentication token and the source of that token for the specified
@@ -148,9 +150,6 @@ func defaultHost(cfg *config.Config) (string, string) {
 	}
 	return github, defaultSource
 }
-
-// TenancyHost is the domain name of a tenancy GitHub instance.
-const tenancyHost = "ghe.com"
 
 // IsEnterprise determines if a provided host is a GitHub Enterprise Server instance,
 // rather than GitHub.com or a tenancy GitHub instance.
