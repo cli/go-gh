@@ -29,6 +29,8 @@ const (
 	modulePath      = "github.com/cli/go-gh"
 	timeZone        = "Time-Zone"
 	userAgent       = "User-Agent"
+	// tenancyHost is the domain name of a tenancy GitHub instance.
+	tenancyHost = "ghe.com"
 )
 
 var jsonTypeRE = regexp.MustCompile(`[/+]json($|;)`)
@@ -132,36 +134,6 @@ func isSameDomain(requestHost, domain string) bool {
 
 func isGarage(host string) bool {
 	return strings.EqualFold(host, "garage.github.com")
-}
-
-func isEnterprise(host string) bool {
-	return host != github && host != localhost && !isTenancy(host)
-}
-
-// tenancyHost is the domain name of a tenancy GitHub instance.
-const tenancyHost = "ghe.com"
-
-func isTenancy(host string) bool {
-	return strings.HasSuffix(host, "."+tenancyHost)
-}
-
-func normalizeHostname(hostname string) string {
-	hostname = strings.ToLower(hostname)
-	if strings.HasSuffix(hostname, "."+github) {
-		return github
-	}
-	if strings.HasSuffix(hostname, "."+localhost) {
-		return localhost
-	}
-	// This has been copied over from the cli/cli NormalizeHostname function
-	// to ensure compatible behaviour but we don't fully understand when or
-	// why it would be useful here. We can't see what harm will come of
-	// duplicating the logic.
-	if before, found := strings.CutSuffix(hostname, "."+tenancyHost); found {
-		idx := strings.LastIndex(before, ".")
-		return fmt.Sprintf("%s.%s", before[idx+1:], tenancyHost)
-	}
-	return hostname
 }
 
 type headerRoundTripper struct {

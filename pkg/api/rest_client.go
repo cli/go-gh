@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/cli/go-gh/v2/pkg/auth"
 )
 
 // RESTClient wraps methods for the different types of
@@ -159,8 +161,8 @@ func restPrefix(hostname string) string {
 	if isGarage(hostname) {
 		return fmt.Sprintf("https://%s/api/v3/", hostname)
 	}
-	hostname = normalizeHostname(hostname)
-	if isEnterprise(hostname) {
+	hostname = auth.NormalizeHostname(hostname)
+	if auth.IsEnterprise(hostname) {
 		return fmt.Sprintf("https://%s/api/v3/", hostname)
 	}
 	if strings.EqualFold(hostname, localhost) {

@@ -61,7 +61,7 @@ func TokenFromEnvOrConfig(host string) (string, string) {
 }
 
 func tokenForHost(cfg *config.Config, host string) (string, string) {
-	host = normalizeHostname(host)
+	host = NormalizeHostname(host)
 	if IsEnterprise(host) {
 		if token := os.Getenv(ghEnterpriseToken); token != "" {
 			return token, ghEnterpriseToken
@@ -155,18 +155,18 @@ const tenancyHost = "ghe.com"
 // IsEnterprise determines if a provided host is a GitHub Enterprise Server instance,
 // rather than GitHub.com or a tenancy GitHub instance.
 func IsEnterprise(host string) bool {
-	normalizedHost := normalizeHostname(host)
+	normalizedHost := NormalizeHostname(host)
 	return normalizedHost != github && normalizedHost != localhost && !IsTenancy(normalizedHost)
 }
 
 // IsTenancy determines if a provided host is a tenancy GitHub instance,
 // rather than GitHub.com or a GitHub Enterprise Server instance.
 func IsTenancy(host string) bool {
-	normalizedHost := normalizeHostname(host)
+	normalizedHost := NormalizeHostname(host)
 	return strings.HasSuffix(normalizedHost, "."+tenancyHost)
 }
 
-func normalizeHostname(host string) string {
+func NormalizeHostname(host string) string {
 	hostname := strings.ToLower(host)
 	if strings.HasSuffix(hostname, "."+github) {
 		return github
