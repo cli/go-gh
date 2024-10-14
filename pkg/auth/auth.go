@@ -26,8 +26,7 @@ const (
 	hostsKey              = "hosts"
 	localhost             = "github.localhost"
 	oauthToken            = "oauth_token"
-	// TenancyHost is the domain name of a tenancy GitHub instance.
-	tenancyHost = "ghe.com"
+	tenancyHost           = "ghe.com" // TenancyHost is the domain suffix of a tenancy GitHub instance.
 )
 
 // TokenForHost retrieves an authentication token and the source of that token for the specified
