@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cli/go-gh/v2/pkg/auth"
 	graphql "github.com/cli/shurcooL-graphql"
 )
 
@@ -171,8 +172,8 @@ func graphQLEndpoint(host string) string {
 	if isGarage(host) {
 		return fmt.Sprintf("https://%s/api/graphql", host)
 	}
-	host = normalizeHostname(host)
-	if isEnterprise(host) {
+	host = auth.NormalizeHostname(host)
+	if auth.IsEnterprise(host) {
 		return fmt.Sprintf("https://%s/api/graphql", host)
 	}
 	if strings.EqualFold(host, localhost) {

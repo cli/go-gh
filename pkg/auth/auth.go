@@ -26,6 +26,7 @@ const (
 	hostsKey              = "hosts"
 	localhost             = "github.localhost"
 	oauthToken            = "oauth_token"
+	tenancyHost           = "ghe.com" // TenancyHost is the domain suffix of a tenancy GitHub instance.
 )
 
 // TokenForHost retrieves an authentication token and the source of that token for the specified
@@ -61,7 +62,7 @@ func TokenFromEnvOrConfig(host string) (string, string) {
 }
 
 func tokenForHost(cfg *config.Config, host string) (string, string) {
-	host = normalizeHostname(host)
+	host = NormalizeHostname(host)
 	if IsEnterprise(host) {
 		if token := os.Getenv(ghEnterpriseToken); token != "" {
 			return token, ghEnterpriseToken
@@ -149,24 +150,24 @@ func defaultHost(cfg *config.Config) (string, string) {
 	return github, defaultSource
 }
 
-// TenancyHost is the domain name of a tenancy GitHub instance.
-const tenancyHost = "ghe.com"
-
 // IsEnterprise determines if a provided host is a GitHub Enterprise Server instance,
 // rather than GitHub.com or a tenancy GitHub instance.
 func IsEnterprise(host string) bool {
-	normalizedHost := normalizeHostname(host)
+	normalizedHost := NormalizeHostname(host)
 	return normalizedHost != github && normalizedHost != localhost && !IsTenancy(normalizedHost)
 }
 
 // IsTenancy determines if a provided host is a tenancy GitHub instance,
 // rather than GitHub.com or a GitHub Enterprise Server instance.
 func IsTenancy(host string) bool {
-	normalizedHost := normalizeHostname(host)
+	normalizedHost := NormalizeHostname(host)
 	return strings.HasSuffix(normalizedHost, "."+tenancyHost)
 }
 
-func normalizeHostname(host string) string {
+// NormalizeHostname ensures the host matches the values used throughout
+// the rest of the codebase with respect to hostnames. These are github,
+// localhost, and tenancyHost.
+func NormalizeHostname(host string) string {
 	hostname := strings.ToLower(host)
 	if strings.HasSuffix(hostname, "."+github) {
 		return github
