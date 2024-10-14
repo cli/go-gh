@@ -165,6 +165,9 @@ func IsTenancy(host string) bool {
 	return strings.HasSuffix(normalizedHost, "."+tenancyHost)
 }
 
+// NormalizeHostname ensures the host matches the values used throughout
+// the rest of the codebase with respect to hostnames. These are github,
+// localhost, and tenancyHost.
 func NormalizeHostname(host string) string {
 	hostname := strings.ToLower(host)
 	if strings.HasSuffix(hostname, "."+github) {
