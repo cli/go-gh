@@ -397,6 +397,82 @@ func TestExecute(t *testing.T) {
 	}
 }
 
+func TestExecuteFiltered(t *testing.T) {
+	type args struct {
+		json     io.Reader
+		template string
+		filter   string
+		colorize bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantW   string
+		wantErr bool
+	}{
+		{
+			name: "without filter",
+			args: args{
+				json:     strings.NewReader(`[{"name":"b"},{"name":"a"}]`),
+				template: `{{range .}}{{.name}}{{end}}`,
+			},
+			wantW: "ba",
+		},
+		{
+			name: "with filter",
+			args: args{
+				json:     strings.NewReader(`[{"name":"b"},{"name":"a"}]`),
+				filter:   `sort_by(.name)`,
+				template: `{{range .}}{{.name}}{{end}}`,
+			},
+			wantW: "ab",
+		},
+		{
+			name: "color with filter",
+			args: args{
+				json:     strings.NewReader(`{"error":"an error occurred"}`),
+				filter:   `{error: .error | ascii_upcase}`,
+				template: `{{color "red" .error}}`,
+			},
+			wantW: "\x1b[0;31mAN ERROR OCCURRED\x1b[0m",
+		},
+		{
+			name: "filter error",
+			args: args{
+				json:     strings.NewReader(`{}`),
+				filter:   "nofunc",
+				template: "{{.}}",
+			},
+			wantErr: true,
+		},
+		{
+			name: "template error",
+			args: args{
+				json:     strings.NewReader(`{}`),
+				template: `{{ truncate }}`,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &bytes.Buffer{}
+			tmpl := New(w, 80, tt.args.colorize)
+			err := tmpl.Parse(tt.args.template)
+			assert.NoError(t, err)
+			err = tmpl.ExecuteFiltered(tt.args.json, tt.args.filter)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			err = tmpl.Flush()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantW, w.String())
+		})
+	}
+}
+
 func TestTruncateMultiline(t *testing.T) {
 	type args struct {
 		max int

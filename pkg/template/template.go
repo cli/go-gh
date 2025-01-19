@@ -4,6 +4,7 @@
 package template
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cli/go-gh/v2/pkg/jq"
 	"github.com/cli/go-gh/v2/pkg/tableprinter"
 	"github.com/cli/go-gh/v2/pkg/text"
 	color "github.com/mgutz/ansi"
@@ -91,9 +93,24 @@ func (t *Template) Parse(tmpl string) error {
 	return err
 }
 
-// Execute applies the parsed template to the input and writes result to the writer
+// Execute applies the parsed template to the input and writes the result to the writer
 // the template was initialized with.
 func (t *Template) Execute(input io.Reader) error {
+	return t.ExecuteFiltered(input, "")
+}
+
+// ExecuteFiltered filters the input using the `jq` package then applies the parsed template
+// to the input and writes the result to the writer the template was initialized with.
+func (t *Template) ExecuteFiltered(input io.Reader, filter string) error {
+	if filter != "" {
+		buf := bytes.Buffer{}
+		if err := jq.Evaluate(input, &buf, filter); err != nil {
+			return err
+		}
+
+		input = io.Reader(&buf)
+	}
+
 	jsonData, err := io.ReadAll(input)
 	if err != nil {
 		return err
