@@ -16,19 +16,38 @@ import (
 	"github.com/itchyny/gojq"
 )
 
+// evaluateOptions is passed to an EvaluationOption function.
+type evaluateOptions struct {
+	compilerOptions []gojq.CompilerOption
+}
+
+// EvaluateOption is used to configure the pkg/jq.Evaluate functions.
+type EvaluateOption func(*evaluateOptions)
+
+// WithModulePaths sets the jq module lookup paths e.g.,
+// "~/.jq", "$ORIGIN/../lib/gh", and "$ORIGIN/../lib".
+func WithModulePaths(paths []string) EvaluateOption {
+	return func(opts *evaluateOptions) {
+		opts.compilerOptions = append(
+			opts.compilerOptions,
+			gojq.WithModuleLoader(gojq.NewModuleLoader(paths)),
+		)
+	}
+}
+
 // Evaluate a jq expression against an input and write it to an output.
 // Any top-level scalar values produced by the jq expression are written out
 // directly, as raw values and not as JSON scalars, similar to how jq --raw
 // works.
-func Evaluate(input io.Reader, output io.Writer, expr string) error {
-	return EvaluateFormatted(input, output, expr, "", false)
+func Evaluate(input io.Reader, output io.Writer, expr string, options ...EvaluateOption) error {
+	return EvaluateFormatted(input, output, expr, "", false, options...)
 }
 
 // Evaluate a jq expression against an input and write it to an output,
 // optionally with indentation and colorization.  Any top-level scalar values
 // produced by the jq expression are written out directly, as raw values and not
 // as JSON scalars, similar to how jq --raw works.
-func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent string, colorize bool) error {
+func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent string, colorize bool, options ...EvaluateOption) error {
 	query, err := gojq.Parse(expr)
 	if err != nil {
 		var e *gojq.ParseError
@@ -42,11 +61,21 @@ func EvaluateFormatted(input io.Reader, output io.Writer, expr string, indent st
 		return err
 	}
 
+	opts := evaluateOptions{
+		// Default compiler options.
+		compilerOptions: []gojq.CompilerOption{
+			gojq.WithEnvironLoader(func() []string {
+				return os.Environ()
+			}),
+		},
+	}
+	for _, opt := range options {
+		opt(&opts)
+	}
+
 	code, err := gojq.Compile(
 		query,
-		gojq.WithEnvironLoader(func() []string {
-			return os.Environ()
-		}))
+		opts.compilerOptions...)
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 	"text/template"
 	"time"
 
+	intext "github.com/cli/go-gh/v2/internal/text"
 	"github.com/cli/go-gh/v2/pkg/tableprinter"
 	"github.com/cli/go-gh/v2/pkg/text"
 	color "github.com/mgutz/ansi"
@@ -75,9 +76,9 @@ func (t *Template) Parse(tmpl string) error {
 			return tableRowFunc(t.tp, fields...)
 		},
 		"timeago": func(input string) (string, error) {
-			return timeAgoFunc(now, input)
+			return intext.TimeAgoFunc(now, input)
 		},
-		"timefmt":  timeFormatFunc,
+		"timefmt":  intext.TimeFormatFunc,
 		"truncate": truncateFunc,
 	}
 	if !t.colorEnabled {
@@ -147,22 +148,6 @@ func joinFunc(sep string, input []interface{}) (string, error) {
 	return strings.Join(results, sep), nil
 }
 
-func timeFormatFunc(format, input string) (string, error) {
-	t, err := time.Parse(time.RFC3339, input)
-	if err != nil {
-		return "", err
-	}
-	return t.Format(format), nil
-}
-
-func timeAgoFunc(now time.Time, input string) (string, error) {
-	t, err := time.Parse(time.RFC3339, input)
-	if err != nil {
-		return "", err
-	}
-	return timeAgo(now.Sub(t)), nil
-}
-
 func truncateFunc(maxWidth int, v interface{}) (string, error) {
 	if v == nil {
 		return "", nil
@@ -220,25 +205,6 @@ func jsonScalarToString(input interface{}) (string, error) {
 	default:
 		return "", fmt.Errorf("cannot convert type to string: %v", tt)
 	}
-}
-
-func timeAgo(ago time.Duration) string {
-	if ago < time.Minute {
-		return "just now"
-	}
-	if ago < time.Hour {
-		return text.Pluralize(int(ago.Minutes()), "minute") + " ago"
-	}
-	if ago < 24*time.Hour {
-		return text.Pluralize(int(ago.Hours()), "hour") + " ago"
-	}
-	if ago < 30*24*time.Hour {
-		return text.Pluralize(int(ago.Hours())/24, "day") + " ago"
-	}
-	if ago < 365*24*time.Hour {
-		return text.Pluralize(int(ago.Hours())/24/30, "month") + " ago"
-	}
-	return text.Pluralize(int(ago.Hours()/24/365), "year") + " ago"
 }
 
 // TruncateMultiline returns a copy of the string s that has been shortened to fit the maximum

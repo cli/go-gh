@@ -2,13 +2,47 @@ package jq
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/MakeNowJust/heredoc"
 	"github.com/stretchr/testify/assert"
 )
+
+func ExampleEvaluate() {
+	now := time.Now()
+	input := strings.NewReader(fmt.Sprintf(`[
+		{
+			"event": "first event",
+			"time": "%s"
+		},
+		{
+			"event": "second event",
+			"time": "%s"
+		}
+	]`,
+		now.Add(-10*time.Minute).Format(time.RFC3339),
+		now.Add(-5*time.Minute).Format(time.RFC3339),
+	))
+
+	output := bytes.Buffer{}
+	err := Evaluate(input, &output, "map(.time |= timeago) | .[]", WithTemplateFunctions())
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := io.Copy(os.Stdout, &output); err != nil {
+		panic(err)
+	}
+
+	// Output:
+	// {"event":"first event","time":"10 minutes ago"}
+	// {"event":"second event","time":"5 minutes ago"}
+}
 
 func TestEvaluateFormatted(t *testing.T) {
 	t.Setenv("CODE", "code_c")
@@ -17,6 +51,7 @@ func TestEvaluateFormatted(t *testing.T) {
 		expr     string
 		indent   string
 		colorize bool
+		options  []EvaluateOption
 	}
 	tests := []struct {
 		name       string
@@ -225,11 +260,29 @@ func TestEvaluateFormatted(t *testing.T) {
     [1,
        ^  unexpected EOF`,
 		},
+		{
+			name: "with module path",
+			args: args{
+				json: strings.NewReader(`[1,2]`),
+				expr: `import "mod" as m; map(m::inc)`,
+				options: []EvaluateOption{
+					WithModulePaths([]string{"testdata"}),
+				},
+			},
+			wantW: "[2,3]\n",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &bytes.Buffer{}
-			err := EvaluateFormatted(tt.args.json, w, tt.args.expr, tt.args.indent, tt.args.colorize)
+			err := EvaluateFormatted(
+				tt.args.json,
+				w,
+				tt.args.expr,
+				tt.args.indent,
+				tt.args.colorize,
+				tt.args.options...,
+			)
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.wantErrMsg)

@@ -72,7 +72,7 @@ func (m *Map) AddEntry(key string, value *Map) {
 }
 
 func (m *Map) Empty() bool {
-	return m.Content == nil || len(m.Content) == 0
+	return len(m.Content) == 0
 }
 
 func (m *Map) FindEntry(key string) (*Map, error) {
