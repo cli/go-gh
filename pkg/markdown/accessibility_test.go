@@ -3,8 +3,8 @@ package markdown
 import (
 	"testing"
 
-	"github.com/cli/glamour/ansi"
-	"github.com/cli/glamour/styles"
+	"github.com/charmbracelet/glamour/ansi"
+	"github.com/charmbracelet/glamour/styles"
 	"github.com/stretchr/testify/assert"
 )
 

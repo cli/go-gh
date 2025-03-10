@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cli/glamour"
+	"github.com/charmbracelet/glamour"
 	"github.com/cli/go-gh/v2/pkg/x/color"
 )
 

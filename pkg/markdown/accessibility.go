@@ -3,8 +3,8 @@ package markdown
 import (
 	"strconv"
 
-	"github.com/cli/glamour/ansi"
-	"github.com/cli/glamour/styles"
+	"github.com/charmbracelet/glamour/ansi"
+	"github.com/charmbracelet/glamour/styles"
 )
 
 type ANSIColorCode int
