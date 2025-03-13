@@ -1,6 +1,7 @@
 package markdown
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/charmbracelet/glamour/ansi"
@@ -162,4 +163,56 @@ func Test_accessibleLightStyleConfig(t *testing.T) {
 
 	// Test that we haven't changed the original style
 	assert.Equal(t, styles.LightStyleConfig.H2, cfg.H2)
+}
+
+func TestAccessibleLightStyleConfigIs4Bit(t *testing.T) {
+	cfg := accessibleLightStyleConfig()
+	validateColors(t, reflect.ValueOf(cfg), "StyleConfig")
+}
+
+func TestAccessibleDarkStyleConfigIs4Bit(t *testing.T) {
+	cfg := accessibleDarkStyleConfig()
+	validateColors(t, reflect.ValueOf(cfg), "StyleConfig")
+}
+
+// Walk every field in the StyleConfig struct, checking that the Color
+// and BackgroundColor fields are valid 4-bit colors.
+func validateColors(t *testing.T, v reflect.Value, path string) {
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return
+		}
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			fieldType := v.Type().Field(i)
+
+			// Construct path for better error reporting
+			fieldPath := path + "." + fieldType.Name
+
+			// Ensure we only check "Color" and "BackgroundColor"
+			if (fieldType.Name == "Color" || fieldType.Name == "BackgroundColor") &&
+				fieldType.Type.Kind() == reflect.Ptr && fieldType.Type.Elem().Kind() == reflect.String {
+
+				if field.IsNil() {
+					continue
+				}
+				color := field.Elem().String()
+				_, err := parseGlamourStyleColor(color)
+				assert.NoError(t, err, "Failed to parse color '%s' in %s", color, fieldPath)
+			} else {
+				// Recurse into nested structs
+				validateColors(t, field, fieldPath)
+			}
+		}
+	case reflect.Slice:
+		// Handle slices of structs
+		for i := 0; i < v.Len(); i++ {
+			validateColors(t, v.Index(i), path+"[]")
+		}
+	}
 }
