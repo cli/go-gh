@@ -169,7 +169,7 @@ type graphQLResponse struct {
 }
 
 func graphQLEndpoint(host string) string {
-	if isGarage(host) {
+	if isGarage(host) || isReviewLab(host) {
 		return fmt.Sprintf("https://%s/api/graphql", host)
 	}
 	host = auth.NormalizeHostname(host)
