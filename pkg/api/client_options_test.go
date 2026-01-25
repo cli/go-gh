@@ -9,6 +9,9 @@ import (
 )
 
 func TestResolveOptions(t *testing.T) {
+	t.Setenv("GH_CONFIG_DIR", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
 	testutils.StubConfig(t, testConfigWithSocket())
 
 	tests := []struct {
