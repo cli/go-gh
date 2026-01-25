@@ -17,6 +17,7 @@ import (
 const (
 	appData       = "AppData"
 	ghConfigDir   = "GH_CONFIG_DIR"
+	ghDataDir     = "GH_DATA_DIR"
 	localAppData  = "LocalAppData"
 	xdgConfigHome = "XDG_CONFIG_HOME"
 	xdgDataHome   = "XDG_DATA_HOME"
@@ -280,16 +281,18 @@ func StateDir() string {
 
 // DataDir returns the path to the data directory.
 //
-// Data path precedence: XDG_DATA_HOME, LocalAppData (windows only), HOME.
+// Data path precedence: GH_DATA_DIR, XDG_DATA_HOME, LocalAppData (windows only), HOME.
 func DataDir() string {
 	var path string
-	if a := os.Getenv(xdgDataHome); a != "" {
-		path = filepath.Join(a, "gh")
-	} else if b := os.Getenv(localAppData); runtime.GOOS == "windows" && b != "" {
-		path = filepath.Join(b, "GitHub CLI")
+	if a := os.Getenv(ghDataDir); a != "" {
+		path = a
+	} else if b := os.Getenv(xdgDataHome); b != "" {
+		path = filepath.Join(b, "gh")
+	} else if c := os.Getenv(localAppData); runtime.GOOS == "windows" && c != "" {
+		path = filepath.Join(c, "GitHub CLI")
 	} else {
-		c, _ := os.UserHomeDir()
-		path = filepath.Join(c, ".local", "share", "gh")
+		d, _ := os.UserHomeDir()
+		path = filepath.Join(d, ".local", "share", "gh")
 	}
 	return path
 }

@@ -210,6 +210,21 @@ func TestDataDir(t *testing.T) {
 			},
 			output: filepath.Join(tempDir, "gh"),
 		},
+		{
+			name: "GH_DATA_DIR specified",
+			env: map[string]string{
+				"GH_DATA_DIR": filepath.Join(tempDir, "gh_data_dir"),
+			},
+			output: filepath.Join(tempDir, "gh_data_dir"),
+		},
+		{
+			name: "GH_DATA_DIR and XDG_DATA_HOME specified",
+			env: map[string]string{
+				"GH_DATA_DIR":   filepath.Join(tempDir, "gh_data_dir"),
+				"XDG_DATA_HOME": tempDir,
+			},
+			output: filepath.Join(tempDir, "gh_data_dir"),
+		},
 	}
 
 	for _, tt := range tests {
