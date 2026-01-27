@@ -184,3 +184,59 @@ func printPendingMocks(mocks []gock.Mock) string {
 	}
 	return fmt.Sprintf("%d unmatched mocks: %s", len(paths), strings.Join(paths, ", "))
 }
+
+func TestInspectableMIMEType(t *testing.T) {
+	tests := []struct {
+		name     string
+		mimeType string
+		want     bool
+	}{
+		{
+			name:     "text/plain is inspectable",
+			mimeType: "text/plain",
+			want:     true,
+		},
+		{
+			name:     "text/html is inspectable",
+			mimeType: "text/html",
+			want:     true,
+		},
+		{
+			name:     "application/json is inspectable",
+			mimeType: "application/json",
+			want:     true,
+		},
+		{
+			name:     "application/json with charset is inspectable",
+			mimeType: "application/json; charset=utf-8",
+			want:     true,
+		},
+		{
+			name:     "application/x-www-form-urlencoded is inspectable",
+			mimeType: "application/x-www-form-urlencoded",
+			want:     true,
+		},
+		{
+			name:     "application/octocat-stream is inspectable",
+			mimeType: "application/octocat-stream",
+			want:     true,
+		},
+		{
+			name:     "application/octet-stream is not inspectable",
+			mimeType: "application/octet-stream",
+			want:     false,
+		},
+		{
+			name:     "image/png is not inspectable",
+			mimeType: "image/png",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := inspectableMIMEType(tt.mimeType)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
