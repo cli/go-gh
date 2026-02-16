@@ -1,12 +1,13 @@
-// Package tableprinter facilitates rendering column-formatted data to a terminal and TSV-formatted data to
-// a script or a file. It is suitable for presenting tabular data in a human-readable format that is
-// guaranteed to fit within the given viewport, while at the same time offering the same data in a
-// machine-readable format for scripts.
+// Package tableprinter facilitates rendering table data to a terminal and to redirected output.
+// It renders as columns by default, but when GH_TABLE_LAYOUT=vertical is set, header-based rows
+// are rendered in vertical key/value format.
 package tableprinter
 
 import (
 	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/text"
 )
@@ -19,6 +20,11 @@ type TablePrinter interface {
 	EndRow()
 	Render() error
 }
+
+const (
+	tableLayoutEnv      = "GH_TABLE_LAYOUT"
+	tableLayoutVertical = "vertical"
+)
 
 // WithTruncate overrides the truncation function for the field. The function should transform a string
 // argument into a string that fits within the given display width. The default behavior is to truncate the
@@ -51,8 +57,22 @@ func WithColor(fn func(string) string) fieldOption {
 
 // New initializes a table printer with terminal mode and terminal width. When terminal mode is enabled, the
 // output will be human-readable, column-formatted to fit available width, and rendered with color support.
-// In non-terminal mode, the output is tab-separated and all truncation of values is disabled.
+// In non-terminal mode, the output is tab-separated and all truncation of values is disabled, unless
+// GH_TABLE_LAYOUT=vertical is set and headers are provided.
 func New(w io.Writer, isTTY bool, maxWidth int) TablePrinter {
+	defaultPrinter := newDefaultTablePrinter(w, isTTY, maxWidth)
+	if !isVerticalLayoutEnabled() {
+		return defaultPrinter
+	}
+
+	return &verticalTablePrinter{
+		out:      w,
+		isTTY:    isTTY,
+		fallback: defaultPrinter,
+	}
+}
+
+func newDefaultTablePrinter(w io.Writer, isTTY bool, maxWidth int) TablePrinter {
 	if isTTY {
 		return &ttyTablePrinter{
 			out:      w,
@@ -63,6 +83,11 @@ func New(w io.Writer, isTTY bool, maxWidth int) TablePrinter {
 	return &tsvTablePrinter{
 		out: w,
 	}
+}
+
+func isVerticalLayoutEnabled() bool {
+	layout, isSet := os.LookupEnv(tableLayoutEnv)
+	return isSet && strings.EqualFold(strings.TrimSpace(layout), tableLayoutVertical)
 }
 
 type tableField struct {
@@ -77,6 +102,74 @@ type ttyTablePrinter struct {
 	maxWidth   int
 	hasHeaders bool
 	rows       [][]tableField
+}
+
+type verticalTablePrinter struct {
+	out        io.Writer
+	isTTY      bool
+	fallback   TablePrinter
+	hasHeaders bool
+	headers    []string
+	rows       [][]tableField
+}
+
+func (t *verticalTablePrinter) AddHeader(columns []string, opts ...fieldOption) {
+	if t.hasHeaders {
+		return
+	}
+	t.hasHeaders = true
+	t.headers = append([]string(nil), columns...)
+}
+
+func (t *verticalTablePrinter) AddField(s string, opts ...fieldOption) {
+	if t.rows == nil {
+		t.rows = make([][]tableField, 1)
+	}
+	rowI := len(t.rows) - 1
+	field := tableField{
+		text:         s,
+		truncateFunc: text.Truncate,
+	}
+	for _, opt := range opts {
+		opt(&field)
+	}
+	t.rows[rowI] = append(t.rows[rowI], field)
+	if !t.hasHeaders {
+		t.fallback.AddField(s, opts...)
+	}
+}
+
+func (t *verticalTablePrinter) EndRow() {
+	t.rows = append(t.rows, []tableField{})
+	if !t.hasHeaders {
+		t.fallback.EndRow()
+	}
+}
+
+func (t *verticalTablePrinter) Render() error {
+	if !t.hasHeaders {
+		return t.fallback.Render()
+	}
+
+	for _, row := range t.rows {
+		for col, field := range row {
+			value := field.text
+			if t.isTTY && field.colorFunc != nil {
+				value = field.colorFunc(value)
+			}
+			if _, err := fmt.Fprintf(t.out, "%s: %s\n", t.headerForColumn(col), value); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (t *verticalTablePrinter) headerForColumn(col int) string {
+	if col < len(t.headers) {
+		return t.headers[col]
+	}
+	return fmt.Sprintf("Column%d", col+1)
 }
 
 func (t *ttyTablePrinter) AddHeader(columns []string, opts ...fieldOption) {

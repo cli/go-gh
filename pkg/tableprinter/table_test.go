@@ -184,3 +184,77 @@ func Test_tsvTablePrinter_AddHeader(t *testing.T) {
 		t.Errorf("expected: %q, got: %q", expected, buf.String())
 	}
 }
+
+func Test_verticalLayout_ttyWithHeaders(t *testing.T) {
+	t.Setenv("GH_TABLE_LAYOUT", "vertical")
+
+	buf := bytes.Buffer{}
+	tp := New(&buf, true, 80)
+
+	tp.AddHeader([]string{"ID", "TITLE"})
+	tp.AddField("1")
+	tp.AddField("foo")
+	tp.EndRow()
+	tp.AddField("2")
+	tp.AddField("bar")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := "ID: 1\nTITLE: foo\nID: 2\nTITLE: bar\n"
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}
+
+func Test_verticalLayout_nonTTYWithHeaders(t *testing.T) {
+	t.Setenv("GH_TABLE_LAYOUT", "vertical")
+
+	buf := bytes.Buffer{}
+	tp := New(&buf, false, 0)
+
+	tp.AddHeader([]string{"ID", "TITLE"})
+	tp.AddField("1")
+	tp.AddField("foo")
+	tp.EndRow()
+	tp.AddField("2")
+	tp.AddField("bar")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := "ID: 1\nTITLE: foo\nID: 2\nTITLE: bar\n"
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}
+
+func Test_verticalLayout_noHeadersKeepsDefaultBehavior(t *testing.T) {
+	t.Setenv("GH_TABLE_LAYOUT", "vertical")
+
+	buf := bytes.Buffer{}
+	tp := New(&buf, false, 0)
+
+	tp.AddField("1")
+	tp.AddField("hello")
+	tp.EndRow()
+	tp.AddField("2")
+	tp.AddField("world")
+	tp.EndRow()
+
+	err := tp.Render()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := "1\thello\n2\tworld\n"
+	if buf.String() != expected {
+		t.Errorf("expected: %q, got: %q", expected, buf.String())
+	}
+}

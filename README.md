@@ -11,6 +11,7 @@ Modules from this library will obey GitHub CLI conventions by default:
 - [Terminal capabilities](https://pkg.go.dev/github.com/cli/go-gh/v2/pkg/term) are determined by taking environment variables `GH_FORCE_TTY`, `NO_COLOR`, `CLICOLOR`, etc. into account.
 
 - Generating [table](https://pkg.go.dev/github.com/cli/go-gh/v2/pkg/tableprinter) or [Go template](https://pkg.go.dev/github.com/cli/go-gh/pkg/template) output uses the same engine as gh.
+  Set `GH_TABLE_LAYOUT=vertical` to render header-based table rows as vertical `Header: value` entries.
 
 - The [`browser`](https://pkg.go.dev/github.com/cli/go-gh/v2/pkg/browser) module activates the user's preferred web browser.
 
