@@ -10,7 +10,6 @@ import (
 
 	cliBrowser "github.com/cli/browser"
 	"github.com/cli/go-gh/v2/pkg/config"
-	"github.com/cli/safeexec"
 	"github.com/google/shlex"
 )
 
@@ -65,7 +64,7 @@ func (b *Browser) browse(url string, env []string) error {
 	if err != nil {
 		return err
 	}
-	launcherExe, err := safeexec.LookPath(launcherArgs[0])
+	launcherExe, err := exec.LookPath(launcherArgs[0])
 	if err != nil {
 		return err
 	}
@@ -128,8 +127,8 @@ func isPossibleProtocol(u string) (*url.URL, error) {
 	}
 
 	// Disallow URLs that match executables found in the user path.
-	exec, _ := safeexec.LookPath(u)
-	if exec != "" {
+	exe, _ := exec.LookPath(u)
+	if exe != "" {
 		return nil, fmt.Errorf("opening executables is unsupported: %s", u)
 	}
 

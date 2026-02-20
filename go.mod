@@ -10,7 +10,6 @@ require (
 	github.com/charmbracelet/glamour v0.9.2-0.20250319212134-549f544650e3
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250319133953-166f707985bc
 	github.com/cli/browser v1.3.0
-	github.com/cli/safeexec v1.0.0
 	github.com/cli/shurcooL-graphql v0.0.4
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/henvic/httpretty v0.0.6

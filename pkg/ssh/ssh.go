@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-
-	"github.com/cli/safeexec"
 )
 
 type Translator struct {
@@ -57,7 +55,7 @@ func (t *Translator) resolve(hostname string) (string, error) {
 	if t.sshPath == "" && t.sshPathErr == nil {
 		lookPath := t.lookPath
 		if lookPath == nil {
-			lookPath = safeexec.LookPath
+			lookPath = exec.LookPath
 		}
 		t.sshPath, t.sshPathErr = lookPath("ssh")
 	}

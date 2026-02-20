@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
-
-	"github.com/cli/safeexec"
 )
 
 func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
@@ -18,7 +16,7 @@ func Exec(args ...string) (stdOut, stdErr bytes.Buffer, err error) {
 }
 
 func path() (string, error) {
-	return safeexec.LookPath("git")
+	return exec.LookPath("git")
 }
 
 func run(path string, env []string, args ...string) (stdOut, stdErr bytes.Buffer, err error) {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/cli/go-gh/v2/internal/set"
 	"github.com/cli/go-gh/v2/pkg/config"
-	"github.com/cli/safeexec"
 )
 
 const (
@@ -40,7 +39,7 @@ func TokenForHost(host string) (string, string) {
 
 	ghExe := os.Getenv("GH_PATH")
 	if ghExe == "" {
-		ghExe, _ = safeexec.LookPath("gh")
+		ghExe, _ = exec.LookPath("gh")
 	}
 
 	if ghExe != "" {
