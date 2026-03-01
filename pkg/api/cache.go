@@ -167,6 +167,19 @@ func (fs *fileStorage) read(key string) (*http.Response, error) {
 	}
 
 	res, err := http.ReadResponse(bufio.NewReader(body), nil)
+	if err == nil {
+		// Strip rate-limit headers from cached responses. These headers
+		// reflect the state at the time the response was originally received
+		// and become stale long before the cache TTL expires (rate limits
+		// reset hourly, but cache TTL can be up to 24h). Serving stale
+		// rate-limit headers causes callers to believe the rate limit is
+		// still exhausted after it has already reset.
+		res.Header.Del("X-Ratelimit-Limit")
+		res.Header.Del("X-Ratelimit-Remaining")
+		res.Header.Del("X-Ratelimit-Reset")
+		res.Header.Del("X-Ratelimit-Used")
+		res.Header.Del("X-Ratelimit-Resource")
+	}
 	return res, err
 }
 

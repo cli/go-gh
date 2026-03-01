@@ -182,6 +182,67 @@ func TestCacheResponseRequestCacheOptions(t *testing.T) {
 	assert.Equal(t, "7: GET http://example.com/error", res)
 }
 
+func TestCacheResponseStripsRateLimitHeaders(t *testing.T) {
+	counter := 0
+	fakeHTTP := tripper{
+		roundTrip: func(req *http.Request) (*http.Response, error) {
+			counter += 1
+			header := http.Header{}
+			header.Set("X-Ratelimit-Limit", "5000")
+			header.Set("X-Ratelimit-Remaining", "0")
+			header.Set("X-Ratelimit-Used", "5001")
+			header.Set("X-Ratelimit-Reset", "1700000000")
+			header.Set("X-Ratelimit-Resource", "graphql")
+			header.Set("Content-Type", "application/json")
+			return &http.Response{
+				StatusCode: 200,
+				Header:     header,
+				Body:       io.NopCloser(bytes.NewBufferString(`{"data":{}}`)),
+			}, nil
+		},
+	}
+
+	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
+
+	httpClient, err := NewHTTPClient(
+		ClientOptions{
+			Host:         "github.com",
+			AuthToken:    "token",
+			Transport:    fakeHTTP,
+			EnableCache:  true,
+			CacheDir:     cacheDir,
+			LogIgnoreEnv: true,
+		},
+	)
+	assert.NoError(t, err)
+
+	doReq := func() *http.Response {
+		req, err := http.NewRequest("GET", "http://example.com/path", nil)
+		assert.NoError(t, err)
+		res, err := httpClient.Do(req)
+		assert.NoError(t, err)
+		defer res.Body.Close()
+		_, _ = io.ReadAll(res.Body)
+		return res
+	}
+
+	// First request hits the server — rate-limit headers are present.
+	res := doReq()
+	assert.Equal(t, "0", res.Header.Get("X-Ratelimit-Remaining"))
+	assert.Equal(t, "application/json", res.Header.Get("Content-Type"))
+
+	// Second request is served from cache — rate-limit headers must be stripped
+	// because they are stale, but other headers should be preserved.
+	res = doReq()
+	assert.Equal(t, 1, counter, "expected only one real request")
+	assert.Empty(t, res.Header.Get("X-Ratelimit-Remaining"), "cached response should not have X-Ratelimit-Remaining")
+	assert.Empty(t, res.Header.Get("X-Ratelimit-Limit"), "cached response should not have X-Ratelimit-Limit")
+	assert.Empty(t, res.Header.Get("X-Ratelimit-Used"), "cached response should not have X-Ratelimit-Used")
+	assert.Empty(t, res.Header.Get("X-Ratelimit-Reset"), "cached response should not have X-Ratelimit-Reset")
+	assert.Empty(t, res.Header.Get("X-Ratelimit-Resource"), "cached response should not have X-Ratelimit-Resource")
+	assert.Equal(t, "application/json", res.Header.Get("Content-Type"), "non-rate-limit headers should be preserved")
+}
+
 func TestRequestCacheOptions(t *testing.T) {
 	req, err := http.NewRequest("GET", "some/url", nil)
 	assert.NoError(t, err)
