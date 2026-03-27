@@ -5,7 +5,7 @@ package yamlmap
 import (
 	"errors"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 const (
@@ -152,7 +152,7 @@ func (m *Map) SetEntry(key string, value *Map) {
 // SetModified marks the map as modified.
 //
 // Note: This is a hack to introduce the concept of modified/unmodified
-// on top of gopkg.in/yaml.v3. This works by setting the Value property
+// on top of go.yaml.in/yaml/v3. This works by setting the Value property
 // of a MappingNode to a specific value and then later checking if the
 // node's Value property is that specific value. When a MappingNode gets
 // output as a string the Value property is not used, thus changing it
