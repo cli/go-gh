@@ -293,6 +293,57 @@ func TestCacheRoundTrip_PerRequestOptOut(t *testing.T) {
 	assert.Equal(t, "1: GET http://example.com/path", res, "X-GH-CACHE-TTL: 0 must not overwrite the cache entry")
 }
 
+// TestCacheKey_VariesByHeaders verifies that headers known to affect the
+// representation of a GitHub API response produce distinct cache keys, so a
+// caller varying one of these headers does not get served a cached response
+// generated for a different representation.
+func TestCacheKey_VariesByHeaders(t *testing.T) {
+	baseHeaders := map[string]string{
+		"Accept":               "application/vnd.github+json",
+		"Accept-Encoding":      "gzip",
+		"Authorization":        "token a",
+		"X-GitHub-Api-Version": "2022-11-28",
+		"GraphQL-Features":     "feature-a",
+		"Time-Zone":            "UTC",
+	}
+
+	makeReq := func(headerOverride, value string) *http.Request {
+		req, err := http.NewRequest("GET", "https://api.github.com/repos/cli/cli", nil)
+		assert.NoError(t, err)
+		for k, v := range baseHeaders {
+			req.Header.Set(k, v)
+		}
+		if headerOverride != "" {
+			req.Header.Set(headerOverride, value)
+		}
+		return req
+	}
+
+	baseKey, err := cacheKey(makeReq("", ""))
+	assert.NoError(t, err)
+
+	for _, header := range []string{
+		"Accept",
+		"Accept-Encoding",
+		"Authorization",
+		"X-GitHub-Api-Version",
+		"GraphQL-Features",
+		"Time-Zone",
+	} {
+		t.Run("varies by "+header, func(t *testing.T) {
+			altKey, err := cacheKey(makeReq(header, "different-value"))
+			assert.NoError(t, err)
+			assert.NotEqual(t, baseKey, altKey, "key should change when %s differs", header)
+		})
+	}
+
+	t.Run("identical requests produce identical keys", func(t *testing.T) {
+		dupKey, err := cacheKey(makeReq("", ""))
+		assert.NoError(t, err)
+		assert.Equal(t, baseKey, dupKey)
+	})
+}
+
 // TestIsCacheableResponse documents the policy that only 2xx responses are
 // persisted to the cache, especially the explicit exclusion of 401, 404, 429,
 // 304, and 5xx, all of which would create poor outcomes if replayed for the

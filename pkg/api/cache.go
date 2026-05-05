@@ -73,12 +73,30 @@ func isCacheableResponse(res *http.Response) bool {
 	return res.StatusCode >= 200 && res.StatusCode < 300
 }
 
+// cacheKey computes a SHA-256 hash that uniquely identifies a request for the
+// purposes of response caching. Beyond the obvious (method, URL, body) it
+// includes request headers that GitHub's API uses to vary responses, so the
+// same URL with different representation choices (e.g. preview media types,
+// API versions, internal feature flags, time zones, gzip vs identity) does
+// not collide and serve the wrong cached body.
+//
+// Headers in the key:
+//   - Accept: covers REST preview media types
+//   - Accept-Encoding: gzip vs identity
+//   - Authorization: prevents cross-account cache pollution
+//   - X-GitHub-Api-Version: explicit REST API version pinning
+//   - GraphQL-Features: cli/cli sets this on every GraphQL request
+//   - Time-Zone: go-gh sets this by default; some endpoints vary by it
 func cacheKey(req *http.Request) (string, error) {
 	h := sha256.New()
 	fmt.Fprintf(h, "%s:", req.Method)
 	fmt.Fprintf(h, "%s:", req.URL.String())
 	fmt.Fprintf(h, "%s:", req.Header.Get("Accept"))
+	fmt.Fprintf(h, "%s:", req.Header.Get("Accept-Encoding"))
 	fmt.Fprintf(h, "%s:", req.Header.Get("Authorization"))
+	fmt.Fprintf(h, "%s:", req.Header.Get("X-GitHub-Api-Version"))
+	fmt.Fprintf(h, "%s:", req.Header.Get("GraphQL-Features"))
+	fmt.Fprintf(h, "%s:", req.Header.Get("Time-Zone"))
 
 	if req.Body != nil {
 		var bodyCopy io.ReadCloser
