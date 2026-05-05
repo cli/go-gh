@@ -292,3 +292,38 @@ func TestCacheRoundTrip_PerRequestOptOut(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "1: GET http://example.com/path", res, "X-GH-CACHE-TTL: 0 must not overwrite the cache entry")
 }
+
+// TestIsCacheableResponse documents the policy that only 2xx responses are
+// persisted to the cache, especially the explicit exclusion of 401, 404, 429,
+// 304, and 5xx, all of which would create poor outcomes if replayed for the
+// duration of a TTL.
+func TestIsCacheableResponse(t *testing.T) {
+	cases := []struct {
+		status   int
+		expected bool
+	}{
+		{200, true},
+		{201, true},
+		{204, true},
+		{299, true},
+		{300, false},
+		{301, false},
+		{304, false},
+		{400, false},
+		{401, false},
+		{403, false},
+		{404, false},
+		{409, false},
+		{422, false},
+		{429, false},
+		{500, false},
+		{502, false},
+		{503, false},
+	}
+	for _, c := range cases {
+		t.Run(fmt.Sprintf("status %d", c.status), func(t *testing.T) {
+			got := isCacheableResponse(&http.Response{StatusCode: c.status})
+			assert.Equal(t, c.expected, got)
+		})
+	}
+}

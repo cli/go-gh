@@ -48,8 +48,23 @@ func isCacheableRequest(req *http.Request) bool {
 	return false
 }
 
+// isCacheableResponse decides whether a response is safe to persist in the
+// cache. Only 2xx responses qualify. Caching non-2xx responses creates several
+// problems for callers, especially under aggressive opt-in caching:
+//
+//   - 401 Unauthorized can hide a token that has just been refreshed.
+//   - 404 Not Found can hide newly granted permissions or a freshly created
+//     resource.
+//   - 429 Too Many Requests would be replayed to the caller for the entire
+//     TTL window, making rate-limit recovery worse rather than better.
+//   - 5xx responses describe transient server-side failures and should never
+//     be served from cache.
+//
+// The previous policy of "status < 500 && status != 403" excluded 5xx and 403
+// but cached the cases above. Narrowing to 2xx is a behavior change for
+// existing callers of gh api --cache but moves them in the correct direction.
 func isCacheableResponse(res *http.Response) bool {
-	return res.StatusCode < 500 && res.StatusCode != 403
+	return res.StatusCode >= 200 && res.StatusCode < 300
 }
 
 func cacheKey(req *http.Request) (string, error) {
