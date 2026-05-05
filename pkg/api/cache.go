@@ -36,6 +36,34 @@ type readCloser struct {
 	io.Closer
 }
 
+// Sentinel errors returned by fileStorage.read so the caller can distinguish
+// "no cached entry exists" from "an entry exists but is past TTL" for
+// observability purposes (see the X-GH-Cache-Status header in
+// cacheRoundTripper.RoundTrip).
+var (
+	errCacheMiss    = errors.New("cache miss")
+	errCacheExpired = errors.New("cache expired")
+)
+
+// CacheStatusHeader is the response header set by the cache transport on
+// responses where the cache was consulted. Possible values:
+//
+//   - "hit": the response was served from the cache without any network call.
+//   - "miss": no cached entry existed; the response was fetched fresh and
+//     stored if cacheable.
+//   - "expired": a cached entry existed but was past TTL; the response was
+//     re-fetched and stored if cacheable.
+//
+// Requests that bypass the cache entirely (uncacheable methods, GraphQL
+// mutations and subscriptions, an explicit X-GH-CACHE-TTL: 0 override, or
+// transports configured with no TTL) do not have this header set, so its
+// absence indicates the cache was not consulted at all.
+//
+// The header is set on the response returned to the caller. It is never
+// persisted to the on-disk cache entry, so a "hit" response never carries a
+// stored "miss" or "expired" value from a previous round trip.
+const CacheStatusHeader = "X-GH-Cache-Status"
+
 // isCacheableRequest decides whether a request is eligible for caching. GET
 // and HEAD are always eligible. POST is eligible only for the GraphQL endpoint
 // AND only when the GraphQL document can be confidently identified as
@@ -152,23 +180,50 @@ func (crt cacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	origTTL := crt.fs.ttl
 	crt.fs.ttl = effectiveTTL
 
+	cacheStatus := "miss"
 	key, keyErr := cacheKey(req)
 	if keyErr == nil {
-		if res, err := crt.fs.read(key); err == nil {
+		res, readErr := crt.fs.read(key)
+		switch {
+		case readErr == nil:
 			res.Request = req
+			setCacheStatus(res, "hit")
 			return res, nil
+		case errors.Is(readErr, errCacheExpired):
+			cacheStatus = "expired"
+		default:
+			cacheStatus = "miss"
 		}
 	}
 
 	res, err := crt.rt.RoundTrip(req)
 	if err == nil && keyErr == nil && isCacheableResponse(res) {
+		// Store BEFORE setting the cache-status header so the persisted bytes
+		// never include a synthetic header that would later be served back as
+		// "miss" or "expired" on a subsequent hit.
 		_ = crt.fs.store(key, res)
+	}
+
+	if err == nil && res != nil {
+		setCacheStatus(res, cacheStatus)
 	}
 
 	crt.fs.dir = origDir
 	crt.fs.ttl = origTTL
 
 	return res, err
+}
+
+// setCacheStatus writes the X-GH-Cache-Status header on a response. It is
+// always called on a freshly produced response (either parsed from disk via
+// http.ReadResponse, which gives us a fresh Header map, or returned by the
+// underlying RoundTripper for a network call), so mutation is safe and never
+// leaks to the persisted cache entry.
+func setCacheStatus(res *http.Response, status string) {
+	if res.Header == nil {
+		res.Header = http.Header{}
+	}
+	res.Header.Set(CacheStatusHeader, status)
 }
 
 // requestCacheOptions inspects per-request override headers. The returned ttlSet
@@ -206,6 +261,9 @@ func (fs *fileStorage) read(key string) (*http.Response, error) {
 
 	f, err := os.Open(cacheFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errCacheMiss
+		}
 		return nil, err
 	}
 	defer f.Close()
@@ -217,7 +275,7 @@ func (fs *fileStorage) read(key string) (*http.Response, error) {
 
 	age := time.Since(stat.ModTime())
 	if age > fs.ttl {
-		return nil, errors.New("cache expired")
+		return nil, errCacheExpired
 	}
 
 	body := &bytes.Buffer{}
