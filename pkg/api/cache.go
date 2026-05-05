@@ -36,13 +36,19 @@ type readCloser struct {
 	io.Closer
 }
 
+// isCacheableRequest decides whether a request is eligible for caching. GET
+// and HEAD are always eligible. POST is eligible only for the GraphQL endpoint
+// AND only when the GraphQL document can be confidently identified as
+// containing only query operations (no mutations or subscriptions). The
+// GraphQL body inspection is fail-closed: anything ambiguous is treated as
+// non-cacheable.
 func isCacheableRequest(req *http.Request) bool {
 	if strings.EqualFold(req.Method, "GET") || strings.EqualFold(req.Method, "HEAD") {
 		return true
 	}
 
 	if strings.EqualFold(req.Method, "POST") && (req.URL.Path == "/graphql" || req.URL.Path == "/api/graphql") {
-		return true
+		return isCacheableGraphQLRequest(req)
 	}
 
 	return false

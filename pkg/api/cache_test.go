@@ -77,14 +77,14 @@ func TestCacheResponse(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "3: POST http://example.com/path2", res)
 
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello`))
+	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`{"query":"query Q1 { viewer { login } }"}`))
 	assert.NoError(t, err)
 	assert.Equal(t, "4: POST http://example.com/graphql", res)
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello`))
+	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`{"query":"query Q1 { viewer { login } }"}`))
 	assert.NoError(t, err)
 	assert.Equal(t, "4: POST http://example.com/graphql", res)
 
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello2`))
+	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`{"query":"query Q2 { viewer { login } }"}`))
 	assert.NoError(t, err)
 	assert.Equal(t, "5: POST http://example.com/graphql", res)
 
@@ -163,14 +163,14 @@ func TestCacheResponseRequestCacheOptions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "3: POST http://example.com/path2", res)
 
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello`))
+	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`{"query":"query Q1 { viewer { login } }"}`))
 	assert.NoError(t, err)
 	assert.Equal(t, "4: POST http://example.com/graphql", res)
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello`))
+	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`{"query":"query Q1 { viewer { login } }"}`))
 	assert.NoError(t, err)
 	assert.Equal(t, "4: POST http://example.com/graphql", res)
 
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello2`))
+	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`{"query":"query Q2 { viewer { login } }"}`))
 	assert.NoError(t, err)
 	assert.Equal(t, "5: POST http://example.com/graphql", res)
 
