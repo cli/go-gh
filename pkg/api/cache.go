@@ -214,22 +214,40 @@ func (fs *fileStorage) read(key string) (*http.Response, error) {
 
 func (fs *fileStorage) store(key string, res *http.Response) (storeErr error) {
 	cacheFile := fs.filePath(key)
+	cacheDir := filepath.Dir(cacheFile)
 
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	if storeErr = os.MkdirAll(filepath.Dir(cacheFile), 0755); storeErr != nil {
+	if storeErr = os.MkdirAll(cacheDir, 0755); storeErr != nil {
 		return
 	}
 
-	var f *os.File
-	if f, storeErr = os.OpenFile(cacheFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600); storeErr != nil {
+	// Write to a temp file in the entry's final directory, then atomically
+	// rename into place. This prevents readers (including readers in other
+	// processes) from observing a torn file mid-write. Creating the temp file
+	// in the entry's final directory rather than the cache root ensures the
+	// rename never crosses a filesystem boundary.
+	//
+	// On Windows, os.Rename uses MoveFileEx with MOVEFILE_REPLACE_EXISTING,
+	// which is atomic for closed files on NTFS. It can still fail under
+	// antivirus scanning or similar interference; in that case we surface the
+	// error to the caller, which already treats store failures as soft errors
+	// (see cacheRoundTripper.RoundTrip ignoring the return).
+	tmp, err := os.CreateTemp(cacheDir, filepath.Base(cacheFile)+".tmp-*")
+	if err != nil {
+		storeErr = err
 		return
 	}
+	tmpPath := tmp.Name()
+	tmpClosed := false
 
 	defer func() {
-		if err := f.Close(); storeErr == nil && err != nil {
-			storeErr = err
+		if !tmpClosed {
+			_ = tmp.Close()
+		}
+		if storeErr != nil {
+			_ = os.Remove(tmpPath)
 		}
 	}()
 
@@ -239,11 +257,31 @@ func (fs *fileStorage) store(key string, res *http.Response) (storeErr error) {
 		defer res.Body.Close()
 	}
 
-	storeErr = res.Write(f)
+	if storeErr = res.Write(tmp); storeErr != nil {
+		if origBody != nil {
+			res.Body = origBody
+		}
+		return
+	}
+
+	if storeErr = tmp.Close(); storeErr != nil {
+		if origBody != nil {
+			res.Body = origBody
+		}
+		return
+	}
+	tmpClosed = true
+
+	if storeErr = os.Rename(tmpPath, cacheFile); storeErr != nil {
+		if origBody != nil {
+			res.Body = origBody
+		}
+		return
+	}
+
 	if origBody != nil {
 		res.Body = origBody
 	}
-
 	return
 }
 
