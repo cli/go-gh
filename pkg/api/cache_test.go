@@ -183,11 +183,112 @@ func TestCacheResponseRequestCacheOptions(t *testing.T) {
 }
 
 func TestRequestCacheOptions(t *testing.T) {
-	req, err := http.NewRequest("GET", "some/url", nil)
+	t.Run("both headers set", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "some/url", nil)
+		assert.NoError(t, err)
+		req.Header.Set("X-GH-CACHE-DIR", "some/dir/path")
+		req.Header.Set("X-GH-CACHE-TTL", "1h")
+		dir, ttl, ttlSet := requestCacheOptions(req)
+		assert.Equal(t, "some/dir/path", dir)
+		assert.Equal(t, time.Hour, ttl)
+		assert.True(t, ttlSet)
+	})
+
+	t.Run("explicit zero TTL is set", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "some/url", nil)
+		assert.NoError(t, err)
+		req.Header.Set("X-GH-CACHE-TTL", "0")
+		_, ttl, ttlSet := requestCacheOptions(req)
+		assert.Equal(t, time.Duration(0), ttl)
+		assert.True(t, ttlSet, "explicit zero must report ttlSet=true so RoundTrip can distinguish bypass from default")
+	})
+
+	t.Run("absent header is not set", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "some/url", nil)
+		assert.NoError(t, err)
+		_, ttl, ttlSet := requestCacheOptions(req)
+		assert.Equal(t, time.Duration(0), ttl)
+		assert.False(t, ttlSet)
+	})
+
+	t.Run("unparseable header is treated as not set", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "some/url", nil)
+		assert.NoError(t, err)
+		req.Header.Set("X-GH-CACHE-TTL", "not-a-duration")
+		_, ttl, ttlSet := requestCacheOptions(req)
+		assert.Equal(t, time.Duration(0), ttl)
+		assert.False(t, ttlSet, "unparseable values fall back to global TTL rather than silently bypassing")
+	})
+}
+
+// TestCacheRoundTrip_PerRequestOptOut verifies that an explicit
+// X-GH-CACHE-TTL: 0 header forces a network call even when the transport has
+// a non-zero global TTL configured. This is the escape hatch that makes a
+// process-wide cache safe to opt into: callers can always force fresh data
+// for individual requests.
+func TestCacheRoundTrip_PerRequestOptOut(t *testing.T) {
+	counter := 0
+	fakeHTTP := tripper{
+		roundTrip: func(req *http.Request) (*http.Response, error) {
+			counter += 1
+			body := fmt.Sprintf("%d: %s %s", counter, req.Method, req.URL.String())
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(bytes.NewBufferString(body)),
+			}, nil
+		},
+	}
+
+	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
+
+	httpClient, err := NewHTTPClient(
+		ClientOptions{
+			Host:         "github.com",
+			AuthToken:    "token",
+			Transport:    fakeHTTP,
+			EnableCache:  true,
+			CacheTTL:     time.Hour,
+			CacheDir:     cacheDir,
+			LogIgnoreEnv: true,
+		},
+	)
 	assert.NoError(t, err)
-	req.Header.Set("X-GH-CACHE-DIR", "some/dir/path")
-	req.Header.Set("X-GH-CACHE-TTL", "1h")
-	dir, ttl := requestCacheOptions(req)
-	assert.Equal(t, dir, "some/dir/path")
-	assert.Equal(t, ttl, time.Hour)
+
+	do := func(method, url string, ttlOverride string) (string, error) {
+		req, err := http.NewRequest(method, url, nil)
+		if err != nil {
+			return "", err
+		}
+		if ttlOverride != "" {
+			req.Header.Set("X-GH-CACHE-TTL", ttlOverride)
+		}
+		res, err := httpClient.Do(req)
+		if err != nil {
+			return "", err
+		}
+		defer res.Body.Close()
+		resBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			err = fmt.Errorf("ReadAll: %w", err)
+		}
+		return string(resBody), err
+	}
+
+	res, err := do("GET", "http://example.com/path", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "1: GET http://example.com/path", res, "first request populates the cache")
+
+	res, err = do("GET", "http://example.com/path", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "1: GET http://example.com/path", res, "second request without override returns cached body")
+
+	res, err = do("GET", "http://example.com/path", "0")
+	assert.NoError(t, err)
+	assert.Equal(t, "2: GET http://example.com/path", res, "X-GH-CACHE-TTL: 0 must force a fresh network call even though global TTL is 1h")
+
+	// The bypass response must not be stored, so the next default request still
+	// returns the originally cached body, not the bypass body.
+	res, err = do("GET", "http://example.com/path", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "1: GET http://example.com/path", res, "X-GH-CACHE-TTL: 0 must not overwrite the cache entry")
 }

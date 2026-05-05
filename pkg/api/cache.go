@@ -82,9 +82,23 @@ func (c cache) RoundTripper(rt http.RoundTripper) http.RoundTripper {
 }
 
 func (crt cacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqDir, reqTTL := requestCacheOptions(req)
+	reqDir, reqTTL, reqTTLSet := requestCacheOptions(req)
 
-	if crt.fs.ttl == 0 && reqTTL == 0 {
+	// An explicit X-GH-CACHE-TTL: 0 is a hard bypass for this request, even when
+	// the transport has a non-zero global TTL configured. This is the escape hatch
+	// for callers that have opted into a global cache (e.g. via a process-wide
+	// transport configuration) but want to force a fresh response for a specific
+	// request.
+	if reqTTLSet && reqTTL == 0 {
+		return crt.rt.RoundTrip(req)
+	}
+
+	effectiveTTL := crt.fs.ttl
+	if reqTTLSet {
+		effectiveTTL = reqTTL
+	}
+
+	if effectiveTTL == 0 {
 		return crt.rt.RoundTrip(req)
 	}
 
@@ -97,9 +111,7 @@ func (crt cacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 		crt.fs.dir = reqDir
 	}
 	origTTL := crt.fs.ttl
-	if reqTTL != 0 {
-		crt.fs.ttl = reqTTL
-	}
+	crt.fs.ttl = effectiveTTL
 
 	key, keyErr := cacheKey(req)
 	if keyErr == nil {
@@ -120,15 +132,24 @@ func (crt cacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	return res, err
 }
 
-// Allow an individual request to override cache options.
-func requestCacheOptions(req *http.Request) (string, time.Duration) {
-	var dur time.Duration
-	dir := req.Header.Get("X-GH-CACHE-DIR")
-	ttl := req.Header.Get("X-GH-CACHE-TTL")
-	if ttl != "" {
-		dur, _ = time.ParseDuration(ttl)
+// requestCacheOptions inspects per-request override headers. The returned ttlSet
+// flag indicates whether X-GH-CACHE-TTL was present on the request and parsed to
+// a valid duration. This distinguishes "no override" (ttlSet=false) from
+// "explicit zero override" (ttlSet=true, ttl=0), the latter of which forces a
+// cache bypass even when the transport has a non-zero global TTL configured.
+//
+// An unparseable X-GH-CACHE-TTL value is treated the same as an absent header
+// (ttlSet=false): the caller's intent is ambiguous, so we fall back to whatever
+// global TTL is configured rather than silently bypassing or surfacing an error.
+func requestCacheOptions(req *http.Request) (dir string, ttl time.Duration, ttlSet bool) {
+	dir = req.Header.Get("X-GH-CACHE-DIR")
+	if ttlHeader := req.Header.Get("X-GH-CACHE-TTL"); ttlHeader != "" {
+		if parsed, err := time.ParseDuration(ttlHeader); err == nil {
+			ttl = parsed
+			ttlSet = true
+		}
 	}
-	return dir, dur
+	return
 }
 
 func (fs *fileStorage) filePath(key string) string {
