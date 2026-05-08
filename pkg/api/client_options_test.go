@@ -49,6 +49,21 @@ func TestResolveOptions(t *testing.T) {
 	}
 }
 
+func TestResolveOptions_ReturnsTokenLookupFailureReason(t *testing.T) {
+	testutils.StubConfig(t, "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_ENTERPRISE_TOKEN", "")
+	t.Setenv("GITHUB_ENTERPRISE_TOKEN", "")
+	t.Setenv("GH_PATH", "/path/to/missing/gh")
+
+	_, err := resolveOptions(ClientOptions{Host: "github.com"})
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "authentication token not found for host github.com")
+	assert.Contains(t, err.Error(), "failed to run `gh auth token`")
+}
+
 func TestOptionsNeedResolution(t *testing.T) {
 	tests := []struct {
 		name string

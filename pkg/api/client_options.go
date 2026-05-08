@@ -94,8 +94,12 @@ func resolveOptions(opts ClientOptions) (ClientOptions, error) {
 		opts.Host, _ = auth.DefaultHost()
 	}
 	if opts.AuthToken == "" {
-		opts.AuthToken, _ = auth.TokenForHost(opts.Host)
+		source := ""
+		opts.AuthToken, source = auth.TokenForHost(opts.Host)
 		if opts.AuthToken == "" {
+			if source != "" && source != "default" {
+				return ClientOptions{}, fmt.Errorf("authentication token not found for host %s: %s", opts.Host, source)
+			}
 			return ClientOptions{}, fmt.Errorf("authentication token not found for host %s", opts.Host)
 		}
 	}
