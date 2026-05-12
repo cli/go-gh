@@ -6,6 +6,7 @@ import (
 
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveOptions(t *testing.T) {
@@ -150,6 +151,44 @@ func TestOptionsNeedResolution(t *testing.T) {
 	}
 }
 
+func TestResolveBearerAuth(t *testing.T) {
+	t.Run("returns false by default", func(t *testing.T) {
+		testutils.StubConfig(t, testConfig())
+		opts, err := resolveOptions(ClientOptions{})
+		require.NoError(t, err)
+		assert.False(t, opts.BearerAuth)
+	})
+
+	t.Run("returns true when GH_BEARER_AUTH is set", func(t *testing.T) {
+		testutils.StubConfig(t, testConfig())
+		t.Setenv("GH_BEARER_AUTH", "1")
+		opts, err := resolveOptions(ClientOptions{})
+		require.NoError(t, err)
+		assert.True(t, opts.BearerAuth)
+	})
+
+	t.Run("returns true when globally enabled in config", func(t *testing.T) {
+		testutils.StubConfig(t, testConfigWithBearerAuth())
+		opts, err := resolveOptions(ClientOptions{})
+		require.NoError(t, err)
+		assert.True(t, opts.BearerAuth)
+	})
+
+	t.Run("returns true when enabled for host in config", func(t *testing.T) {
+		testutils.StubConfig(t, testConfigWithHostBearerAuth())
+		opts, err := resolveOptions(ClientOptions{})
+		require.NoError(t, err)
+		assert.True(t, opts.BearerAuth)
+	})
+
+	t.Run("honors consumer provided BearerAuth", func(t *testing.T) {
+		testutils.StubConfig(t, testConfig())
+		opts, err := resolveOptions(ClientOptions{BearerAuth: true})
+		require.NoError(t, err)
+		assert.True(t, opts.BearerAuth)
+	})
+}
+
 func testConfig() string {
 	return `
 hosts:
@@ -157,6 +196,28 @@ hosts:
     user: user1
     oauth_token: abc123
     git_protocol: ssh
+`
+}
+
+func testConfigWithBearerAuth() string {
+	return `
+bearer_auth: enabled
+hosts:
+  github.com:
+    user: user1
+    oauth_token: abc123
+    git_protocol: ssh
+`
+}
+
+func testConfigWithHostBearerAuth() string {
+	return `
+hosts:
+  github.com:
+    user: user1
+    oauth_token: abc123
+    git_protocol: ssh
+    bearer_auth: enabled
 `
 }
 

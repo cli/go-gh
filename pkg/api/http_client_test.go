@@ -10,6 +10,7 @@ import (
 
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/h2non/gock.v1"
 )
 
@@ -156,6 +157,32 @@ func TestNewHTTPClient(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewHTTPClientBearerAuth(t *testing.T) {
+	reflectHTTP := tripper{
+		roundTrip: func(req *http.Request) (*http.Response, error) {
+			header := req.Header.Clone()
+			return &http.Response{
+				StatusCode: 200,
+				Header:     header,
+				Body:       io.NopCloser(bytes.NewBufferString("{}")),
+			}, nil
+		},
+	}
+
+	opts := ClientOptions{
+		Host:         "test.com",
+		AuthToken:    "oauth_token",
+		BearerAuth:   true,
+		Transport:    reflectHTTP,
+		LogIgnoreEnv: true,
+	}
+	client, err := NewHTTPClient(opts)
+	require.NoError(t, err)
+	res, err := client.Get("https://test.com")
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer oauth_token", res.Header.Get(authorization))
 }
 
 type tripper struct {
