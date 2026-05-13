@@ -114,6 +114,9 @@ func resolveBearerAuth(cfg *config.Config, host string) bool {
 	if isTruthy(os.Getenv("GH_BEARER_AUTH")) {
 		return true
 	}
+	if cfg == nil {
+		return false
+	}
 	if val, err := cfg.Get([]string{"hosts", host, "bearer_auth"}); err == nil {
 		return val == "enabled"
 	}

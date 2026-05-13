@@ -117,7 +117,6 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 		setDefaultHeaders(opts.Headers)
 	}
 
-	// Bearer auth is always resolved internally from env/config, never set by consumers.
 	cfg, _ := config.Read(nil)
 	bearerAuth := resolveBearerAuth(cfg, opts.Host)
 	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, bearerAuth, opts.Headers, transport)

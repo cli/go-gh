@@ -185,8 +185,6 @@ func TestResolveBearerAuth(t *testing.T) {
 		cfg, _ := config.Read(nil)
 		assert.True(t, resolveBearerAuth(cfg, "github.com"))
 	})
-
-
 }
 
 func testConfig() string {
