@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/cli/go-gh/v2/internal/testutils"
-	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -154,36 +153,42 @@ func TestOptionsNeedResolution(t *testing.T) {
 func TestResolveBearerAuth(t *testing.T) {
 	t.Run("returns false by default", func(t *testing.T) {
 		testutils.StubConfig(t, testConfig())
-		cfg, _ := config.Read(nil)
-		assert.False(t, resolveBearerAuth(cfg, "github.com"))
+		assert.False(t, resolveBearerAuth("github.com"))
 	})
 
 	t.Run("returns true when GH_BEARER_AUTH is truthy", func(t *testing.T) {
 		testutils.StubConfig(t, testConfig())
-		cfg, _ := config.Read(nil)
 		t.Setenv("GH_BEARER_AUTH", "1")
-		assert.True(t, resolveBearerAuth(cfg, "github.com"))
+		assert.True(t, resolveBearerAuth("github.com"))
 	})
 
 	t.Run("returns false when GH_BEARER_AUTH is falsey", func(t *testing.T) {
 		testutils.StubConfig(t, testConfig())
-		cfg, _ := config.Read(nil)
 		for _, val := range []string{"0", "false", "no", "disabled", "off"} {
 			t.Setenv("GH_BEARER_AUTH", val)
-			assert.False(t, resolveBearerAuth(cfg, "github.com"), "expected false for GH_BEARER_AUTH=%q", val)
+			assert.False(t, resolveBearerAuth("github.com"), "expected false for GH_BEARER_AUTH=%q", val)
 		}
+	})
+
+	t.Run("falsey env var overrides enabled config", func(t *testing.T) {
+		testutils.StubConfig(t, testConfigWithBearerAuth())
+		t.Setenv("GH_BEARER_AUTH", "0")
+		assert.False(t, resolveBearerAuth("github.com"))
 	})
 
 	t.Run("returns true when globally enabled in config", func(t *testing.T) {
 		testutils.StubConfig(t, testConfigWithBearerAuth())
-		cfg, _ := config.Read(nil)
-		assert.True(t, resolveBearerAuth(cfg, "github.com"))
+		assert.True(t, resolveBearerAuth("github.com"))
 	})
 
 	t.Run("returns true when enabled for host in config", func(t *testing.T) {
 		testutils.StubConfig(t, testConfigWithHostBearerAuth())
-		cfg, _ := config.Read(nil)
-		assert.True(t, resolveBearerAuth(cfg, "github.com"))
+		assert.True(t, resolveBearerAuth("github.com"))
+	})
+
+	t.Run("resolves host-scoped config with non-normalized host", func(t *testing.T) {
+		testutils.StubConfig(t, testConfigWithHostBearerAuth())
+		assert.True(t, resolveBearerAuth("api.github.com"))
 	})
 }
 

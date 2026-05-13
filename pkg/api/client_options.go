@@ -110,14 +110,16 @@ func resolveOptions(opts ClientOptions) (ClientOptions, error) {
 
 // resolveBearerAuth checks the GH_BEARER_AUTH environment variable first,
 // then falls back to the bearer_auth config setting (host-scoped, then global).
-func resolveBearerAuth(cfg *config.Config, host string) bool {
-	if isTruthy(os.Getenv("GH_BEARER_AUTH")) {
-		return true
+func resolveBearerAuth(host string) bool {
+	if val, ok := os.LookupEnv("GH_BEARER_AUTH"); ok {
+		return isTruthy(val)
 	}
+	cfg, _ := config.Read(nil)
 	if cfg == nil {
 		return false
 	}
-	if val, err := cfg.Get([]string{"hosts", host, "bearer_auth"}); err == nil {
+	normalizedHost := auth.NormalizeHostname(host)
+	if val, err := cfg.Get([]string{"hosts", normalizedHost, "bearer_auth"}); err == nil {
 		return val == "enabled"
 	}
 	if val, err := cfg.Get([]string{"bearer_auth"}); err == nil {

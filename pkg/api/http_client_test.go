@@ -34,6 +34,8 @@ func TestHTTPClient(t *testing.T) {
 }
 
 func TestNewHTTPClient(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+
 	reflectHTTP := tripper{
 		roundTrip: func(req *http.Request) (*http.Response, error) {
 			header := req.Header.Clone()
@@ -160,6 +162,8 @@ func TestNewHTTPClient(t *testing.T) {
 }
 
 func TestNewHTTPClientBearerAuth(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+
 	reflectHTTP := tripper{
 		roundTrip: func(req *http.Request) (*http.Response, error) {
 			header := req.Header.Clone()
