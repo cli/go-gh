@@ -116,7 +116,11 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	if !opts.SkipDefaultHeaders {
 		setDefaultHeaders(opts.Headers)
 	}
-	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.BearerAuth, opts.Headers, transport)
+
+	// Bearer auth is always resolved internally from env/config, never set by consumers.
+	cfg, _ := config.Read(nil)
+	bearerAuth := resolveBearerAuth(cfg, opts.Host)
+	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, bearerAuth, opts.Headers, transport)
 
 	return &http.Client{Transport: transport, Timeout: opts.Timeout}, nil
 }

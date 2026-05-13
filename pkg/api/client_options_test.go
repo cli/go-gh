@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/cli/go-gh/v2/internal/testutils"
+	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestResolveOptions(t *testing.T) {
@@ -154,39 +154,39 @@ func TestOptionsNeedResolution(t *testing.T) {
 func TestResolveBearerAuth(t *testing.T) {
 	t.Run("returns false by default", func(t *testing.T) {
 		testutils.StubConfig(t, testConfig())
-		opts, err := resolveOptions(ClientOptions{})
-		require.NoError(t, err)
-		assert.False(t, opts.BearerAuth)
+		cfg, _ := config.Read(nil)
+		assert.False(t, resolveBearerAuth(cfg, "github.com"))
 	})
 
-	t.Run("returns true when GH_BEARER_AUTH is set", func(t *testing.T) {
+	t.Run("returns true when GH_BEARER_AUTH is truthy", func(t *testing.T) {
 		testutils.StubConfig(t, testConfig())
+		cfg, _ := config.Read(nil)
 		t.Setenv("GH_BEARER_AUTH", "1")
-		opts, err := resolveOptions(ClientOptions{})
-		require.NoError(t, err)
-		assert.True(t, opts.BearerAuth)
+		assert.True(t, resolveBearerAuth(cfg, "github.com"))
+	})
+
+	t.Run("returns false when GH_BEARER_AUTH is falsey", func(t *testing.T) {
+		testutils.StubConfig(t, testConfig())
+		cfg, _ := config.Read(nil)
+		for _, val := range []string{"0", "false", "no", "disabled", "off"} {
+			t.Setenv("GH_BEARER_AUTH", val)
+			assert.False(t, resolveBearerAuth(cfg, "github.com"), "expected false for GH_BEARER_AUTH=%q", val)
+		}
 	})
 
 	t.Run("returns true when globally enabled in config", func(t *testing.T) {
 		testutils.StubConfig(t, testConfigWithBearerAuth())
-		opts, err := resolveOptions(ClientOptions{})
-		require.NoError(t, err)
-		assert.True(t, opts.BearerAuth)
+		cfg, _ := config.Read(nil)
+		assert.True(t, resolveBearerAuth(cfg, "github.com"))
 	})
 
 	t.Run("returns true when enabled for host in config", func(t *testing.T) {
 		testutils.StubConfig(t, testConfigWithHostBearerAuth())
-		opts, err := resolveOptions(ClientOptions{})
-		require.NoError(t, err)
-		assert.True(t, opts.BearerAuth)
+		cfg, _ := config.Read(nil)
+		assert.True(t, resolveBearerAuth(cfg, "github.com"))
 	})
 
-	t.Run("honors consumer provided BearerAuth", func(t *testing.T) {
-		testutils.StubConfig(t, testConfig())
-		opts, err := resolveOptions(ClientOptions{BearerAuth: true})
-		require.NoError(t, err)
-		assert.True(t, opts.BearerAuth)
-	})
+
 }
 
 func testConfig() string {

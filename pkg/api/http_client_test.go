@@ -171,10 +171,10 @@ func TestNewHTTPClientBearerAuth(t *testing.T) {
 		},
 	}
 
+	t.Setenv("GH_BEARER_AUTH", "1")
 	opts := ClientOptions{
 		Host:         "test.com",
 		AuthToken:    "oauth_token",
-		BearerAuth:   true,
 		Transport:    reflectHTTP,
 		LogIgnoreEnv: true,
 	}

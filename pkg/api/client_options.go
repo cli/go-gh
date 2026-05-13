@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/cli/go-gh/v2/pkg/auth"
@@ -17,13 +19,6 @@ type ClientOptions struct {
 	// AuthToken is the authorization token that will be used
 	// to authenticate against API endpoints.
 	AuthToken string
-
-	// BearerAuth specifies whether to use Bearer token authentication
-	// instead of the default token authentication. When true, the
-	// Authorization header will use "Bearer" scheme instead of "token".
-	// Default is resolved from the GH_BEARER_AUTH environment variable
-	// or the bearer_auth config setting.
-	BearerAuth bool
 
 	// CacheDir is the directory to use for cached API requests.
 	// Default is the same directory that gh uses for caching.
@@ -110,20 +105,14 @@ func resolveOptions(opts ClientOptions) (ClientOptions, error) {
 	if opts.UnixDomainSocket == "" && cfg != nil {
 		opts.UnixDomainSocket, _ = cfg.Get([]string{"http_unix_socket"})
 	}
-	if !opts.BearerAuth {
-		opts.BearerAuth = resolveBearerAuth(cfg, opts.Host)
-	}
 	return opts, nil
 }
 
 // resolveBearerAuth checks the GH_BEARER_AUTH environment variable first,
 // then falls back to the bearer_auth config setting (host-scoped, then global).
 func resolveBearerAuth(cfg *config.Config, host string) bool {
-	if os.Getenv("GH_BEARER_AUTH") != "" {
+	if isTruthy(os.Getenv("GH_BEARER_AUTH")) {
 		return true
-	}
-	if cfg == nil {
-		return false
 	}
 	if val, err := cfg.Get([]string{"hosts", host, "bearer_auth"}); err == nil {
 		return val == "enabled"
@@ -132,4 +121,10 @@ func resolveBearerAuth(cfg *config.Config, host string) bool {
 		return val == "enabled"
 	}
 	return false
+}
+
+var falseyValues = []string{"", "0", "false", "no", "disabled", "off"}
+
+func isTruthy(val string) bool {
+	return !slices.Contains(falseyValues, strings.TrimSpace(strings.ToLower(val)))
 }
