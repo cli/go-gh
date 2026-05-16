@@ -61,15 +61,11 @@ func (b *Browser) browse(url string, env []string) error {
 		return cliBrowser.OpenURL(url)
 	}
 
-	launcherArgs, err := shlex.Split(b.launcher)
+	launcherExe, launcherArgs, err := splitLauncher(b.launcher)
 	if err != nil {
 		return err
 	}
-	launcherExe, err := safeexec.LookPath(launcherArgs[0])
-	if err != nil {
-		return err
-	}
-	args := append(launcherArgs[1:], url)
+	args := append(launcherArgs, url)
 	cmd := exec.Command(launcherExe, args...)
 	cmd.Stdout = b.stdout
 	cmd.Stderr = b.stderr
@@ -77,6 +73,32 @@ func (b *Browser) browse(url string, env []string) error {
 		cmd.Env = env
 	}
 	return cmd.Run()
+}
+
+// splitLauncher resolves the launcher string to an executable path and
+// any extra arguments. Try the literal path first so launchers stored
+// in a directory with spaces, like
+// `C:\Program Files\Google\Chrome\Application\chrome.exe`, work without
+// the user having to quote them. Fall back to shell-style word
+// splitting when the literal lookup fails, since that's how launchers
+// with arguments (`firefox --private-window`) are conventionally
+// configured.
+func splitLauncher(launcher string) (string, []string, error) {
+	if exe, err := safeexec.LookPath(launcher); err == nil {
+		return exe, nil, nil
+	}
+	parts, err := shlex.Split(launcher)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(parts) == 0 {
+		return "", nil, fmt.Errorf("empty launcher")
+	}
+	exe, err := safeexec.LookPath(parts[0])
+	if err != nil {
+		return "", nil, err
+	}
+	return exe, parts[1:], nil
 }
 
 func resolveLauncher() string {
