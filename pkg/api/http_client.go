@@ -124,6 +124,9 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 func inspectableMIMEType(t string) bool {
 	return strings.HasPrefix(t, "text/") ||
 		strings.HasPrefix(t, "application/x-www-form-urlencoded") ||
+		// /octocat returns ASCII art tagged as application/octocat-stream.
+		// Treat it as inspectable so --verbose actually shows the response.
+		strings.HasPrefix(t, "application/octocat-stream") ||
 		jsonTypeRE.MatchString(t)
 }
 

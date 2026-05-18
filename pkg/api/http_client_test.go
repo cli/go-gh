@@ -186,3 +186,24 @@ func printPendingMocks(mocks []gock.Mock) string {
 	}
 	return fmt.Sprintf("%d unmatched mocks: %s", len(paths), strings.Join(paths, ", "))
 }
+
+func TestInspectableMIMEType(t *testing.T) {
+	for _, tt := range []struct {
+		mime string
+		want bool
+	}{
+		{"text/plain", true},
+		{"text/html; charset=utf-8", true},
+		{"application/json", true},
+		{"application/vnd.github+json", true},
+		{"application/x-www-form-urlencoded", true},
+		// /octocat. See #210.
+		{"application/octocat-stream", true},
+		{"image/png", false},
+		{"application/octet-stream", false},
+	} {
+		if got := inspectableMIMEType(tt.mime); got != tt.want {
+			t.Errorf("inspectableMIMEType(%q) = %v, want %v", tt.mime, got, tt.want)
+		}
+	}
+}
