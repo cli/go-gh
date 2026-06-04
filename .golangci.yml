@@ -1,0 +1,44 @@
+version: "2"
+linters:
+  enable:
+    - godot
+  settings:
+    staticcheck:
+      # Here, some checks are disabled (note the leading minus sign).
+      checks:
+        - all
+        # These are disabled by the linter's default. We need to repeat them here
+        # since we're overriding to disable more checks.
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+
+        # This check is to enforce "omitting embedded fields from selector
+        # expression". For example, `m.Kind` in favour of `m.Node.Kind` (where
+        # `Node` is an embedded struct field of `m`)
+        #
+        # Disabled to keep the current explicit style.
+        - -QF1008
+    godot:
+      # comments to be checked: `declarations`, `toplevel`, or `all`
+      scope: declarations
+      # check that each sentence starts with a capital letter
+      capital: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
