@@ -12,8 +12,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-
-	"github.com/cli/safeexec"
 )
 
 // Exec invokes a gh command in a subprocess and captures the output and error streams.
@@ -52,7 +50,7 @@ func Path() (string, error) {
 	if ghExe := os.Getenv("GH_PATH"); ghExe != "" {
 		return ghExe, nil
 	}
-	return safeexec.LookPath("gh")
+	return exec.LookPath("gh")
 }
 
 func run(ctx context.Context, ghExe string, env []string, stdin io.Reader, stdout, stderr io.Writer, args []string) error {

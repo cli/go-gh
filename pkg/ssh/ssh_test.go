@@ -9,11 +9,10 @@ import (
 	"testing"
 
 	"github.com/MakeNowJust/heredoc"
-	"github.com/cli/safeexec"
 )
 
 func TestTranslator(t *testing.T) {
-	if _, err := safeexec.LookPath("ssh"); err != nil {
+	if _, err := exec.LookPath("ssh"); err != nil {
 		t.Skip("no ssh found on system")
 	}
 
