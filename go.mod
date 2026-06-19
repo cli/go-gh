@@ -21,7 +21,7 @@ require (
 	github.com/muesli/termenv v0.16.0
 	github.com/stretchr/testify v1.11.1
 	github.com/thlib/go-timezone-local v0.0.7
-	golang.org/x/sys v0.44.0
+	golang.org/x/sys v0.46.0
 	golang.org/x/term v0.37.0
 	golang.org/x/text v0.31.0
 	gopkg.in/h2non/gock.v1 v1.1.2
