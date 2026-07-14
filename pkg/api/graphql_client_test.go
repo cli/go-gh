@@ -308,3 +308,45 @@ func TestGraphQLEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestNewGraphQLClientAPIHost(t *testing.T) {
+	tests := []struct {
+		name         string
+		host         string
+		apiHost      string
+		wantEndpoint string
+	}{
+		{
+			name:         "no override uses the derived endpoint",
+			host:         "github.com",
+			wantEndpoint: "https://api.github.com/graphql",
+		},
+		{
+			name:         "override swaps host and preserves the dotcom path",
+			host:         "github.com",
+			apiHost:      "api-gw.example.net",
+			wantEndpoint: "https://api-gw.example.net/graphql",
+		},
+		{
+			name:         "override swaps host and preserves the enterprise path",
+			host:         "enterprise.com",
+			apiHost:      "api-gw.example.net",
+			wantEndpoint: "https://api-gw.example.net/api/graphql",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := NewGraphQLClient(ClientOptions{
+				Host:      tt.host,
+				APIHost:   tt.apiHost,
+				AuthToken: "token",
+				Transport: tripper{roundTrip: func(*http.Request) (*http.Response, error) {
+					return nil, nil
+				}},
+			})
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantEndpoint, client.host)
+		})
+	}
+}

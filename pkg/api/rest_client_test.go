@@ -507,3 +507,54 @@ func TestRestPrefix(t *testing.T) {
 		})
 	}
 }
+
+func TestRestURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		host    string
+		apiHost string
+		path    string
+		wantURL string
+	}{
+		{
+			name:    "no override uses the derived prefix",
+			host:    "github.com",
+			path:    "repos/octocat/hello",
+			wantURL: "https://api.github.com/repos/octocat/hello",
+		},
+		{
+			name:    "override swaps host and preserves the dotcom path",
+			host:    "github.com",
+			apiHost: "api-gw.example.net",
+			path:    "repos/octocat/hello",
+			wantURL: "https://api-gw.example.net/repos/octocat/hello",
+		},
+		{
+			name:    "override swaps host and preserves the enterprise path",
+			host:    "enterprise.com",
+			apiHost: "api-gw.example.net",
+			path:    "repos/octocat/hello",
+			wantURL: "https://api-gw.example.net/api/v3/repos/octocat/hello",
+		},
+		{
+			name:    "override swaps host for a tenant",
+			host:    "tenant.ghe.com",
+			apiHost: "api-gw.example.net",
+			path:    "user",
+			wantURL: "https://api-gw.example.net/user",
+		},
+		{
+			name:    "a full URL bypasses the prefix and the override",
+			host:    "github.com",
+			apiHost: "api-gw.example.net",
+			path:    "https://uploads.github.com/foo",
+			wantURL: "https://uploads.github.com/foo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantURL, restURL(tt.host, tt.apiHost, tt.path))
+		})
+	}
+}

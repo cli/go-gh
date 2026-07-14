@@ -46,6 +46,9 @@ func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
 	}
 
 	endpoint := graphQLEndpoint(opts.Host)
+	if opts.APIHost != "" {
+		endpoint = swapHost(endpoint, opts.APIHost)
+	}
 
 	return &GraphQLClient{
 		client:     graphql.NewClient(endpoint, httpClient),

@@ -13,6 +13,15 @@ import (
 
 // ClientOptions holds available options to configure API clients.
 type ClientOptions struct {
+	// APIHost, when set, overrides the hostname that REST and GraphQL API
+	// requests are sent to, while authentication continues to use Host. This
+	// routes API traffic through a gateway or proxy that terminates on a
+	// hostname the caller does not control, such as a GHEC data-residency
+	// tenant. The token is still selected for Host, and it is only sent to
+	// APIHost because APIHost is explicitly configured here. When empty,
+	// requests target the host derived from Host as before.
+	APIHost string
+
 	// AuthToken is the authorization token that will be used
 	// to authenticate against API endpoints.
 	AuthToken string

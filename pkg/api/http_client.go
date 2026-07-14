@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"runtime/debug"
@@ -48,7 +49,9 @@ func DefaultHTTPClient() (*http.Client, error) {
 // the responsibility of the consumer to configure this. However, if opts.Host
 // does not match the request host, the auth token will not be added to the headers.
 // This is to protect against the case where tokens could be sent to an arbitrary
-// host.
+// host. If opts.APIHost is set, requests to that exact host are also allowed to
+// carry the token, so a caller can route API traffic through a configured gateway
+// while the token stays selected for opts.Host.
 func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	if optionsNeedResolution(opts) {
 		var err error
@@ -116,7 +119,7 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	if !opts.SkipDefaultHeaders {
 		setDefaultHeaders(opts.Headers)
 	}
-	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
+	transport = newHeaderRoundTripper(opts.Host, opts.APIHost, opts.AuthToken, opts.Headers, transport)
 
 	return &http.Client{Transport: transport, Timeout: opts.Timeout}, nil
 }
@@ -133,6 +136,24 @@ func isSameDomain(requestHost, domain string) bool {
 	return (requestHost == domain) || strings.HasSuffix(requestHost, "."+domain)
 }
 
+// isAPIHost reports whether requestHost is the explicitly configured APIHost
+// override. It only matches the exact host, so widening the auth guard with it
+// authorizes the one configured endpoint and nothing else.
+func isAPIHost(requestHost, apiHost string) bool {
+	return apiHost != "" && strings.EqualFold(requestHost, apiHost)
+}
+
+// swapHost returns rawURL with its host replaced by host, preserving the scheme
+// and path. It is used to point a derived API endpoint at a configured APIHost.
+func swapHost(rawURL, host string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	u.Host = host
+	return u.String()
+}
+
 func isGarage(host string) bool {
 	return strings.EqualFold(host, "garage.github.com")
 }
@@ -140,6 +161,7 @@ func isGarage(host string) bool {
 type headerRoundTripper struct {
 	headers map[string]string
 	host    string
+	apiHost string
 	rt      http.RoundTripper
 }
 
@@ -177,22 +199,25 @@ func setDefaultHeaders(headers map[string]string) {
 	}
 }
 
-func newHeaderRoundTripper(host string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
+func newHeaderRoundTripper(host string, apiHost string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
 	if _, ok := headers[authorization]; !ok && authToken != "" {
 		headers[authorization] = fmt.Sprintf("token %s", authToken)
 	}
 	if len(headers) == 0 {
 		return rt
 	}
-	return headerRoundTripper{host: host, headers: headers, rt: rt}
+	return headerRoundTripper{host: host, apiHost: apiHost, headers: headers, rt: rt}
 }
 
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	for k, v := range hrt.headers {
-		// If the authorization header has been set and the request
-		// host is not in the same domain that was specified in the ClientOptions
-		// then do not add the authorization header to the request.
-		if k == authorization && !isSameDomain(req.URL.Hostname(), hrt.host) {
+		// If the authorization header has been set and the request host is
+		// neither in the same domain that was specified in the ClientOptions
+		// nor the explicitly configured APIHost, then do not add the
+		// authorization header to the request. The APIHost exception routes the
+		// token to a caller-configured endpoint without loosening the guard for
+		// any other host.
+		if k == authorization && !isSameDomain(req.URL.Hostname(), hrt.host) && !isAPIHost(req.URL.Hostname(), hrt.apiHost) {
 			continue
 		}
 

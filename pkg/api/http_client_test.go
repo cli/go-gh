@@ -50,6 +50,8 @@ func TestNewHTTPClient(t *testing.T) {
 		enableLog   bool
 		log         *bytes.Buffer
 		host        string
+		apiHost     string
+		reqURL      string
 		headers     map[string]string
 		skipHeaders bool
 		wantHeaders http.Header
@@ -129,6 +131,31 @@ func TestNewHTTPClient(t *testing.T) {
 				return h
 			}(),
 		},
+		{
+			name:        "adds an authorization header for the configured api_host",
+			host:        "test.com",
+			apiHost:     "gateway.example",
+			reqURL:      "https://gateway.example",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:    "does not add an authorization header for an arbitrary host even when api_host is set",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "https://evil.example",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:        "matches the api_host override case-insensitively",
+			host:        "test.com",
+			apiHost:     "gateway.example",
+			reqURL:      "https://GATEWAY.example",
+			wantHeaders: defaultHeaders(),
+		},
 	}
 
 	for _, tt := range tests {
@@ -136,8 +163,12 @@ func TestNewHTTPClient(t *testing.T) {
 			if tt.host == "" {
 				tt.host = "test.com"
 			}
+			if tt.reqURL == "" {
+				tt.reqURL = "https://test.com"
+			}
 			opts := ClientOptions{
 				Host:               tt.host,
+				APIHost:            tt.apiHost,
 				AuthToken:          "oauth_token",
 				Headers:            tt.headers,
 				SkipDefaultHeaders: tt.skipHeaders,
@@ -148,7 +179,7 @@ func TestNewHTTPClient(t *testing.T) {
 				opts.Log = tt.log
 			}
 			client, _ := NewHTTPClient(opts)
-			res, err := client.Get("https://test.com")
+			res, err := client.Get(tt.reqURL)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHeaders, res.Header)
 			if tt.enableLog {
