@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/auth"
@@ -160,6 +161,15 @@ func (c *RESTClient) Put(path string, body io.Reader, resp interface{}) error {
 
 func restURL(hostname string, apiHost string, pathOrURL string) string {
 	if strings.HasPrefix(pathOrURL, "https://") || strings.HasPrefix(pathOrURL, "http://") {
+		// A server-provided full URL (a pagination Link header or an asset
+		// download URL) points at the canonical REST host. When an override is
+		// active, re-map only that canonical host and leave every other host,
+		// including the web host, untouched.
+		if apiHost != "" {
+			if u, err := url.Parse(pathOrURL); err == nil && strings.EqualFold(u.Hostname(), canonicalRESTHost(hostname)) {
+				return swapHost(pathOrURL, apiHost)
+			}
+		}
 		return pathOrURL
 	}
 	prefix := restPrefix(hostname)
@@ -167,6 +177,18 @@ func restURL(hostname string, apiHost string, pathOrURL string) string {
 		prefix = swapHost(prefix, apiHost)
 	}
 	return prefix + pathOrURL
+}
+
+// canonicalRESTHost returns the hostname of the derived REST endpoint for
+// hostname, for example "api.github.com" for "github.com" or "enterprise.com"
+// for a GHES host. It is the host that server-provided URLs point at, and the
+// only host an api_host override re-maps.
+func canonicalRESTHost(hostname string) string {
+	u, err := url.Parse(restPrefix(hostname))
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
 }
 
 func restPrefix(hostname string) string {

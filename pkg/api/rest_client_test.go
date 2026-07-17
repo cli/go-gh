@@ -544,11 +544,45 @@ func TestRestURL(t *testing.T) {
 			wantURL: "https://api-gw.example.net/user",
 		},
 		{
-			name:    "a full URL bypasses the prefix and the override",
+			name:    "a full non-canonical URL passes through even with an override",
 			host:    "github.com",
 			apiHost: "api-gw.example.net",
 			path:    "https://uploads.github.com/foo",
 			wantURL: "https://uploads.github.com/foo",
+		},
+		{
+			name:    "a full canonical dotcom URL is re-mapped to the override (pagination Link header)",
+			host:    "github.com",
+			apiHost: "api-gw.example.net",
+			path:    "https://api.github.com/repositories/123/commits?per_page=1&page=2",
+			wantURL: "https://api-gw.example.net/repositories/123/commits?per_page=1&page=2",
+		},
+		{
+			name:    "a full canonical dotcom URL passes through when no override is set",
+			host:    "github.com",
+			path:    "https://api.github.com/repositories/123/commits?page=2",
+			wantURL: "https://api.github.com/repositories/123/commits?page=2",
+		},
+		{
+			name:    "a full canonical API asset URL is re-mapped to the override",
+			host:    "github.com",
+			apiHost: "api-gw.example.net",
+			path:    "https://api.github.com/repos/octocat/hello/releases/assets/1",
+			wantURL: "https://api-gw.example.net/repos/octocat/hello/releases/assets/1",
+		},
+		{
+			name:    "a full web-host URL is left canonical (asset browser_download_url)",
+			host:    "github.com",
+			apiHost: "api-gw.example.net",
+			path:    "https://github.com/octocat/hello/releases/download/v1/asset.zip",
+			wantURL: "https://github.com/octocat/hello/releases/download/v1/asset.zip",
+		},
+		{
+			name:    "a full canonical enterprise URL is re-mapped to the override",
+			host:    "enterprise.com",
+			apiHost: "api-gw.example.net",
+			path:    "https://enterprise.com/api/v3/repositories/5/issues?page=2",
+			wantURL: "https://api-gw.example.net/api/v3/repositories/5/issues?page=2",
 		},
 	}
 
