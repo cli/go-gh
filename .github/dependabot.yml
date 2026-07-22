@@ -13,6 +13,10 @@ updates:
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:
-      interval: "daily"
+    interval: "daily"
   cooldown:
     default-days: 3
+  groups:
+    codeql-actions:
+      patterns:
+        - "github/codeql-action/*"
