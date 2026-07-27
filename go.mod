@@ -13,7 +13,7 @@ require (
 	github.com/cli/safeexec v1.0.1
 	github.com/cli/shurcooL-graphql v0.0.4
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	github.com/henvic/httpretty v0.1.4
+	github.com/henvic/httpretty v0.2.0
 	github.com/itchyny/gojq v0.12.19
 	github.com/leaanthony/go-ansi-parser v1.6.1
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
