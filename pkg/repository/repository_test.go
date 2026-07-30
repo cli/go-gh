@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/cli/go-gh/v2/internal/git"
@@ -8,6 +9,59 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestTranslateRemotesRefreshesRepositoryInfo(t *testing.T) {
+	translate := func(u *url.URL) *url.URL {
+		translated := *u
+		translated.Host = "github.com"
+		return &translated
+	}
+
+	t.Run("SSH host alias", func(t *testing.T) {
+		u, err := url.Parse("ssh://git@github.com-work/owner/repo.git")
+		if err != nil {
+			t.Fatal(err)
+		}
+		remotes := git.RemoteSet{&git.Remote{
+			Name:     "origin",
+			FetchURL: u,
+			Host:     "github.com-work",
+			Owner:    "owner",
+			Repo:     "repo",
+		}}
+
+		translateRemotes(remotes, translate)
+
+		filtered := remotes.FilterByHosts([]string{"github.com"})
+		assert.Len(t, filtered, 1)
+		assert.Equal(t, "github.com", remotes[0].Host)
+		assert.Equal(t, "owner", remotes[0].Owner)
+		assert.Equal(t, "repo", remotes[0].Repo)
+	})
+
+	t.Run("invalid fetch URL falls back to push URL", func(t *testing.T) {
+		fetchURL, err := url.Parse("ssh://git@github.com-work/")
+		if err != nil {
+			t.Fatal(err)
+		}
+		pushURL, err := url.Parse("ssh://git@github.com-work/owner/repo.git")
+		if err != nil {
+			t.Fatal(err)
+		}
+		remotes := git.RemoteSet{&git.Remote{
+			Name:     "origin",
+			FetchURL: fetchURL,
+			PushURL:  pushURL,
+			Host:     "github.com-work",
+		}}
+
+		translateRemotes(remotes, translate)
+
+		assert.Equal(t, "github.com", remotes[0].Host)
+		assert.Equal(t, "owner", remotes[0].Owner)
+		assert.Equal(t, "repo", remotes[0].Repo)
+	})
+}
 
 func TestParse(t *testing.T) {
 	testutils.StubConfig(t, "")
