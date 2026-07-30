@@ -5,6 +5,7 @@ package repository
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -133,14 +134,7 @@ func Current() (Repository, error) {
 	}
 
 	translator := ssh.NewTranslator()
-	for _, r := range remotes {
-		if r.FetchURL != nil {
-			r.FetchURL = translator.Translate(r.FetchURL)
-		}
-		if r.PushURL != nil {
-			r.PushURL = translator.Translate(r.PushURL)
-		}
-	}
+	translateRemotes(remotes, translator.Translate)
 
 	hosts := auth.KnownHosts()
 
@@ -155,4 +149,31 @@ func Current() (Repository, error) {
 	r.Name = rem.Repo
 
 	return r, nil
+}
+
+func translateRemotes(remotes git.RemoteSet, translate func(*url.URL) *url.URL) {
+	for _, remote := range remotes {
+		hasFetchInfo := false
+		if remote.FetchURL != nil {
+			remote.FetchURL = translate(remote.FetchURL)
+			hasFetchInfo = updateRemoteInfo(remote, remote.FetchURL)
+		}
+		if remote.PushURL != nil {
+			remote.PushURL = translate(remote.PushURL)
+			if !hasFetchInfo {
+				updateRemoteInfo(remote, remote.PushURL)
+			}
+		}
+	}
+}
+
+func updateRemoteInfo(remote *git.Remote, u *url.URL) bool {
+	host, owner, repo, err := git.RepoInfoFromURL(u)
+	if err != nil {
+		return false
+	}
+	remote.Host = host
+	remote.Owner = owner
+	remote.Repo = repo
+	return true
 }
