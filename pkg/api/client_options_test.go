@@ -177,6 +177,8 @@ func TestValidAPIHost(t *testing.T) {
 		{name: "maximum port", value: "gw.example.net:65535"},
 		{name: "zero port", value: "gw.example.net:0"},
 		{name: "out-of-range port", value: "gw.example.net:65536"},
+		{name: "IPv6 literal", value: "[::1]"},
+		{name: "bare IPv6 address", value: "::1"},
 	}
 
 	for _, tt := range tests {

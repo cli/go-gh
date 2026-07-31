@@ -19,9 +19,9 @@ func apiHost(host string) (string, bool) {
 	}
 
 	normalizedHost := auth.NormalizeHostname(host)
-	apiHost, err := cfg.Get([]string{hostsKey, normalizedHost, apiHostKey})
-	if err != nil || apiHost == "" {
+	configuredAPIHost, err := cfg.Get([]string{hostsKey, normalizedHost, apiHostKey})
+	if err != nil || configuredAPIHost == "" {
 		return "", false
 	}
-	return apiHost, true
+	return configuredAPIHost, true
 }

@@ -142,21 +142,13 @@ func resolveAPIHost(opts ClientOptions) (ClientOptions, error) {
 }
 
 func validAPIHost(apiHost string) bool {
-	if apiHost == "" || strings.TrimSpace(apiHost) != apiHost {
+	// A bare hostname has no surrounding whitespace, and no port or IPv6 literal.
+	if apiHost == "" || strings.TrimSpace(apiHost) != apiHost || strings.Contains(apiHost, ":") {
 		return false
 	}
 
+	// Parsing as a scheme relative URL rejects userinfo, paths, queries and fragments,
+	// since any of those make the parsed host differ from the input.
 	u, err := url.Parse("//" + apiHost)
-	if err != nil ||
-		u.Host != apiHost ||
-		u.Hostname() == "" ||
-		u.User != nil ||
-		u.Path != "" ||
-		u.RawQuery != "" ||
-		u.Fragment != "" ||
-		strings.Contains(u.Hostname(), ":") {
-		return false
-	}
-
-	return !strings.Contains(apiHost, ":")
+	return err == nil && u.Host == apiHost && u.Hostname() != ""
 }
