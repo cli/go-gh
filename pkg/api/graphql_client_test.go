@@ -104,6 +104,8 @@ func TestGraphQLClientMutateError(t *testing.T) {
 }
 
 func TestGraphQLClientDo(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	tests := []struct {
 		name       string
 		host       string
@@ -214,6 +216,8 @@ func TestGraphQLClientDo(t *testing.T) {
 }
 
 func TestGraphQLClientDoWithContext(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	tests := []struct {
 		name       string
 		wantErrMsg string
@@ -274,37 +278,46 @@ func TestGraphQLEndpoint(t *testing.T) {
 		host         string
 		wantEndpoint string
 	}{
-		{
-			name:         "github",
-			host:         "github.com",
-			wantEndpoint: "https://api.github.com/graphql",
-		},
-		{
-			name:         "localhost",
-			host:         "github.localhost",
-			wantEndpoint: "http://api.github.localhost/graphql",
-		},
-		{
-			name:         "garage",
-			host:         "garage.github.com",
-			wantEndpoint: "https://garage.github.com/api/graphql",
-		},
-		{
-			name:         "enterprise",
-			host:         "enterprise.com",
-			wantEndpoint: "https://enterprise.com/api/graphql",
-		},
-		{
-			name:         "tenant",
-			host:         "tenant.ghe.com",
-			wantEndpoint: "https://api.tenant.ghe.com/graphql",
-		},
+		{name: "github", host: "github.com", wantEndpoint: "https://api.github.com/graphql"},
+		{name: "localhost", host: "github.localhost", wantEndpoint: "http://api.github.localhost/graphql"},
+		{name: "garage", host: "garage.github.com", wantEndpoint: "https://garage.github.com/api/graphql"},
+		{name: "enterprise", host: "enterprise.com", wantEndpoint: "https://enterprise.com/api/graphql"},
+		{name: "tenant", host: "tenant.ghe.com", wantEndpoint: "https://api.tenant.ghe.com/graphql"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			endpoint := graphQLEndpoint(tt.host)
-			assert.Equal(t, tt.wantEndpoint, endpoint)
+			assert.Equal(t, tt.wantEndpoint, graphQLEndpoint(tt.host))
+		})
+	}
+}
+
+func TestNewGraphQLClientAPIHostEndpoint(t *testing.T) {
+	tests := []struct {
+		name         string
+		host         string
+		wantEndpoint string
+	}{
+		{name: "github", host: "github.com", wantEndpoint: "https://gw.example.net/graphql"},
+		{name: "localhost preserves http", host: "github.localhost", wantEndpoint: "http://gw.example.net/graphql"},
+		{name: "garage", host: "garage.github.com", wantEndpoint: "https://gw.example.net/api/graphql"},
+		{name: "enterprise", host: "enterprise.com", wantEndpoint: "https://gw.example.net/api/graphql"},
+		{name: "tenant", host: "tenant.ghe.com", wantEndpoint: "https://gw.example.net/graphql"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testutils.StubConfig(t, "")
+
+			client, err := NewGraphQLClient(ClientOptions{
+				Host:      tt.host,
+				APIHost:   "gw.example.net",
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			})
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantEndpoint, client.host)
 		})
 	}
 }

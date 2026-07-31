@@ -34,6 +34,8 @@ func TestRESTClient(t *testing.T) {
 }
 
 func TestRESTClientRequest(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	tests := []struct {
 		name       string
 		host       string
@@ -150,6 +152,8 @@ func TestRESTClientRequest(t *testing.T) {
 }
 
 func TestRESTClientDo(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	tests := []struct {
 		name       string
 		host       string
@@ -255,6 +259,7 @@ func TestRESTClientDo(t *testing.T) {
 }
 
 func TestRESTClientDelete(t *testing.T) {
+	testutils.StubConfig(t, "")
 	t.Cleanup(gock.Off)
 	gock.New("https://api.github.com").
 		Delete("/some/path/here").
@@ -271,6 +276,7 @@ func TestRESTClientDelete(t *testing.T) {
 }
 
 func TestRESTClientGet(t *testing.T) {
+	testutils.StubConfig(t, "")
 	t.Cleanup(gock.Off)
 	gock.New("https://api.github.com").
 		Get("/some/path/here").
@@ -287,6 +293,7 @@ func TestRESTClientGet(t *testing.T) {
 }
 
 func TestRESTClientPatch(t *testing.T) {
+	testutils.StubConfig(t, "")
 	t.Cleanup(gock.Off)
 	gock.New("https://api.github.com").
 		Patch("/some/path/here").
@@ -305,6 +312,7 @@ func TestRESTClientPatch(t *testing.T) {
 }
 
 func TestRESTClientPatchStatus205(t *testing.T) {
+	testutils.StubConfig(t, "")
 	t.Cleanup(gock.Off)
 	gock.New("https://api.github.com").
 		Patch("/some/path/here").
@@ -323,6 +331,7 @@ func TestRESTClientPatchStatus205(t *testing.T) {
 }
 
 func TestRESTClientPost(t *testing.T) {
+	testutils.StubConfig(t, "")
 	t.Cleanup(gock.Off)
 	gock.New("https://api.github.com").
 		Post("/some/path/here").
@@ -341,6 +350,7 @@ func TestRESTClientPost(t *testing.T) {
 }
 
 func TestRESTClientPut(t *testing.T) {
+	testutils.StubConfig(t, "")
 	t.Cleanup(gock.Off)
 	gock.New("https://api.github.com").
 		Put("/some/path/here").
@@ -359,6 +369,8 @@ func TestRESTClientPut(t *testing.T) {
 }
 
 func TestRESTClientDoWithContext(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	tests := []struct {
 		name       string
 		wantErrMsg string
@@ -414,6 +426,8 @@ func TestRESTClientDoWithContext(t *testing.T) {
 }
 
 func TestRESTClientRequestWithContext(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	tests := []struct {
 		name       string
 		wantErrMsg string
@@ -473,37 +487,86 @@ func TestRestPrefix(t *testing.T) {
 		host         string
 		wantEndpoint string
 	}{
+		{name: "github", host: "github.com", wantEndpoint: "https://api.github.com/"},
+		{name: "localhost", host: "github.localhost", wantEndpoint: "http://api.github.localhost/"},
+		{name: "garage", host: "garage.github.com", wantEndpoint: "https://garage.github.com/api/v3/"},
+		{name: "enterprise", host: "enterprise.com", wantEndpoint: "https://enterprise.com/api/v3/"},
+		{name: "tenant", host: "tenant.ghe.com", wantEndpoint: "https://api.tenant.ghe.com/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantEndpoint, restPrefix(tt.host))
+		})
+	}
+}
+
+func TestNewRESTClientAPIHostEndpoint(t *testing.T) {
+	tests := []struct {
+		name         string
+		host         string
+		wantEndpoint string
+	}{
+		{name: "github", host: "github.com", wantEndpoint: "https://gw.example.net/"},
+		{name: "localhost preserves http", host: "github.localhost", wantEndpoint: "http://gw.example.net/"},
+		{name: "garage", host: "garage.github.com", wantEndpoint: "https://gw.example.net/api/v3/"},
+		{name: "enterprise", host: "enterprise.com", wantEndpoint: "https://gw.example.net/api/v3/"},
+		{name: "tenant", host: "tenant.ghe.com", wantEndpoint: "https://gw.example.net/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testutils.StubConfig(t, "")
+
+			client, err := NewRESTClient(ClientOptions{
+				Host:      tt.host,
+				APIHost:   "gw.example.net",
+				AuthToken: "token",
+				Transport: http.DefaultTransport,
+			})
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantEndpoint, client.endpoint)
+		})
+	}
+}
+
+func TestRestURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		path     string
+		wantURL  string
+	}{
 		{
-			name:         "github",
-			host:         "github.com",
-			wantEndpoint: "https://api.github.com/",
+			name:     "joins a relative path to an endpoint",
+			endpoint: "https://gw.example.net/api/v3/",
+			path:     "repos/o/r",
+			wantURL:  "https://gw.example.net/api/v3/repos/o/r",
 		},
 		{
-			name:         "localhost",
-			host:         "github.localhost",
-			wantEndpoint: "http://api.github.localhost/",
+			name:     "leaves a canonical absolute URL unchanged",
+			endpoint: "https://gw.example.net/",
+			path:     "https://api.github.com/repositories/1/issues?page=2",
+			wantURL:  "https://api.github.com/repositories/1/issues?page=2",
 		},
 		{
-			name:         "garage",
-			host:         "garage.github.com",
-			wantEndpoint: "https://garage.github.com/api/v3/",
+			name:     "leaves an asset absolute URL unchanged",
+			endpoint: "https://gw.example.net/",
+			path:     "https://github.com/o/r/releases/download/v1/asset.zip",
+			wantURL:  "https://github.com/o/r/releases/download/v1/asset.zip",
 		},
 		{
-			name:         "enterprise",
-			host:         "enterprise.com",
-			wantEndpoint: "https://enterprise.com/api/v3/",
-		},
-		{
-			name:         "tenant",
-			host:         "tenant.ghe.com",
-			wantEndpoint: "https://api.tenant.ghe.com/",
+			name:     "leaves an http absolute URL unchanged",
+			endpoint: "https://gw.example.net/",
+			path:     "http://downloads.example.net/asset.zip",
+			wantURL:  "http://downloads.example.net/asset.zip",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			endpoint := restPrefix(tt.host)
-			assert.Equal(t, tt.wantEndpoint, endpoint)
+			assert.Equal(t, tt.wantURL, restURL(tt.endpoint, tt.path))
 		})
 	}
 }

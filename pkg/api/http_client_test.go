@@ -32,7 +32,49 @@ func TestHTTPClient(t *testing.T) {
 	assert.Equal(t, 200, res.StatusCode)
 }
 
+func TestIsAPIHost(t *testing.T) {
+	tests := []struct {
+		name        string
+		requestHost string
+		apiHost     string
+		want        bool
+	}{
+		{
+			name:        "matches exact host",
+			requestHost: "gateway.example",
+			apiHost:     "gateway.example",
+			want:        true,
+		},
+		{
+			name:        "matches host ignoring case",
+			requestHost: "GATEWAY.example",
+			apiHost:     "gateway.example",
+			want:        true,
+		},
+		{
+			name:        "unset override matches nothing",
+			requestHost: "",
+			apiHost:     "",
+			want:        false,
+		},
+		{
+			name:        "empty request host does not match configured override",
+			requestHost: "",
+			apiHost:     "gateway.example",
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isAPIHost(tt.requestHost, tt.apiHost))
+		})
+	}
+}
+
 func TestNewHTTPClient(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	reflectHTTP := tripper{
 		roundTrip: func(req *http.Request) (*http.Response, error) {
 			header := req.Header.Clone()
@@ -50,6 +92,8 @@ func TestNewHTTPClient(t *testing.T) {
 		enableLog   bool
 		log         *bytes.Buffer
 		host        string
+		apiHost     string
+		reqURL      string
 		headers     map[string]string
 		skipHeaders bool
 		wantHeaders http.Header
@@ -117,6 +161,79 @@ func TestNewHTTPClient(t *testing.T) {
 			wantHeaders: defaultHeaders(),
 		},
 		{
+			name:        "adds authorization for a canonical subdomain",
+			host:        "test.com",
+			reqURL:      "https://api.test.com",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:        "adds authorization for exact API host",
+			host:        "test.com",
+			apiHost:     "gateway.example",
+			reqURL:      "https://gateway.example",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:        "adds authorization for case-differing API host",
+			host:        "test.com",
+			apiHost:     "gateway.example",
+			reqURL:      "https://GATEWAY.example",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:    "withholds authorization from an API host subdomain",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "https://sub.gateway.example",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:    "withholds authorization from unrelated host",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "https://unrelated.example",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:   "withholds authorization from a port-only empty hostname without override",
+			host:   "test.com",
+			reqURL: "http://:1234/x",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:   "withholds authorization from an empty hostname without override",
+			host:   "test.com",
+			reqURL: "http:///x",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:    "withholds authorization from an empty hostname with override configured",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "http://:1234/x",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
 			name:        "skips default headers",
 			skipHeaders: true,
 			wantHeaders: func() http.Header {
@@ -136,8 +253,12 @@ func TestNewHTTPClient(t *testing.T) {
 			if tt.host == "" {
 				tt.host = "test.com"
 			}
+			if tt.reqURL == "" {
+				tt.reqURL = "https://test.com"
+			}
 			opts := ClientOptions{
 				Host:               tt.host,
+				APIHost:            tt.apiHost,
 				AuthToken:          "oauth_token",
 				Headers:            tt.headers,
 				SkipDefaultHeaders: tt.skipHeaders,
@@ -148,7 +269,7 @@ func TestNewHTTPClient(t *testing.T) {
 				opts.Log = tt.log
 			}
 			client, _ := NewHTTPClient(opts)
-			res, err := client.Get("https://test.com")
+			res, err := client.Get(tt.reqURL)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHeaders, res.Header)
 			if tt.enableLog {

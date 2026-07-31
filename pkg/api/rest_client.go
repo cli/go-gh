@@ -14,8 +14,8 @@ import (
 // RESTClient wraps methods for the different types of
 // API requests that are supported by the server.
 type RESTClient struct {
-	client *http.Client
-	host   string
+	client   *http.Client
+	endpoint string
 }
 
 func DefaultRESTClient() (*RESTClient, error) {
@@ -28,12 +28,17 @@ func DefaultRESTClient() (*RESTClient, error) {
 // and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument.
 func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
+	var err error
 	if optionsNeedResolution(opts) {
-		var err error
 		opts, err = resolveOptions(opts)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	opts, err = resolveAPIHost(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	client, err := NewHTTPClient(opts)
@@ -41,9 +46,14 @@ func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
 		return nil, err
 	}
 
+	endpoint := restPrefix(opts.Host)
+	if opts.APIHost != "" {
+		endpoint = swapHost(endpoint, opts.APIHost)
+	}
+
 	return &RESTClient{
-		client: client,
-		host:   opts.Host,
+		client:   client,
+		endpoint: endpoint,
 	}, nil
 }
 
@@ -52,7 +62,7 @@ func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
 // The response is returned rather than being populated
 // into a response argument.
 func (c *RESTClient) RequestWithContext(ctx context.Context, method string, path string, body io.Reader) (*http.Response, error) {
-	url := restURL(c.host, path)
+	url := restURL(c.endpoint, path)
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
@@ -81,7 +91,7 @@ func (c *RESTClient) Request(method string, path string, body io.Reader) (*http.
 // specified path with the specified body.
 // The response is populated into the response argument.
 func (c *RESTClient) DoWithContext(ctx context.Context, method string, path string, body io.Reader, response interface{}) error {
-	url := restURL(c.host, path)
+	url := restURL(c.endpoint, path)
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return err
@@ -156,11 +166,11 @@ func (c *RESTClient) Put(path string, body io.Reader, resp interface{}) error {
 	return c.Do(http.MethodPut, path, body, resp)
 }
 
-func restURL(hostname string, pathOrURL string) string {
+func restURL(endpoint string, pathOrURL string) string {
 	if strings.HasPrefix(pathOrURL, "https://") || strings.HasPrefix(pathOrURL, "http://") {
 		return pathOrURL
 	}
-	return restPrefix(hostname) + pathOrURL
+	return endpoint + pathOrURL
 }
 
 func restPrefix(hostname string) string {

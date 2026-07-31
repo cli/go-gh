@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/cli/go-gh/v2/pkg/auth"
@@ -13,6 +15,11 @@ import (
 
 // ClientOptions holds available options to configure API clients.
 type ClientOptions struct {
+	// APIHost overrides the hostname that REST and GraphQL API requests are
+	// sent to while authentication continues to use Host. It must be a
+	// hostname. When empty, the per-host api_host value from gh config is used.
+	APIHost string
+
 	// AuthToken is the authorization token that will be used
 	// to authenticate against API endpoints.
 	AuthToken string
@@ -103,4 +110,45 @@ func resolveOptions(opts ClientOptions) (ClientOptions, error) {
 		opts.UnixDomainSocket, _ = cfg.Get([]string{"http_unix_socket"})
 	}
 	return opts, nil
+}
+
+func resolveAPIHost(opts ClientOptions) (ClientOptions, error) {
+	if opts.APIHost == "" {
+		configuredAPIHost, ok := apiHost(opts.Host)
+		if !ok {
+			return opts, nil
+		}
+
+		opts.APIHost = configuredAPIHost
+	}
+
+	if !validAPIHost(opts.APIHost) {
+		return ClientOptions{}, fmt.Errorf(
+			`invalid api_host for %s: %q must be a hostname without a scheme or port, for example "api.example.com"`,
+			opts.Host,
+			opts.APIHost,
+		)
+	}
+
+	return opts, nil
+}
+
+func validAPIHost(apiHost string) bool {
+	if apiHost == "" || strings.TrimSpace(apiHost) != apiHost {
+		return false
+	}
+
+	u, err := url.Parse("//" + apiHost)
+	if err != nil ||
+		u.Host != apiHost ||
+		u.Hostname() == "" ||
+		u.User != nil ||
+		u.Path != "" ||
+		u.RawQuery != "" ||
+		u.Fragment != "" ||
+		strings.Contains(u.Hostname(), ":") {
+		return false
+	}
+
+	return !strings.Contains(apiHost, ":")
 }

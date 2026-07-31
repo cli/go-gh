@@ -32,12 +32,17 @@ func DefaultGraphQLClient() (*GraphQLClient, error) {
 // and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument.
 func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
+	var err error
 	if optionsNeedResolution(opts) {
-		var err error
 		opts, err = resolveOptions(opts)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	opts, err = resolveAPIHost(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	httpClient, err := NewHTTPClient(opts)
@@ -46,6 +51,9 @@ func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
 	}
 
 	endpoint := graphQLEndpoint(opts.Host)
+	if opts.APIHost != "" {
+		endpoint = swapHost(endpoint, opts.APIHost)
+	}
 
 	return &GraphQLClient{
 		client:     graphql.NewClient(endpoint, httpClient),

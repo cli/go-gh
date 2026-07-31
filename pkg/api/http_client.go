@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"runtime/debug"
@@ -50,12 +51,17 @@ func DefaultHTTPClient() (*http.Client, error) {
 // This is to protect against the case where tokens could be sent to an arbitrary
 // host.
 func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
+	var err error
 	if optionsNeedResolution(opts) {
-		var err error
 		opts, err = resolveOptions(opts)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	opts, err = resolveAPIHost(opts)
+	if err != nil {
+		return nil, err
 	}
 
 	transport := http.DefaultTransport
@@ -116,7 +122,7 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	if !opts.SkipDefaultHeaders {
 		setDefaultHeaders(opts.Headers)
 	}
-	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
+	transport = newHeaderRoundTripper(opts.Host, opts.APIHost, opts.AuthToken, opts.Headers, transport)
 
 	return &http.Client{Transport: transport, Timeout: opts.Timeout}, nil
 }
@@ -133,6 +139,25 @@ func isSameDomain(requestHost, domain string) bool {
 	return (requestHost == domain) || strings.HasSuffix(requestHost, "."+domain)
 }
 
+// isAPIHost reports whether requestHost is the configured API host override.
+// An unset override matches nothing, including an empty request host.
+func isAPIHost(requestHost, apiHost string) bool {
+	return apiHost != "" && strings.EqualFold(requestHost, apiHost)
+}
+
+// swapHost returns rawURL with its host replaced by apiHost.
+func swapHost(rawURL, apiHost string) string {
+	if apiHost == "" {
+		return rawURL
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	u.Host = apiHost
+	return u.String()
+}
+
 func isGarage(host string) bool {
 	return strings.EqualFold(host, "garage.github.com")
 }
@@ -140,6 +165,7 @@ func isGarage(host string) bool {
 type headerRoundTripper struct {
 	headers map[string]string
 	host    string
+	apiHost string
 	rt      http.RoundTripper
 }
 
@@ -177,14 +203,19 @@ func setDefaultHeaders(headers map[string]string) {
 	}
 }
 
-func newHeaderRoundTripper(host string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
+func newHeaderRoundTripper(host string, apiHost string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
 	if _, ok := headers[authorization]; !ok && authToken != "" {
 		headers[authorization] = fmt.Sprintf("token %s", authToken)
 	}
 	if len(headers) == 0 {
 		return rt
 	}
-	return headerRoundTripper{host: host, headers: headers, rt: rt}
+	return headerRoundTripper{
+		host:    host,
+		apiHost: apiHost,
+		headers: headers,
+		rt:      rt,
+	}
 }
 
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -192,7 +223,10 @@ func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		// If the authorization header has been set and the request
 		// host is not in the same domain that was specified in the ClientOptions
 		// then do not add the authorization header to the request.
-		if k == authorization && !isSameDomain(req.URL.Hostname(), hrt.host) {
+		requestHost := req.URL.Hostname()
+		if k == authorization &&
+			!isSameDomain(requestHost, hrt.host) &&
+			!isAPIHost(requestHost, hrt.apiHost) {
 			continue
 		}
 
