@@ -16,8 +16,16 @@ import (
 // ClientOptions holds available options to configure API clients.
 type ClientOptions struct {
 	// APIHost overrides the hostname that REST and GraphQL API requests are
-	// sent to while authentication continues to use Host. It must be a
-	// hostname. When empty, the per-host api_host value from gh config is used.
+	// sent to while authentication continues to use Host. It must be a bare
+	// hostname, without a scheme or port, for example "api.example.com".
+	//
+	// When empty, the api_host value configured for Host in gh config is used,
+	// if there is one. Client construction fails when the resulting value,
+	// whether set here or read from gh config, is not a bare hostname.
+	//
+	// The auth token is sent to APIHost as well as to Host, so it must be a
+	// trusted endpoint. Absolute URLs passed to RESTClient methods are
+	// requested as given and are never rewritten to APIHost.
 	APIHost string
 
 	// AuthToken is the authorization token that will be used

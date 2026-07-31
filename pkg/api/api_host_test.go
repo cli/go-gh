@@ -19,6 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// thirdPartyHost is a host that is neither the canonical API host nor the configured
+// api_host, and which must therefore never be sent the auth token.
+const thirdPartyHost = "unrelated.example"
+
 type recordedRequest struct {
 	method        string
 	path          string
@@ -59,9 +63,10 @@ func requireRequest(t *testing.T, recorder *requestRecorder, want recordedReques
 }
 
 type apiHostTestHarness struct {
-	transport         *http.Transport
-	githubAPIRequests requestRecorder
-	gatewayRequests   requestRecorder
+	transport          *http.Transport
+	githubAPIRequests  requestRecorder
+	gatewayRequests    requestRecorder
+	thirdPartyRequests requestRecorder
 }
 
 func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
@@ -105,9 +110,22 @@ func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
 
 	gateway := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		harness.gatewayRequests.record(req)
+		if req.URL.Path == "/redirect-to-third-party" {
+			http.Redirect(w, req, "https://"+thirdPartyHost+"/redirected", http.StatusFound)
+			return
+		}
 		proxy.ServeHTTP(w, req)
 	}))
 	t.Cleanup(gateway.Close)
+
+	// Finally we stand up a server representing an unrelated third party, which must never
+	// receive the auth token, whether it is requested directly or arrived at via a redirect.
+	thirdParty := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		harness.thirdPartyRequests.record(req)
+		w.Header().Set(contentType, jsonContentType)
+		_, _ = io.WriteString(w, `{"message":"third party response"}`)
+	}))
+	t.Cleanup(thirdParty.Close)
 
 	// To allow us to use fake domain names that are representative, we use a custom transport
 	// that rewrites the hostnames to point to our test servers.
@@ -118,6 +136,7 @@ func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
 		"api.example.ghe.com:443": fakeAddress,
 		"ghes.example.com:443":    fakeAddress,
 		"gw.example.net:443":      gatewayAddress,
+		thirdPartyHost + ":443":   thirdParty.Listener.Addr().String(),
 	}
 	harness.transport = &http.Transport{
 		// We must turn off TLS verification because our test servers use self-signed certs.
@@ -294,6 +313,48 @@ func TestAPIHostRouting(t *testing.T) {
 					rawQuery:      "page=2",
 					host:          apiHost,
 					authorization: "token test-token",
+				})
+			})
+
+			t.Run("does not provide token to an unrelated host", func(t *testing.T) {
+				harness, opts := newConfiguredAPIHostTest(t, tt.host, apiHost)
+				restClient, err := NewRESTClient(opts)
+				require.NoError(t, err)
+
+				var result struct {
+					Message string `json:"message"`
+				}
+				require.NoError(t, restClient.Get("https://"+thirdPartyHost+"/third-party", &result))
+				assert.Equal(t, "third party response", result.Message)
+
+				requireRequest(t, &harness.thirdPartyRequests, recordedRequest{
+					method:        http.MethodGet,
+					path:          "/third-party",
+					host:          thirdPartyHost,
+					authorization: "",
+				})
+			})
+
+			t.Run("does not provide token when redirected off the api_host", func(t *testing.T) {
+				harness, opts := newConfiguredAPIHostTest(t, tt.host, apiHost)
+				httpClient, err := NewHTTPClient(opts)
+				require.NoError(t, err)
+
+				response, err := httpClient.Get("https://" + apiHost + "/redirect-to-third-party")
+				require.NoError(t, err)
+				require.NoError(t, response.Body.Close())
+
+				requireRequest(t, &harness.gatewayRequests, recordedRequest{
+					method:        http.MethodGet,
+					path:          "/redirect-to-third-party",
+					host:          apiHost,
+					authorization: "token test-token",
+				})
+				requireRequest(t, &harness.thirdPartyRequests, recordedRequest{
+					method:        http.MethodGet,
+					path:          "/redirected",
+					host:          thirdPartyHost,
+					authorization: "",
 				})
 			})
 		})
