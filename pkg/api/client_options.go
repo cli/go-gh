@@ -40,6 +40,16 @@ type ClientOptions struct {
 	// Default is 24 hours.
 	CacheTTL time.Duration
 
+	// CheckRedirect specifies the policy for handling redirects, matching the
+	// field of the same name on http.Client. If nil, the default policy of
+	// following up to 10 redirects is used.
+	//
+	// This matters for requests where following a redirect silently changes
+	// the meaning of the request. Go's default policy converts a DELETE into a
+	// GET when it follows a 301, so a caller deleting a renamed resource can
+	// receive a success response having deleted nothing.
+	CheckRedirect func(*http.Request, []*http.Request) error
+
 	// EnableCache specifies if API requests will be cached or not.
 	// Default is no caching.
 	EnableCache bool

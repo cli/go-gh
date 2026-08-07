@@ -279,6 +279,74 @@ func TestNewHTTPClient(t *testing.T) {
 	}
 }
 
+func TestNewHTTPClientCheckRedirect(t *testing.T) {
+	// Redirect handling belongs to http.Client rather than the transport, so a
+	// stub transport still exercises the real policy: the client asks it for the
+	// redirected request only if the policy allows the redirect.
+	newRecordingTransport := func(methods *[]string) tripper {
+		return tripper{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				*methods = append(*methods, req.Method)
+				if len(*methods) == 1 {
+					return &http.Response{
+						StatusCode: http.StatusMovedPermanently,
+						Header:     http.Header{"Location": []string{"https://api.github.com/repos/OWNER/NEW"}},
+						Body:       io.NopCloser(bytes.NewBufferString("")),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: http.StatusNoContent,
+					Body:       io.NopCloser(bytes.NewBufferString("")),
+				}, nil
+			},
+		}
+	}
+
+	t.Run("follows redirects by default, downgrading DELETE to GET", func(t *testing.T) {
+		var methods []string
+		client, err := NewHTTPClient(ClientOptions{
+			Host:      "github.com",
+			AuthToken: "oauth_token",
+			Transport: newRecordingTransport(&methods),
+		})
+		assert.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodDelete, "https://api.github.com/repos/OWNER/OLD", nil)
+		assert.NoError(t, err)
+		res, err := client.Do(req)
+		assert.NoError(t, err)
+		defer res.Body.Close()
+
+		// This is the behaviour that makes the option necessary. Go turns the
+		// DELETE into a GET when it follows the redirect, so the caller is told
+		// the request succeeded while nothing was deleted.
+		assert.Equal(t, []string{http.MethodDelete, http.MethodGet}, methods)
+		assert.Equal(t, http.StatusNoContent, res.StatusCode)
+	})
+
+	t.Run("honours a CheckRedirect that stops at the redirect", func(t *testing.T) {
+		var methods []string
+		client, err := NewHTTPClient(ClientOptions{
+			Host:      "github.com",
+			AuthToken: "oauth_token",
+			Transport: newRecordingTransport(&methods),
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		})
+		assert.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodDelete, "https://api.github.com/repos/OWNER/OLD", nil)
+		assert.NoError(t, err)
+		res, err := client.Do(req)
+		assert.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, []string{http.MethodDelete}, methods)
+		assert.Equal(t, http.StatusMovedPermanently, res.StatusCode)
+	})
+}
+
 type tripper struct {
 	roundTrip func(*http.Request) (*http.Response, error)
 }
