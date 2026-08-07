@@ -118,7 +118,7 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	}
 	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
 
-	return &http.Client{Transport: transport, Timeout: opts.Timeout}, nil
+	return &http.Client{Transport: transport, Timeout: opts.Timeout, CheckRedirect: opts.CheckRedirect}, nil
 }
 
 func inspectableMIMEType(t string) bool {
