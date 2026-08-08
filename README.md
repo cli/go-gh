@@ -16,7 +16,9 @@ Modules from this library will obey GitHub CLI conventions by default:
 
 ## Usage
 
-See the full `go-gh`  [reference documentation](https://pkg.go.dev/github.com/cli/go-gh/v2) for more information
+See the full `go-gh`  [reference documentation](https://pkg.go.dev/github.com/cli/go-gh/v2) for more information.
+
+The examples below assume the [GitHub CLI](https://cli.github.com/) (`gh`) is installed and authenticated. On Windows, after installing `gh` with Winget, Scoop, or Chocolatey, open a **new** terminal so `PATH` picks up the shim.
 
 ```golang
 package main
