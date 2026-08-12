@@ -8,8 +8,15 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cli/go-gh/v2/pkg/x/color"
 	"github.com/muesli/termenv"
 	"golang.org/x/term"
+)
+
+const (
+	NoTheme    = "none"
+	LightTheme = "light"
+	DarkTheme  = "dark"
 )
 
 // Term represents information about the terminal that a process is connected to.
@@ -139,12 +146,22 @@ func (t Term) Size() (int, int, error) {
 // Theme returns the theme of the terminal by analyzing the background color of the terminal.
 func (t Term) Theme() string {
 	if !t.IsColorEnabled() {
-		return "none"
+		return NoTheme
 	}
 	if termenv.HasDarkBackground() {
-		return "dark"
+		return DarkTheme
 	}
-	return "light"
+	return LightTheme
+}
+
+// ColorScheme returns the [ColorScheme] for the current Term.
+func (t Term) ColorScheme() ColorScheme {
+	return ColorScheme{
+		Accessible:   color.IsAccessibleColorsEnabled(),
+		ColorEnabled: t.colorEnabled,
+		Is256Enabled: t.is256enabled,
+		Theme:        t.Theme(),
+	}
 }
 
 // IsTerminal reports whether a file descriptor is connected to a terminal.
