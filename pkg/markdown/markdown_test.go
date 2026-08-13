@@ -290,27 +290,27 @@ func Test_RenderColor(t *testing.T) {
 			name:    "when the light theme is selected, the codeblock renders using 8-bit colors",
 			text:    codeBlock,
 			theme:   "light",
-			wantOut: "\x1b[0m\x1b[38;5;235mfmt\x1b[0m\x1b[38;5;210m.\x1b[0m\x1b[38;5;35mPrintln\x1b[0m\x1b[38;5;210m(\x1b[0m\x1b[38;5;95m\"Hello, world!\"\x1b[0m\x1b[38;5;210m)\x1b[0m",
+			wantOut: "\x1b[m\x1b[38;5;235mfmt\x1b[0m\x1b[38;5;210m.\x1b[0m\x1b[38;5;35mPrintln\x1b[0m\x1b[38;5;210m(\x1b[0m\x1b[38;5;95m\"Hello, world!\"\x1b[0m\x1b[38;5;210m)\x1b[0m",
 		},
 		{
 			name:    "when the dark theme is selected, the codeblock renders using 8-bit colors",
 			text:    codeBlock,
 			theme:   "dark",
-			wantOut: "\x1b[0m\x1b[38;5;251mfmt\x1b[0m\x1b[38;5;187m.\x1b[0m\x1b[38;5;42mPrintln\x1b[0m\x1b[38;5;187m(\x1b[0m\x1b[38;5;173m\"Hello, world!\"\x1b[0m\x1b[38;5;187m)\x1b[0m",
+			wantOut: "\x1b[m\x1b[38;5;251mfmt\x1b[0m\x1b[38;5;187m.\x1b[0m\x1b[38;5;42mPrintln\x1b[0m\x1b[38;5;187m(\x1b[0m\x1b[38;5;173m\"Hello, world!\"\x1b[0m\x1b[38;5;187m)\x1b[0m",
 		},
 		{
 			name:             "when the accessible env var is set and the light theme is selected, the codeblock renders using 4-bit colors",
 			text:             codeBlock,
 			theme:            "light",
 			accessibleEnvVar: "true",
-			wantOut:          "\x1b[0m\x1b[30mfmt\x1b[0m\x1b[33m.\x1b[0m\x1b[36mPrintln\x1b[0m\x1b[33m(\x1b[0m\x1b[90m\"Hello, world!\"\x1b[0m\x1b[33m)\x1b[0m",
+			wantOut:          "\x1b[m\x1b[30mfmt\x1b[0m\x1b[33m.\x1b[0m\x1b[36mPrintln\x1b[0m\x1b[33m(\x1b[0m\x1b[90m\"Hello, world!\"\x1b[0m\x1b[33m)\x1b[0m",
 		},
 		{
 			name:             "when the accessible env var is set and the dark theme is selected, the codeblock renders using 4-bit colors",
 			text:             codeBlock,
 			theme:            "dark",
 			accessibleEnvVar: "true",
-			wantOut:          "\x1b[0m\x1b[37mfmt\x1b[0m\x1b[37m.\x1b[0m\x1b[36mPrintln\x1b[0m\x1b[37m(\x1b[0m\x1b[33m\"Hello, world!\"\x1b[0m\x1b[37m)\x1b[0m",
+			wantOut:          "\x1b[m\x1b[37mfmt\x1b[0m\x1b[37m.\x1b[0m\x1b[36mPrintln\x1b[0m\x1b[37m(\x1b[0m\x1b[33m\"Hello, world!\"\x1b[0m\x1b[37m)\x1b[0m",
 		},
 	}
 	for _, tt := range tests {
