@@ -25,7 +25,7 @@ func DefaultRESTClient() (*RESTClient, error) {
 // NewRESTClient builds a client to send requests to GitHub REST API endpoints.
 //
 // As part of the configuration a hostname, auth token, default set of headers,
-// and unix domain socket are resolved from the gh environment configuration.
+// API host, and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument.
 func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
 	var err error
@@ -48,6 +48,7 @@ func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
 
 	endpoint := restPrefix(opts.Host)
 	if opts.APIHost != "" {
+		// The endpoint comes with a trailing slash and swapping the host should preserve it.
 		endpoint = swapHost(endpoint, opts.APIHost)
 	}
 

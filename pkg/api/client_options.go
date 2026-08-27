@@ -45,9 +45,9 @@ type ClientOptions struct {
 	// following up to 10 redirects is used.
 	//
 	// This matters for requests where following a redirect silently changes
-	// the meaning of the request. Go's default policy converts a DELETE into a
-	// GET when it follows a 301, so a caller deleting a renamed resource can
-	// receive a success response having deleted nothing.
+	// the meaning of the request. For example, Go's default policy converts a
+	// DELETE into a GET when it follows a 301, so a caller deleting a renamed
+	// resource can receive a success response having deleted nothing.
 	CheckRedirect func(*http.Request, []*http.Request) error
 
 	// EnableCache specifies if API requests will be cached or not.
