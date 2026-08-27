@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
@@ -201,14 +202,22 @@ func TestResolveAPIHost(t *testing.T) {
 			name:    "explicit option takes precedence",
 			host:    "example.ghe.com",
 			apiHost: "explicit.example.net",
-			config:  "hosts:\n  example.ghe.com:\n    api_host: configured.example.net\n",
-			want:    "explicit.example.net",
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host: configured.example.net
+			`),
+			want: "explicit.example.net",
 		},
 		{
-			name:   "config fills an empty option",
-			host:   "example.ghe.com",
-			config: "hosts:\n  example.ghe.com:\n    api_host: configured.example.net\n",
-			want:   "configured.example.net",
+			name: "config fills an empty option",
+			host: "example.ghe.com",
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host: configured.example.net
+			`),
+			want: "configured.example.net",
 		},
 		{
 			name: "no option or config stays empty",
@@ -227,15 +236,23 @@ func TestResolveAPIHost(t *testing.T) {
 			wantErr: `invalid api_host for example.ghe.com: "explicit.example.net:8443" must be a hostname without a scheme or port, for example "api.example.com"`,
 		},
 		{
-			name:    "invalid configured option fails",
-			host:    "example.ghe.com",
-			config:  "hosts:\n  example.ghe.com:\n    api_host: https://configured.example.net\n",
+			name: "invalid configured option fails",
+			host: "example.ghe.com",
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host: https://configured.example.net
+			`),
 			wantErr: `invalid api_host for example.ghe.com: "https://configured.example.net" must be a hostname without a scheme or port, for example "api.example.com"`,
 		},
 		{
-			name:    "configured port fails",
-			host:    "example.ghe.com",
-			config:  "hosts:\n  example.ghe.com:\n    api_host: configured.example.net:8443\n",
+			name: "configured port fails",
+			host: "example.ghe.com",
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host: configured.example.net:8443
+			`),
 			wantErr: `invalid api_host for example.ghe.com: "configured.example.net:8443" must be a hostname without a scheme or port, for example "api.example.com"`,
 		},
 	}
