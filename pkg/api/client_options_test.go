@@ -226,6 +226,18 @@ func TestResolveAPIHost(t *testing.T) {
 			apiHost: "explicit.example.net:8443",
 			wantErr: `invalid api_host for example.ghe.com: "explicit.example.net:8443" must be a hostname without a scheme or port, for example "api.example.com"`,
 		},
+		{
+			name:    "invalid configured option fails",
+			host:    "example.ghe.com",
+			config:  "hosts:\n  example.ghe.com:\n    api_host: https://configured.example.net\n",
+			wantErr: `invalid api_host for example.ghe.com: "https://configured.example.net" must be a hostname without a scheme or port, for example "api.example.com"`,
+		},
+		{
+			name:    "configured port fails",
+			host:    "example.ghe.com",
+			config:  "hosts:\n  example.ghe.com:\n    api_host: configured.example.net:8443\n",
+			wantErr: `invalid api_host for example.ghe.com: "configured.example.net:8443" must be a hostname without a scheme or port, for example "api.example.com"`,
+		},
 	}
 
 	for _, tt := range tests {
