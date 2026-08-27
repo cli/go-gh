@@ -110,10 +110,11 @@ func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
 
 	gateway := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		harness.gatewayRequests.record(req)
-		if req.URL.Path == "/redirect-to-third-party" {
+		switch req.URL.Path {
+		case "/redirect-to-third-party":
 			http.Redirect(w, req, "https://"+thirdPartyHost+"/redirected", http.StatusFound)
 			return
-		} else if req.URL.Path == "/redirect-to-subdomain" {
+		case "/redirect-to-subdomain":
 			http.Redirect(w, req, "https://subdomain.gw.example.net/redirected", http.StatusFound)
 			return
 		}
