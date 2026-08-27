@@ -113,6 +113,9 @@ func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
 		if req.URL.Path == "/redirect-to-third-party" {
 			http.Redirect(w, req, "https://"+thirdPartyHost+"/redirected", http.StatusFound)
 			return
+		} else if req.URL.Path == "/redirect-to-subdomain" {
+			http.Redirect(w, req, "https://subdomain.gw.example.net/redirected", http.StatusFound)
+			return
 		}
 		proxy.ServeHTTP(w, req)
 	}))
@@ -132,11 +135,12 @@ func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
 	fakeAddress := fakeGitHub.Listener.Addr().String()
 	gatewayAddress := gateway.Listener.Addr().String()
 	dialMap := map[string]string{
-		"api.github.com:443":      fakeAddress,
-		"api.example.ghe.com:443": fakeAddress,
-		"ghes.example.com:443":    fakeAddress,
-		"gw.example.net:443":      gatewayAddress,
-		thirdPartyHost + ":443":   thirdParty.Listener.Addr().String(),
+		"api.github.com:443":           fakeAddress,
+		"api.example.ghe.com:443":      fakeAddress,
+		"ghes.example.com:443":         fakeAddress,
+		"gw.example.net:443":           gatewayAddress,
+		"subdomain.gw.example.net:443": gatewayAddress,
+		thirdPartyHost + ":443":        thirdParty.Listener.Addr().String(),
 	}
 	harness.transport = &http.Transport{
 		// We must turn off TLS verification because our test servers use self-signed certs.
@@ -355,6 +359,28 @@ func TestAPIHostRouting(t *testing.T) {
 					path:          "/redirected",
 					host:          thirdPartyHost,
 					authorization: "",
+				})
+			})
+
+			t.Run("does not provide token when redirected to a subdomain of the api_host", func(t *testing.T) {
+				harness, opts := newConfiguredAPIHostTest(t, tt.host, apiHost)
+				httpClient, err := NewHTTPClient(opts)
+				require.NoError(t, err)
+
+				response, err := httpClient.Get("https://" + apiHost + "/redirect-to-subdomain")
+				require.NoError(t, err)
+				require.NoError(t, response.Body.Close())
+
+				requireRequest(t, &harness.gatewayRequests, recordedRequest{
+					method:        http.MethodGet,
+					path:          "/redirect-to-subdomain",
+					host:          apiHost,
+					authorization: "token test-token",
+				})
+				requireRequest(t, &harness.gatewayRequests, recordedRequest{
+					method: http.MethodGet,
+					path:   "/redirected",
+					host:   "subdomain." + apiHost,
 				})
 			})
 		})
