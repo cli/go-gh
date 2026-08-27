@@ -317,7 +317,7 @@ func TestNewGraphQLClientAPIHostEndpoint(t *testing.T) {
 			})
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantEndpoint, client.host)
+			assert.Equal(t, tt.wantEndpoint, client.endpoint)
 		})
 	}
 }

@@ -14,8 +14,9 @@ import (
 // RESTClient wraps methods for the different types of
 // API requests that are supported by the server.
 type RESTClient struct {
-	client   *http.Client
-	endpoint string
+	client *http.Client
+	// baseURL is the base URL prefix for REST API endpoints (e.g. https://api.github.com/).
+	baseURL string
 }
 
 func DefaultRESTClient() (*RESTClient, error) {
@@ -46,15 +47,15 @@ func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
 		return nil, err
 	}
 
-	endpoint := restPrefix(opts.Host)
+	baseURL := restPrefix(opts.Host)
 	if opts.APIHost != "" {
-		// The endpoint comes with a trailing slash and swapping the host should preserve it.
-		endpoint = swapHost(endpoint, opts.APIHost)
+		// The base URL comes with a trailing slash and swapping the host should preserve it.
+		baseURL = swapHost(baseURL, opts.APIHost)
 	}
 
 	return &RESTClient{
-		client:   client,
-		endpoint: endpoint,
+		client:  client,
+		baseURL: baseURL,
 	}, nil
 }
 
@@ -63,7 +64,7 @@ func NewRESTClient(opts ClientOptions) (*RESTClient, error) {
 // The response is returned rather than being populated
 // into a response argument.
 func (c *RESTClient) RequestWithContext(ctx context.Context, method string, path string, body io.Reader) (*http.Response, error) {
-	url := restURL(c.endpoint, path)
+	url := restURL(c.baseURL, path)
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
@@ -92,7 +93,7 @@ func (c *RESTClient) Request(method string, path string, body io.Reader) (*http.
 // specified path with the specified body.
 // The response is populated into the response argument.
 func (c *RESTClient) DoWithContext(ctx context.Context, method string, path string, body io.Reader, response interface{}) error {
-	url := restURL(c.endpoint, path)
+	url := restURL(c.baseURL, path)
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return err
@@ -167,11 +168,11 @@ func (c *RESTClient) Put(path string, body io.Reader, resp interface{}) error {
 	return c.Do(http.MethodPut, path, body, resp)
 }
 
-func restURL(endpoint string, pathOrURL string) string {
+func restURL(baseURL string, pathOrURL string) string {
 	if strings.HasPrefix(pathOrURL, "https://") || strings.HasPrefix(pathOrURL, "http://") {
 		return pathOrURL
 	}
-	return endpoint + pathOrURL
+	return baseURL + pathOrURL
 }
 
 func restPrefix(hostname string) string {

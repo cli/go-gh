@@ -483,35 +483,35 @@ func TestRESTClientRequestWithContext(t *testing.T) {
 
 func TestRestPrefix(t *testing.T) {
 	tests := []struct {
-		name         string
-		host         string
-		wantEndpoint string
+		name        string
+		host        string
+		wantBaseURL string
 	}{
-		{name: "github", host: "github.com", wantEndpoint: "https://api.github.com/"},
-		{name: "localhost", host: "github.localhost", wantEndpoint: "http://api.github.localhost/"},
-		{name: "garage", host: "garage.github.com", wantEndpoint: "https://garage.github.com/api/v3/"},
-		{name: "enterprise", host: "enterprise.com", wantEndpoint: "https://enterprise.com/api/v3/"},
-		{name: "tenant", host: "tenant.ghe.com", wantEndpoint: "https://api.tenant.ghe.com/"},
+		{name: "github", host: "github.com", wantBaseURL: "https://api.github.com/"},
+		{name: "localhost", host: "github.localhost", wantBaseURL: "http://api.github.localhost/"},
+		{name: "garage", host: "garage.github.com", wantBaseURL: "https://garage.github.com/api/v3/"},
+		{name: "enterprise", host: "enterprise.com", wantBaseURL: "https://enterprise.com/api/v3/"},
+		{name: "tenant", host: "tenant.ghe.com", wantBaseURL: "https://api.tenant.ghe.com/"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.wantEndpoint, restPrefix(tt.host))
+			assert.Equal(t, tt.wantBaseURL, restPrefix(tt.host))
 		})
 	}
 }
 
-func TestNewRESTClientAPIHostEndpoint(t *testing.T) {
+func TestNewRESTClientAPIHostBaseURL(t *testing.T) {
 	tests := []struct {
-		name         string
-		host         string
-		wantEndpoint string
+		name        string
+		host        string
+		wantBaseURL string
 	}{
-		{name: "github", host: "github.com", wantEndpoint: "https://gw.example.net/"},
-		{name: "localhost preserves http", host: "github.localhost", wantEndpoint: "http://gw.example.net/"},
-		{name: "garage", host: "garage.github.com", wantEndpoint: "https://gw.example.net/api/v3/"},
-		{name: "enterprise", host: "enterprise.com", wantEndpoint: "https://gw.example.net/api/v3/"},
-		{name: "tenant", host: "tenant.ghe.com", wantEndpoint: "https://gw.example.net/"},
+		{name: "github", host: "github.com", wantBaseURL: "https://gw.example.net/"},
+		{name: "localhost preserves http", host: "github.localhost", wantBaseURL: "http://gw.example.net/"},
+		{name: "garage", host: "garage.github.com", wantBaseURL: "https://gw.example.net/api/v3/"},
+		{name: "enterprise", host: "enterprise.com", wantBaseURL: "https://gw.example.net/api/v3/"},
+		{name: "tenant", host: "tenant.ghe.com", wantBaseURL: "https://gw.example.net/"},
 	}
 
 	for _, tt := range tests {
@@ -526,47 +526,47 @@ func TestNewRESTClientAPIHostEndpoint(t *testing.T) {
 			})
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantEndpoint, client.endpoint)
+			assert.Equal(t, tt.wantBaseURL, client.baseURL)
 		})
 	}
 }
 
 func TestRestURL(t *testing.T) {
 	tests := []struct {
-		name     string
-		endpoint string
-		path     string
-		wantURL  string
+		name    string
+		baseURL string
+		path    string
+		wantURL string
 	}{
 		{
-			name:     "joins a relative path to an endpoint",
-			endpoint: "https://gw.example.net/api/v3/",
-			path:     "repos/o/r",
-			wantURL:  "https://gw.example.net/api/v3/repos/o/r",
+			name:    "joins a relative path to an endpoint",
+			baseURL: "https://gw.example.net/api/v3/",
+			path:    "repos/o/r",
+			wantURL: "https://gw.example.net/api/v3/repos/o/r",
 		},
 		{
-			name:     "leaves a canonical absolute URL unchanged",
-			endpoint: "https://gw.example.net/",
-			path:     "https://api.github.com/repositories/1/issues?page=2",
-			wantURL:  "https://api.github.com/repositories/1/issues?page=2",
+			name:    "leaves a canonical absolute URL unchanged",
+			baseURL: "https://gw.example.net/",
+			path:    "https://api.github.com/repositories/1/issues?page=2",
+			wantURL: "https://api.github.com/repositories/1/issues?page=2",
 		},
 		{
-			name:     "leaves an asset absolute URL unchanged",
-			endpoint: "https://gw.example.net/",
-			path:     "https://github.com/o/r/releases/download/v1/asset.zip",
-			wantURL:  "https://github.com/o/r/releases/download/v1/asset.zip",
+			name:    "leaves an asset absolute URL unchanged",
+			baseURL: "https://gw.example.net/",
+			path:    "https://github.com/o/r/releases/download/v1/asset.zip",
+			wantURL: "https://github.com/o/r/releases/download/v1/asset.zip",
 		},
 		{
-			name:     "leaves an http absolute URL unchanged",
-			endpoint: "https://gw.example.net/",
-			path:     "http://downloads.example.net/asset.zip",
-			wantURL:  "http://downloads.example.net/asset.zip",
+			name:    "leaves an http absolute URL unchanged",
+			baseURL: "https://gw.example.net/",
+			path:    "http://downloads.example.net/asset.zip",
+			wantURL: "http://downloads.example.net/asset.zip",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.wantURL, restURL(tt.endpoint, tt.path))
+			assert.Equal(t, tt.wantURL, restURL(tt.baseURL, tt.path))
 		})
 	}
 }

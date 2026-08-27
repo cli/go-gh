@@ -17,8 +17,9 @@ import (
 // GraphQLClient wraps methods for the different types of
 // API requests that are supported by the server.
 type GraphQLClient struct {
-	client     *graphql.Client
-	host       string
+	client *graphql.Client
+	// endpoint is the full URL to the GraphQL endpoint (e.g. https://api.github.com/graphql).
+	endpoint   string
 	httpClient *http.Client
 }
 
@@ -57,7 +58,7 @@ func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
 
 	return &GraphQLClient{
 		client:     graphql.NewClient(endpoint, httpClient),
-		host:       endpoint,
+		endpoint:   endpoint,
 		httpClient: httpClient,
 	}, nil
 }
@@ -70,7 +71,7 @@ func (c *GraphQLClient) DoWithContext(ctx context.Context, query string, variabl
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", c.host, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.endpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return err
 	}
