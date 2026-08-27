@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"github.com/MakeNowJust/heredoc"
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -18,58 +19,58 @@ func TestAPIHost(t *testing.T) {
 		{
 			name: "missing api_host",
 			host: "example.ghe.com",
-			config: `
-hosts:
-  example.ghe.com:
-    oauth_token: token
-`,
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    oauth_token: token
+			`),
 		},
 		{
 			name: "null api_host",
 			host: "example.ghe.com",
-			config: `
-hosts:
-  example.ghe.com:
-    api_host:
-`,
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host:
+			`),
 		},
 		{
 			name: "empty api_host",
 			host: "example.ghe.com",
-			config: `
-hosts:
-  example.ghe.com:
-    api_host: ""
-`,
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host: ""
+			`),
 		},
 		{
 			name: "host absent from config",
 			host: "other.ghe.com",
-			config: `
-hosts:
-  example.ghe.com:
-    api_host: gw.example.net
-`,
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host: gw.example.net
+			`),
 		},
 		{
 			name: "configured value",
 			host: "example.ghe.com",
-			config: `
-hosts:
-  example.ghe.com:
-    api_host: gw.example.net
-`,
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host: gw.example.net
+			`),
 			want:   "gw.example.net",
 			wantOK: true,
 		},
 		{
 			name: "normalizes canonical host for lookup",
 			host: "Example.ghe.com",
-			config: `
-hosts:
-  example.ghe.com:
-    api_host: GW.Example.NET
-`,
+			config: heredoc.Doc(`
+				hosts:
+				  example.ghe.com:
+				    api_host: GW.Example.NET
+			`),
 			want:   "GW.Example.NET",
 			wantOK: true,
 		},
