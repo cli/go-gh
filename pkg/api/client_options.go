@@ -24,10 +24,13 @@ type ClientOptions struct {
 	// whether set here or read from gh config, is not a bare hostname.
 	//
 	// If AuthToken is not provided, the Host will be used for token lookup,
-	// and requests to APIHost will be allowed to include that token.
+	// and requests to APIHost will be allowed to include that token. APIHost
+	// must therefore be a trusted endpoint. When APIHost is configured, the
+	// token is not sent to Host or its subdomains.
 	//
 	// Absolute URLs passed to RESTClient methods are requested as given
-	// and are never rewritten to APIHost.
+	// and are never rewritten to APIHost. They are authenticated only when
+	// they target APIHost.
 	APIHost string
 
 	// AuthToken is the authorization token that will be used
