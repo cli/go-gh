@@ -45,11 +45,11 @@ func DefaultHTTPClient() (*http.Client, error) {
 // As part of the configuration a hostname, auth token, default set of headers,
 // and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument. In this instance
-// providing opts.Host will not change the destination of your request as it is
-// the responsibility of the consumer to configure this. However, if opts.Host
-// does not match the request host, the auth token will not be added to the headers.
-// This is to protect against the case where tokens could be sent to an arbitrary
-// host.
+// providing opts.Host or opts.APIHost will not change the destination of your
+// request, as it is the responsibility of the consumer to configure this. When
+// opts.APIHost is configured, the auth token is only added to requests targeting
+// that exact host. Otherwise, it is only added to requests targeting opts.Host or
+// one of its subdomains. This prevents tokens from being sent to arbitrary hosts.
 func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	var err error
 	if optionsNeedResolution(opts) {
@@ -139,12 +139,6 @@ func isSameDomain(requestHost, domain string) bool {
 	return (requestHost == domain) || strings.HasSuffix(requestHost, "."+domain)
 }
 
-// isAPIHost reports whether requestHost is the configured API host override.
-// An unset override matches nothing, including an empty request host.
-func isAPIHost(requestHost, apiHost string) bool {
-	return apiHost != "" && strings.EqualFold(requestHost, apiHost)
-}
-
 // swapHost returns rawURL with its host replaced by apiHost.
 func swapHost(rawURL, apiHost string) string {
 	if apiHost == "" {
@@ -220,14 +214,18 @@ func newHeaderRoundTripper(host string, apiHost string, authToken string, header
 
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	for k, v := range hrt.headers {
-		// If the authorization header has been set and the request
-		// host is not in the same domain that was specified in the ClientOptions
-		// then do not add the authorization header to the request.
+		// If the default headers include an authorization header, only add it when
+		// the request targets the configured API host. When no API host is configured,
+		// allow the canonical host and its subdomains.
 		requestHost := req.URL.Hostname()
-		if k == authorization &&
-			!isSameDomain(requestHost, hrt.host) &&
-			!isAPIHost(requestHost, hrt.apiHost) {
-			continue
+		if k == authorization {
+			if hrt.apiHost != "" && !strings.EqualFold(requestHost, hrt.apiHost) {
+				continue
+			}
+
+			if hrt.apiHost == "" && !isSameDomain(requestHost, hrt.host) {
+				continue
+			}
 		}
 
 		// If the header is already set in the request, don't overwrite it.

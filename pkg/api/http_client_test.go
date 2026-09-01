@@ -32,46 +32,6 @@ func TestHTTPClient(t *testing.T) {
 	assert.Equal(t, 200, res.StatusCode)
 }
 
-func TestIsAPIHost(t *testing.T) {
-	tests := []struct {
-		name        string
-		requestHost string
-		apiHost     string
-		want        bool
-	}{
-		{
-			name:        "matches exact host",
-			requestHost: "gateway.example",
-			apiHost:     "gateway.example",
-			want:        true,
-		},
-		{
-			name:        "matches host ignoring case",
-			requestHost: "GATEWAY.example",
-			apiHost:     "gateway.example",
-			want:        true,
-		},
-		{
-			name:        "unset override matches nothing",
-			requestHost: "",
-			apiHost:     "",
-			want:        false,
-		},
-		{
-			name:        "empty request host does not match configured override",
-			requestHost: "",
-			apiHost:     "gateway.example",
-			want:        false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isAPIHost(tt.requestHost, tt.apiHost))
-		})
-	}
-}
-
 func TestNewHTTPClient(t *testing.T) {
 	testutils.StubConfig(t, "")
 
@@ -179,6 +139,17 @@ func TestNewHTTPClient(t *testing.T) {
 			apiHost:     "gateway.example",
 			reqURL:      "https://GATEWAY.example",
 			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:    "withholds authorization from canonical host when API host is configured",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "https://test.com",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
 		},
 		{
 			name:    "withholds authorization from an API host subdomain",

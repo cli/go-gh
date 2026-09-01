@@ -16,16 +16,18 @@ import (
 // ClientOptions holds available options to configure API clients.
 type ClientOptions struct {
 	// APIHost overrides the hostname that REST and GraphQL API requests are
-	// sent to while authentication continues to use Host. It must be a bare
+	// sent to instead of the default Host. It must be a bare
 	// hostname, without a scheme or port, for example "api.example.com".
 	//
 	// When empty, the api_host value configured for Host in gh config is used,
 	// if there is one. Client construction fails when the resulting value,
 	// whether set here or read from gh config, is not a bare hostname.
 	//
-	// The auth token is sent to APIHost as well as to Host, so it must be a
-	// trusted endpoint. Absolute URLs passed to RESTClient methods are
-	// requested as given and are never rewritten to APIHost.
+	// If AuthToken is not provided, the Host will be used for token lookup,
+	// and requests to APIHost will be allowed to include that token.
+	//
+	// Absolute URLs passed to RESTClient methods are requested as given
+	// and are never rewritten to APIHost.
 	APIHost string
 
 	// AuthToken is the authorization token that will be used
@@ -40,9 +42,8 @@ type ClientOptions struct {
 	// Default is 24 hours.
 	CacheTTL time.Duration
 
-	// CheckRedirect specifies the policy for handling redirects, matching the
-	// field of the same name on http.Client. If nil, the default policy of
-	// following up to 10 redirects is used.
+	// CheckRedirect specifies the policy for handling redirects.
+	// If nil, the default http.Client CheckRedirect policy is used.
 	//
 	// This matters for requests where following a redirect silently changes
 	// the meaning of the request. For example, Go's default policy converts a
@@ -140,25 +141,33 @@ func resolveAPIHost(opts ClientOptions) (ClientOptions, error) {
 		opts.APIHost = configuredAPIHost
 	}
 
-	if !validAPIHost(opts.APIHost) {
+	if err := validAPIHost(opts.APIHost); err != nil {
 		return ClientOptions{}, fmt.Errorf(
-			`invalid api_host for %s: %q must be a hostname without a scheme or port, for example "api.example.com"`,
+			`invalid api_host for %s: %v`,
 			opts.Host,
-			opts.APIHost,
+			err,
 		)
 	}
 
 	return opts, nil
 }
 
-func validAPIHost(apiHost string) bool {
+func validAPIHost(apiHost string) error {
+	invalidHostnameError := fmt.Errorf(`%q must be a hostname without a scheme or port, for example "api.example.com"`, apiHost)
+
 	// A bare hostname has no surrounding whitespace, and no port or IPv6 literal.
 	if apiHost == "" || strings.TrimSpace(apiHost) != apiHost || strings.Contains(apiHost, ":") {
-		return false
+		return invalidHostnameError
 	}
 
 	// Parsing as a scheme relative URL rejects userinfo, paths, queries and fragments,
 	// since any of those make the parsed host differ from the input.
 	u, err := url.Parse("//" + apiHost)
-	return err == nil && u.Host == apiHost && u.Hostname() != ""
+	if err != nil {
+		return invalidHostnameError
+	}
+	if u.Host != apiHost || u.Hostname() == "" {
+		return invalidHostnameError
+	}
+	return nil
 }

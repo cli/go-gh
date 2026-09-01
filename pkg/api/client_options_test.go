@@ -162,29 +162,33 @@ func TestValidAPIHost(t *testing.T) {
 	}{
 		{name: "bare hostname", value: "gw.example.net", valid: true},
 		{name: "mixed-case hostname", value: "GW.Example.NET", valid: true},
-		{name: "empty"},
-		{name: "scheme", value: "https://gw.example.net"},
-		{name: "path", value: "gw.example.net/api"},
-		{name: "query", value: "gw.example.net?trace=1"},
-		{name: "fragment", value: "gw.example.net#fragment"},
-		{name: "userinfo", value: "user@gw.example.net"},
-		{name: "leading whitespace", value: " gw.example.net"},
-		{name: "trailing whitespace", value: "gw.example.net "},
-		{name: "empty host", value: ":8443"},
-		{name: "missing port", value: "gw.example.net:"},
-		{name: "non-numeric port", value: "gw.example.net:http"},
-		{name: "minimum port", value: "gw.example.net:1"},
-		{name: "typical port", value: "gw.example.net:8443"},
-		{name: "maximum port", value: "gw.example.net:65535"},
-		{name: "zero port", value: "gw.example.net:0"},
-		{name: "out-of-range port", value: "gw.example.net:65536"},
-		{name: "IPv6 literal", value: "[::1]"},
-		{name: "bare IPv6 address", value: "::1"},
+		{name: "empty", value: "", valid: false},
+		{name: "scheme", value: "https://gw.example.net", valid: false},
+		{name: "path", value: "gw.example.net/api", valid: false},
+		{name: "query", value: "gw.example.net?trace=1", valid: false},
+		{name: "fragment", value: "gw.example.net#fragment", valid: false},
+		{name: "userinfo", value: "user@gw.example.net", valid: false},
+		{name: "leading whitespace", value: " gw.example.net", valid: false},
+		{name: "trailing whitespace", value: "gw.example.net ", valid: false},
+		{name: "empty host", value: ":8443", valid: false},
+		{name: "missing port", value: "gw.example.net:", valid: false},
+		{name: "non-numeric port", value: "gw.example.net:http", valid: false},
+		{name: "minimum port", value: "gw.example.net:1", valid: false},
+		{name: "typical port", value: "gw.example.net:8443", valid: false},
+		{name: "maximum port", value: "gw.example.net:65535", valid: false},
+		{name: "zero port", value: "gw.example.net:0", valid: false},
+		{name: "out-of-range port", value: "gw.example.net:65536", valid: false},
+		{name: "IPv6 literal", value: "[::1]", valid: false},
+		{name: "bare IPv6 address", value: "::1", valid: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.valid, validAPIHost(tt.value))
+			if tt.valid {
+				require.NoError(t, validAPIHost(tt.value))
+			} else {
+				require.Error(t, validAPIHost(tt.value))
+			}
 		})
 	}
 }
