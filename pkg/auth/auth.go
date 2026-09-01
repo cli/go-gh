@@ -32,7 +32,7 @@ const (
 // host. The source can be either an environment variable, configuration file, or the system
 // keyring. In the latter case, this shells out to "gh auth token" to obtain the token.
 //
-// Returns "", "default" if no applicable token is found.
+// Returns an empty token and a source that can either be "default" or a reason why lookup failed.
 func TokenForHost(host string) (string, string) {
 	if token, source := TokenFromEnvOrConfig(host); token != "" {
 		return token, source
@@ -43,10 +43,14 @@ func TokenForHost(host string) (string, string) {
 		ghExe, _ = safeexec.LookPath("gh")
 	}
 
-	if ghExe != "" {
-		if token, source := tokenFromGh(ghExe, host); token != "" {
-			return token, source
-		}
+	if ghExe == "" {
+		return "", "gh executable not found in PATH"
+	}
+
+	if token, source := tokenFromGh(ghExe, host); token != "" {
+		return token, source
+	} else if source != "" {
+		return "", source
 	}
 
 	return "", defaultSource
@@ -101,11 +105,20 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 
 func tokenFromGh(path string, host string) (string, string) {
 	cmd := exec.Command(path, "auth", "token", "--secure-storage", "--hostname", host)
-	result, err := cmd.Output()
+	result, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", "gh"
+		details := strings.TrimSpace(string(result))
+		if details == "" {
+			details = err.Error()
+		}
+		return "", fmt.Sprintf("failed to run `gh auth token`: %s", details)
 	}
-	return strings.TrimSpace(string(result)), "gh"
+
+	token := strings.TrimSpace(string(result))
+	if token == "" {
+		return "", "gh did not return an authentication token"
+	}
+	return token, "gh"
 }
 
 // KnownHosts retrieves a list of hosts that have corresponding
