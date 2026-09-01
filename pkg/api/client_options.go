@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/cli/go-gh/v2/pkg/auth"
@@ -103,4 +106,30 @@ func resolveOptions(opts ClientOptions) (ClientOptions, error) {
 		opts.UnixDomainSocket, _ = cfg.Get([]string{"http_unix_socket"})
 	}
 	return opts, nil
+}
+
+// resolveBearerAuth checks the GH_BEARER_AUTH environment variable first,
+// then falls back to the bearer_auth config setting (host-scoped, then global).
+func resolveBearerAuth(host string) bool {
+	if val, ok := os.LookupEnv("GH_BEARER_AUTH"); ok {
+		return isTruthy(val)
+	}
+	cfg, _ := config.Read(nil)
+	if cfg == nil {
+		return false
+	}
+	normalizedHost := auth.NormalizeHostname(host)
+	if val, err := cfg.Get([]string{"hosts", normalizedHost, "bearer_auth"}); err == nil {
+		return val == "enabled"
+	}
+	if val, err := cfg.Get([]string{"bearer_auth"}); err == nil {
+		return val == "enabled"
+	}
+	return false
+}
+
+var falseyValues = []string{"", "0", "false", "no", "disabled", "off"}
+
+func isTruthy(val string) bool {
+	return !slices.Contains(falseyValues, strings.TrimSpace(strings.ToLower(val)))
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/h2non/gock.v1"
 )
 
@@ -33,6 +34,8 @@ func TestHTTPClient(t *testing.T) {
 }
 
 func TestNewHTTPClient(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+
 	reflectHTTP := tripper{
 		roundTrip: func(req *http.Request) (*http.Response, error) {
 			header := req.Header.Clone()
@@ -156,6 +159,34 @@ func TestNewHTTPClient(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewHTTPClientBearerAuth(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+
+	reflectHTTP := tripper{
+		roundTrip: func(req *http.Request) (*http.Response, error) {
+			header := req.Header.Clone()
+			return &http.Response{
+				StatusCode: 200,
+				Header:     header,
+				Body:       io.NopCloser(bytes.NewBufferString("{}")),
+			}, nil
+		},
+	}
+
+	t.Setenv("GH_BEARER_AUTH", "1")
+	opts := ClientOptions{
+		Host:         "test.com",
+		AuthToken:    "oauth_token",
+		Transport:    reflectHTTP,
+		LogIgnoreEnv: true,
+	}
+	client, err := NewHTTPClient(opts)
+	require.NoError(t, err)
+	res, err := client.Get("https://test.com")
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer oauth_token", res.Header.Get(authorization))
 }
 
 type tripper struct {

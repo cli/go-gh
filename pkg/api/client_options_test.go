@@ -150,6 +150,48 @@ func TestOptionsNeedResolution(t *testing.T) {
 	}
 }
 
+func TestResolveBearerAuth(t *testing.T) {
+	t.Run("returns false by default", func(t *testing.T) {
+		testutils.StubConfig(t, testConfig())
+		assert.False(t, resolveBearerAuth("github.com"))
+	})
+
+	t.Run("returns true when GH_BEARER_AUTH is truthy", func(t *testing.T) {
+		testutils.StubConfig(t, testConfig())
+		t.Setenv("GH_BEARER_AUTH", "1")
+		assert.True(t, resolveBearerAuth("github.com"))
+	})
+
+	t.Run("returns false when GH_BEARER_AUTH is falsey", func(t *testing.T) {
+		testutils.StubConfig(t, testConfig())
+		for _, val := range []string{"0", "false", "no", "disabled", "off"} {
+			t.Setenv("GH_BEARER_AUTH", val)
+			assert.False(t, resolveBearerAuth("github.com"), "expected false for GH_BEARER_AUTH=%q", val)
+		}
+	})
+
+	t.Run("falsey env var overrides enabled config", func(t *testing.T) {
+		testutils.StubConfig(t, testConfigWithBearerAuth())
+		t.Setenv("GH_BEARER_AUTH", "0")
+		assert.False(t, resolveBearerAuth("github.com"))
+	})
+
+	t.Run("returns true when globally enabled in config", func(t *testing.T) {
+		testutils.StubConfig(t, testConfigWithBearerAuth())
+		assert.True(t, resolveBearerAuth("github.com"))
+	})
+
+	t.Run("returns true when enabled for host in config", func(t *testing.T) {
+		testutils.StubConfig(t, testConfigWithHostBearerAuth())
+		assert.True(t, resolveBearerAuth("github.com"))
+	})
+
+	t.Run("resolves host-scoped config with non-normalized host", func(t *testing.T) {
+		testutils.StubConfig(t, testConfigWithHostBearerAuth())
+		assert.True(t, resolveBearerAuth("api.github.com"))
+	})
+}
+
 func testConfig() string {
 	return `
 hosts:
@@ -157,6 +199,28 @@ hosts:
     user: user1
     oauth_token: abc123
     git_protocol: ssh
+`
+}
+
+func testConfigWithBearerAuth() string {
+	return `
+bearer_auth: enabled
+hosts:
+  github.com:
+    user: user1
+    oauth_token: abc123
+    git_protocol: ssh
+`
+}
+
+func testConfigWithHostBearerAuth() string {
+	return `
+hosts:
+  github.com:
+    user: user1
+    oauth_token: abc123
+    git_protocol: ssh
+    bearer_auth: enabled
 `
 }
 

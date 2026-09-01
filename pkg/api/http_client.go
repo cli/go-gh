@@ -116,7 +116,9 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	if !opts.SkipDefaultHeaders {
 		setDefaultHeaders(opts.Headers)
 	}
-	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, opts.Headers, transport)
+
+	bearerAuth := resolveBearerAuth(opts.Host)
+	transport = newHeaderRoundTripper(opts.Host, opts.AuthToken, bearerAuth, opts.Headers, transport)
 
 	return &http.Client{Transport: transport, Timeout: opts.Timeout}, nil
 }
@@ -177,9 +179,13 @@ func setDefaultHeaders(headers map[string]string) {
 	}
 }
 
-func newHeaderRoundTripper(host string, authToken string, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
+func newHeaderRoundTripper(host string, authToken string, bearerAuth bool, headers map[string]string, rt http.RoundTripper) http.RoundTripper {
 	if _, ok := headers[authorization]; !ok && authToken != "" {
-		headers[authorization] = fmt.Sprintf("token %s", authToken)
+		scheme := "token"
+		if bearerAuth {
+			scheme = "Bearer"
+		}
+		headers[authorization] = fmt.Sprintf("%s %s", scheme, authToken)
 	}
 	if len(headers) == 0 {
 		return rt
