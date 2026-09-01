@@ -13,6 +13,9 @@ import (
 )
 
 func TestGraphQLClient(t *testing.T) {
+	t.Setenv("GH_CONFIG_DIR", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
 	testutils.StubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
 
@@ -35,6 +38,9 @@ func TestGraphQLClient(t *testing.T) {
 }
 
 func TestGraphQLClientDoError(t *testing.T) {
+	t.Setenv("GH_CONFIG_DIR", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
 	testutils.StubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
 
@@ -57,6 +63,9 @@ func TestGraphQLClientDoError(t *testing.T) {
 }
 
 func TestGraphQLClientQueryError(t *testing.T) {
+	t.Setenv("GH_CONFIG_DIR", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
 	testutils.StubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
 
@@ -79,6 +88,9 @@ func TestGraphQLClientQueryError(t *testing.T) {
 }
 
 func TestGraphQLClientMutateError(t *testing.T) {
+	t.Setenv("GH_CONFIG_DIR", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GITHUB_TOKEN", "")
 	testutils.StubConfig(t, testConfig())
 	t.Cleanup(gock.Off)
 

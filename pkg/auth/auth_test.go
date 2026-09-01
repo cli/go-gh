@@ -238,6 +238,9 @@ func TestKnownHosts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GH_CONFIG_DIR", "")
+			t.Setenv("GH_HOST", "")
+			t.Setenv("GH_TOKEN", "")
 			if tt.ghHost != "" {
 				t.Setenv("GH_HOST", tt.ghHost)
 			}
