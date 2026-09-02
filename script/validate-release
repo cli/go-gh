@@ -61,6 +61,7 @@ git fetch --quiet origin "$BRANCH" --tags
 target_sha=$(git rev-parse "refs/remotes/origin/${BRANCH}^{commit}")
 
 if [[ -n $requested_target ]]; then
+	# Keep environment approval bound to the dispatched commit instead of a newer trunk tip.
 	[[ $requested_target =~ ^[0-9a-f]{40}$ ]] ||
 		fail "target must be a full commit SHA"
 	[[ $requested_target == "$target_sha" ]] ||
