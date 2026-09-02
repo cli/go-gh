@@ -69,7 +69,7 @@ type apiHostTestHarness struct {
 	thirdPartyRequests requestRecorder
 }
 
-func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
+func newAPIHostTestHarness(t *testing.T, host, apiHost string) *apiHostTestHarness {
 	t.Helper()
 
 	harness := &apiHostTestHarness{}
@@ -117,6 +117,12 @@ func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
 		case "/redirect-to-subdomain":
 			http.Redirect(w, req, "https://subdomain.gw.example.net/redirected", http.StatusFound)
 			return
+		case "/redirect-to-canonical-host":
+			http.Redirect(w, req, "https://"+host+"/redirected", http.StatusFound)
+			return
+		case "/redirect-to-canonical-subdomain":
+			http.Redirect(w, req, "https://subdomain."+host+"/redirected", http.StatusFound)
+			return
 		}
 		proxy.ServeHTTP(w, req)
 	}))
@@ -141,6 +147,8 @@ func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
 		"ghes.example.com:443":         fakeAddress,
 		"gw.example.net:443":           gatewayAddress,
 		"subdomain.gw.example.net:443": gatewayAddress,
+		host + ":443":                  fakeAddress,
+		"subdomain." + host + ":443":   fakeAddress,
 		thirdPartyHost + ":443":        thirdParty.Listener.Addr().String(),
 	}
 	harness.transport = &http.Transport{
@@ -161,7 +169,7 @@ func newAPIHostTestHarness(t *testing.T, apiHost string) *apiHostTestHarness {
 func newConfiguredAPIHostTest(t *testing.T, host, apiHost string) (*apiHostTestHarness, ClientOptions) {
 	t.Helper()
 
-	harness := newAPIHostTestHarness(t, apiHost)
+	harness := newAPIHostTestHarness(t, host, apiHost)
 	testutils.StubConfig(t, fmt.Sprintf("hosts:\n  %s:\n    api_host: %q\n", host, apiHost))
 	return harness, ClientOptions{
 		Host:      host,
@@ -173,7 +181,7 @@ func newConfiguredAPIHostTest(t *testing.T, host, apiHost string) (*apiHostTestH
 func newCanonicalAPIHostTest(t *testing.T, apiHost string) (*apiHostTestHarness, ClientOptions) {
 	t.Helper()
 
-	harness := newAPIHostTestHarness(t, apiHost)
+	harness := newAPIHostTestHarness(t, "github.com", apiHost)
 	testutils.StubConfig(t, "")
 	return harness, ClientOptions{
 		Host:      "github.com",
@@ -379,9 +387,44 @@ func TestAPIHostRouting(t *testing.T) {
 					authorization: "token test-token",
 				})
 				requireRequest(t, &harness.gatewayRequests, recordedRequest{
-					method: http.MethodGet,
-					path:   "/redirected",
-					host:   "subdomain." + apiHost,
+					method:        http.MethodGet,
+					path:          "/redirected",
+					host:          "subdomain." + apiHost,
+					authorization: "",
+				})
+			})
+
+			t.Run("provides token when redirected to the canonical host", func(t *testing.T) {
+				harness, opts := newConfiguredAPIHostTest(t, tt.host, apiHost)
+				httpClient, err := NewHTTPClient(opts)
+				require.NoError(t, err)
+
+				response, err := httpClient.Get("https://" + apiHost + "/redirect-to-canonical-host")
+				require.NoError(t, err)
+				require.NoError(t, response.Body.Close())
+
+				requireRequest(t, &harness.githubAPIRequests, recordedRequest{
+					method:        http.MethodGet,
+					path:          "/redirected",
+					host:          tt.host,
+					authorization: "token test-token",
+				})
+			})
+
+			t.Run("provides token when redirected to a canonical subdomain", func(t *testing.T) {
+				harness, opts := newConfiguredAPIHostTest(t, tt.host, apiHost)
+				httpClient, err := NewHTTPClient(opts)
+				require.NoError(t, err)
+
+				response, err := httpClient.Get("https://" + apiHost + "/redirect-to-canonical-subdomain")
+				require.NoError(t, err)
+				require.NoError(t, response.Body.Close())
+
+				requireRequest(t, &harness.githubAPIRequests, recordedRequest{
+					method:        http.MethodGet,
+					path:          "/redirected",
+					host:          "subdomain." + tt.host,
+					authorization: "token test-token",
 				})
 			})
 		})

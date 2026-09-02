@@ -141,15 +141,18 @@ func TestNewHTTPClient(t *testing.T) {
 			wantHeaders: defaultHeaders(),
 		},
 		{
-			name:    "withholds authorization from canonical host when API host is configured",
-			host:    "test.com",
-			apiHost: "gateway.example",
-			reqURL:  "https://test.com",
-			wantHeaders: func() http.Header {
-				h := defaultHeaders()
-				h.Del(authorization)
-				return h
-			}(),
+			name:        "adds authorization for canonical host when API host is configured",
+			host:        "test.com",
+			apiHost:     "gateway.example",
+			reqURL:      "https://test.com",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:        "adds authorization for canonical subdomain when API host is configured",
+			host:        "test.com",
+			apiHost:     "gateway.example",
+			reqURL:      "https://api.test.com",
+			wantHeaders: defaultHeaders(),
 		},
 		{
 			name:    "withholds authorization from an API host subdomain",

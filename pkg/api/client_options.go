@@ -25,12 +25,12 @@ type ClientOptions struct {
 	//
 	// If AuthToken is not provided, the Host will be used for token lookup,
 	// and requests to APIHost will be allowed to include that token. APIHost
-	// must therefore be a trusted endpoint. When APIHost is configured, the
-	// token is not sent to Host or its subdomains.
+	// must therefore be a trusted endpoint. Configuring APIHost does not prevent
+	// the token from being sent to Host or its subdomains.
 	//
 	// Absolute URLs passed to RESTClient methods are requested as given
-	// and are never rewritten to APIHost. They are authenticated only when
-	// they target APIHost.
+	// and are never rewritten to APIHost. They are authenticated when they
+	// target Host or one of its subdomains, or the exact APIHost.
 	APIHost string
 
 	// AuthToken is the authorization token that will be used

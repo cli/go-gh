@@ -46,10 +46,10 @@ func DefaultHTTPClient() (*http.Client, error) {
 // and unix domain socket are resolved from the gh environment configuration.
 // These behaviors can be overridden using the opts argument. In this instance
 // providing opts.Host or opts.APIHost will not change the destination of your
-// request, as it is the responsibility of the consumer to configure this. When
-// opts.APIHost is configured, the auth token is only added to requests targeting
-// that exact host. Otherwise, it is only added to requests targeting opts.Host or
-// one of its subdomains. This prevents tokens from being sent to arbitrary hosts.
+// request, as it is the responsibility of the consumer to configure this. The auth
+// token is only added to requests targeting opts.Host or one of its subdomains, or
+// the exact opts.APIHost when configured. This prevents tokens from being sent to
+// arbitrary hosts.
 func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 	var err error
 	if optionsNeedResolution(opts) {
@@ -215,15 +215,12 @@ func newHeaderRoundTripper(host string, apiHost string, authToken string, header
 func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	for k, v := range hrt.headers {
 		// If the default headers include an authorization header, only add it when
-		// the request targets the configured API host. When no API host is configured,
-		// allow the canonical host and its subdomains.
+		// the request targets the canonical host or one of its subdomains, or the
+		// exact configured API host.
 		requestHost := req.URL.Hostname()
 		if k == authorization {
-			if hrt.apiHost != "" && !strings.EqualFold(requestHost, hrt.apiHost) {
-				continue
-			}
-
-			if hrt.apiHost == "" && !isSameDomain(requestHost, hrt.host) {
+			isAPIHost := hrt.apiHost != "" && strings.EqualFold(requestHost, hrt.apiHost)
+			if !isSameDomain(requestHost, hrt.host) && !isAPIHost {
 				continue
 			}
 		}
