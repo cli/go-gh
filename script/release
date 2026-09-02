@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+readonly SCRIPT_DIR
+readonly REPOSITORY="cli/go-gh"
+readonly BRANCH="trunk"
+readonly RELEASE_MAJOR="2"
+
+fail() {
+	echo "error: $*" >&2
+	exit 1
+}
+
+usage() {
+	cat <<EOF
+Usage: script/release v${RELEASE_MAJOR}.MINOR.PATCH
+
+Validate a go-gh release and dispatch the release workflow on ${BRANCH}.
+The workflow publishes the release after its release environment is approved.
+EOF
+}
+
+if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
+	usage
+	exit 0
+fi
+
+[[ $# -eq 1 ]] || {
+	usage >&2
+	exit 1
+}
+
+version=$1
+
+for command in gh git; do
+	command -v "$command" >/dev/null 2>&1 ||
+		fail "required command not found: $command"
+done
+
+repository_root=$(git rev-parse --show-toplevel 2>/dev/null) ||
+	fail "run this script from a go-gh checkout"
+cd "$repository_root" ||
+	fail "could not enter repository root: $repository_root"
+
+actual_repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+[[ $actual_repository == "$REPOSITORY" ]] ||
+	fail "expected repository $REPOSITORY, found $actual_repository"
+
+"$SCRIPT_DIR/validate-release" "$version"
+
+can_push=$(gh api "repos/$REPOSITORY" --jq '.permissions.push')
+[[ $can_push == "true" ]] ||
+	fail "your GitHub account cannot create releases in $REPOSITORY"
+
+echo
+read -r -p "Dispatch the release workflow for $version? [y/N] " confirmation ||
+	fail "confirmation is required to dispatch the release workflow"
+[[ $confirmation == "y" || $confirmation == "Y" ]] ||
+	fail "release cancelled"
+
+run_url=$(gh workflow run release.yml \
+	--repo "$REPOSITORY" \
+	--ref "$BRANCH" \
+	--raw-field "version=$version")
+
+echo
+echo "Release workflow dispatched: $run_url"
