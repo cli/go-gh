@@ -55,10 +55,6 @@ actual_repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 
 "$SCRIPT_DIR/validate-release" "$version"
 
-can_push=$(gh api "repos/$REPOSITORY" --jq '.permissions.push')
-[[ $can_push == "true" ]] ||
-	fail "your GitHub account cannot create releases in $REPOSITORY"
-
 echo
 read -r -p "Dispatch the release workflow for $version? [y/N] " confirmation ||
 	fail "confirmation is required to dispatch the release workflow"
