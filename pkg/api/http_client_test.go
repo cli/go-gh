@@ -33,6 +33,8 @@ func TestHTTPClient(t *testing.T) {
 }
 
 func TestNewHTTPClient(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	reflectHTTP := tripper{
 		roundTrip: func(req *http.Request) (*http.Response, error) {
 			header := req.Header.Clone()
@@ -50,6 +52,8 @@ func TestNewHTTPClient(t *testing.T) {
 		enableLog   bool
 		log         *bytes.Buffer
 		host        string
+		apiHost     string
+		reqURL      string
 		headers     map[string]string
 		skipHeaders bool
 		wantHeaders http.Header
@@ -117,6 +121,90 @@ func TestNewHTTPClient(t *testing.T) {
 			wantHeaders: defaultHeaders(),
 		},
 		{
+			name:        "adds authorization for a canonical subdomain",
+			host:        "test.com",
+			reqURL:      "https://api.test.com",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:        "adds authorization for exact API host",
+			host:        "test.com",
+			apiHost:     "gateway.example",
+			reqURL:      "https://gateway.example",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:        "adds authorization for case-differing API host",
+			host:        "test.com",
+			apiHost:     "gateway.example",
+			reqURL:      "https://GATEWAY.example",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:    "withholds authorization from canonical host when API host is configured",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "https://test.com",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:    "withholds authorization from an API host subdomain",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "https://sub.gateway.example",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:    "withholds authorization from unrelated host",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "https://unrelated.example",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:   "withholds authorization from a port-only empty hostname without override",
+			host:   "test.com",
+			reqURL: "http://:1234/x",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:   "withholds authorization from an empty hostname without override",
+			host:   "test.com",
+			reqURL: "http:///x",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
+			name:    "withholds authorization from an empty hostname with override configured",
+			host:    "test.com",
+			apiHost: "gateway.example",
+			reqURL:  "http://:1234/x",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
 			name:        "skips default headers",
 			skipHeaders: true,
 			wantHeaders: func() http.Header {
@@ -136,8 +224,12 @@ func TestNewHTTPClient(t *testing.T) {
 			if tt.host == "" {
 				tt.host = "test.com"
 			}
+			if tt.reqURL == "" {
+				tt.reqURL = "https://test.com"
+			}
 			opts := ClientOptions{
 				Host:               tt.host,
+				APIHost:            tt.apiHost,
 				AuthToken:          "oauth_token",
 				Headers:            tt.headers,
 				SkipDefaultHeaders: tt.skipHeaders,
@@ -148,7 +240,7 @@ func TestNewHTTPClient(t *testing.T) {
 				opts.Log = tt.log
 			}
 			client, _ := NewHTTPClient(opts)
-			res, err := client.Get("https://test.com")
+			res, err := client.Get(tt.reqURL)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantHeaders, res.Header)
 			if tt.enableLog {
@@ -156,6 +248,74 @@ func TestNewHTTPClient(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewHTTPClientCheckRedirect(t *testing.T) {
+	// Redirect handling belongs to http.Client rather than the transport, so a
+	// stub transport still exercises the real policy: the client asks it for the
+	// redirected request only if the policy allows the redirect.
+	newRecordingTransport := func(methods *[]string) tripper {
+		return tripper{
+			roundTrip: func(req *http.Request) (*http.Response, error) {
+				*methods = append(*methods, req.Method)
+				if len(*methods) == 1 {
+					return &http.Response{
+						StatusCode: http.StatusMovedPermanently,
+						Header:     http.Header{"Location": []string{"https://api.github.com/repos/OWNER/NEW"}},
+						Body:       io.NopCloser(bytes.NewBufferString("")),
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: http.StatusNoContent,
+					Body:       io.NopCloser(bytes.NewBufferString("")),
+				}, nil
+			},
+		}
+	}
+
+	t.Run("follows redirects by default, downgrading DELETE to GET", func(t *testing.T) {
+		var methods []string
+		client, err := NewHTTPClient(ClientOptions{
+			Host:      "github.com",
+			AuthToken: "oauth_token",
+			Transport: newRecordingTransport(&methods),
+		})
+		assert.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodDelete, "https://api.github.com/repos/OWNER/OLD", nil)
+		assert.NoError(t, err)
+		res, err := client.Do(req)
+		assert.NoError(t, err)
+		defer res.Body.Close()
+
+		// This is the behaviour that makes the option necessary. Go turns the
+		// DELETE into a GET when it follows the redirect, so the caller is told
+		// the request succeeded while nothing was deleted.
+		assert.Equal(t, []string{http.MethodDelete, http.MethodGet}, methods)
+		assert.Equal(t, http.StatusNoContent, res.StatusCode)
+	})
+
+	t.Run("honours a CheckRedirect that stops at the redirect", func(t *testing.T) {
+		var methods []string
+		client, err := NewHTTPClient(ClientOptions{
+			Host:      "github.com",
+			AuthToken: "oauth_token",
+			Transport: newRecordingTransport(&methods),
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		})
+		assert.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodDelete, "https://api.github.com/repos/OWNER/OLD", nil)
+		assert.NoError(t, err)
+		res, err := client.Do(req)
+		assert.NoError(t, err)
+		defer res.Body.Close()
+
+		assert.Equal(t, []string{http.MethodDelete}, methods)
+		assert.Equal(t, http.StatusMovedPermanently, res.StatusCode)
+	})
 }
 
 type tripper struct {

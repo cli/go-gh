@@ -9,10 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCacheResponse(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	counter := 0
 	fakeHTTP := tripper{
 		roundTrip: func(req *http.Request) (*http.Response, error) {
@@ -97,6 +100,8 @@ func TestCacheResponse(t *testing.T) {
 }
 
 func TestCacheResponseRequestCacheOptions(t *testing.T) {
+	testutils.StubConfig(t, "")
+
 	counter := 0
 	fakeHTTP := tripper{
 		roundTrip: func(req *http.Request) (*http.Response, error) {
