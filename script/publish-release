@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+
+if [ -z "${BASH_VERSION:-}" ]; then
+	printf 'error: this script must be run with Bash\n' >&2
+	exit 1
+fi
+
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+readonly SCRIPT_DIR
+readonly REPOSITORY="cli/go-gh"
+readonly BRANCH="trunk"
+readonly RELEASE_MAJOR="2"
+readonly RELEASE_WORKFLOW_REF="$REPOSITORY/.github/workflows/release.yml@refs/heads/$BRANCH"
+
+fail() {
+	echo "error: $*" >&2
+	exit 1
+}
+
+usage() {
+	cat <<EOF
+Usage: script/publish-release v${RELEASE_MAJOR}.MINOR.PATCH TARGET_SHA
+
+Validate and publish a go-gh release. This command may only be run by the
+workflow_dispatch release workflow.
+EOF
+}
+
+if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
+	usage
+	exit 0
+fi
+
+[[ $# -eq 2 ]] || {
+	usage >&2
+	exit 1
+}
+
+version=$1
+target_sha=$2
+
+[[ ${GITHUB_ACTIONS:-} == "true" &&
+	${GITHUB_EVENT_NAME:-} == "workflow_dispatch" &&
+	${GITHUB_WORKFLOW_REF:-} == "$RELEASE_WORKFLOW_REF" ]] ||
+	fail "releases may only be published by the release workflow"
+
+for command in gh git; do
+	command -v "$command" >/dev/null 2>&1 ||
+		fail "required command not found: $command"
+done
+
+repository_root=$(git rev-parse --show-toplevel 2>/dev/null) ||
+	fail "run this script from a go-gh checkout"
+cd "$repository_root" ||
+	fail "could not enter repository root: $repository_root"
+
+actual_repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+[[ $actual_repository == "$REPOSITORY" ]] ||
+	fail "expected repository $REPOSITORY, found $actual_repository"
+
+"$SCRIPT_DIR/validate-release" "$version" "$target_sha"
+
+release_url=$(gh release create "$version" \
+	--repo "$REPOSITORY" \
+	--target "$target_sha" \
+	--title "$version" \
+	--generate-notes \
+	--fail-on-no-commits)
+
+echo
+echo "Release published: $release_url"
