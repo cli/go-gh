@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 
+if [ -z "${BASH_VERSION:-}" ]; then
+	printf 'error: this script must be run with Bash\n' >&2
+	exit 1
+fi
+
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 readonly SCRIPT_DIR
 readonly REPOSITORY="cli/go-gh"
+readonly BRANCH="trunk"
 readonly RELEASE_MAJOR="2"
+readonly RELEASE_WORKFLOW_REF="$REPOSITORY/.github/workflows/release.yml@refs/heads/$BRANCH"
 
 fail() {
 	echo "error: $*" >&2
@@ -35,7 +42,8 @@ version=$1
 target_sha=$2
 
 [[ ${GITHUB_ACTIONS:-} == "true" &&
-	${GITHUB_EVENT_NAME:-} == "workflow_dispatch" ]] ||
+	${GITHUB_EVENT_NAME:-} == "workflow_dispatch" &&
+	${GITHUB_WORKFLOW_REF:-} == "$RELEASE_WORKFLOW_REF" ]] ||
 	fail "releases may only be published by the release workflow"
 
 for command in gh git; do
@@ -53,10 +61,6 @@ actual_repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 	fail "expected repository $REPOSITORY, found $actual_repository"
 
 "$SCRIPT_DIR/validate-release" "$version" "$target_sha"
-
-can_push=$(gh api "repos/$REPOSITORY" --jq '.permissions.push')
-[[ $can_push == "true" ]] ||
-	fail "the GitHub token cannot create releases in $REPOSITORY"
 
 release_url=$(gh release create "$version" \
 	--repo "$REPOSITORY" \

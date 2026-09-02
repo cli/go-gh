@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ -z "${BASH_VERSION:-}" ]; then
+	printf 'error: this script must be run with Bash\n' >&2
+	exit 1
+fi
+
 set -euo pipefail
 
 readonly REPOSITORY="cli/go-gh"
@@ -16,7 +21,7 @@ usage() {
 Usage: script/validate-release v${RELEASE_MAJOR}.MINOR.PATCH [TARGET_SHA]
 
 Validate a go-gh release against the current origin/${BRANCH}.
-TARGET_SHA defaults to the current origin/${BRANCH} commit.
+When provided, TARGET_SHA must match the current origin/${BRANCH} commit.
 EOF
 }
 
@@ -37,7 +42,7 @@ if [[ ! $version =~ ^v${RELEASE_MAJOR}\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; th
 	fail "version must be a stable v${RELEASE_MAJOR}.MINOR.PATCH tag without leading zeroes"
 fi
 
-for command in gh git grep mktemp; do
+for command in gh git mktemp; do
 	command -v "$command" >/dev/null 2>&1 ||
 		fail "required command not found: $command"
 done
@@ -69,55 +74,76 @@ fi
 if release_lookup=$(gh release view "$version" \
 	--repo "$REPOSITORY" 2>&1); then
 	fail "release already exists: $version"
-elif [[ $release_lookup != "release not found" ]]; then
+elif [[ $release_lookup != *"release not found"* ]]; then
 	fail "could not check for an existing release: $release_lookup"
 fi
 
-latest_version=$(gh release view \
+latest_version=$(gh release list \
 	--repo "$REPOSITORY" \
+	--exclude-drafts \
+	--exclude-pre-releases \
+	--limit 1 \
 	--json tagName \
-	--jq .tagName)
-if [[ ! $latest_version =~ ^v${RELEASE_MAJOR}\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+	--jq '.[0].tagName // ""')
+if [[ -n $latest_version &&
+	! $latest_version =~ ^v${RELEASE_MAJOR}\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
 	fail "latest release has an unexpected version: $latest_version"
 fi
 
-latest_minor=${BASH_REMATCH[1]}
-latest_patch=${BASH_REMATCH[2]}
-[[ $version =~ ^v${RELEASE_MAJOR}\.([0-9]+)\.([0-9]+)$ ]]
-candidate_minor=${BASH_REMATCH[1]}
-candidate_patch=${BASH_REMATCH[2]}
+if [[ -n $latest_version ]]; then
+	latest_minor=${BASH_REMATCH[1]}
+	latest_patch=${BASH_REMATCH[2]}
+	[[ $version =~ ^v${RELEASE_MAJOR}\.([0-9]+)\.([0-9]+)$ ]]
+	candidate_minor=${BASH_REMATCH[1]}
+	candidate_patch=${BASH_REMATCH[2]}
 
-if ((candidate_minor < latest_minor ||
-	candidate_minor == latest_minor && candidate_patch <= latest_patch)); then
-	fail "$version must be newer than the latest release, $latest_version"
+	if ((candidate_minor < latest_minor ||
+		candidate_minor == latest_minor && candidate_patch <= latest_patch)); then
+		fail "$version must be newer than the latest release, $latest_version"
+	fi
+
+	latest_sha=$(git rev-list -n 1 "$latest_version")
+	git merge-base --is-ancestor "$latest_sha" "$target_sha" ||
+		fail "origin/${BRANCH} does not contain $latest_version"
+	[[ $latest_sha != "$target_sha" ]] ||
+		fail "there are no commits since $latest_version"
 fi
-
-latest_sha=$(git rev-list -n 1 "$latest_version")
-git merge-base --is-ancestor "$latest_sha" "$target_sha" ||
-	fail "origin/${BRANCH} does not contain $latest_version"
-[[ $latest_sha != "$target_sha" ]] ||
-	fail "there are no commits since $latest_version"
 
 required_checks_file=$(mktemp)
 check_runs_file=$(mktemp)
 trap 'rm -f "$required_checks_file" "$check_runs_file"' EXIT
 
 gh api \
-	"repos/$REPOSITORY/branches/$BRANCH/protection/required_status_checks" \
-	--jq '.checks[] | [.context, (.app_id | tostring)] | @tsv' \
-	>"$required_checks_file"
-gh api \
+	"repos/$REPOSITORY/rules/branches/$BRANCH" \
+	--jq '.[] | select(.type == "required_status_checks") |
+		.parameters.required_status_checks[] |
+		[.context, ((.integration_id // -1) | tostring)] | @tsv' \
+	>"$required_checks_file" ||
+	fail "could not read rules for $BRANCH"
+[[ -s $required_checks_file ]] ||
+	fail "no required status checks are configured for $BRANCH"
+
+gh api --paginate \
 	"repos/$REPOSITORY/commits/$target_sha/check-runs?per_page=100" \
 	--jq '.check_runs[] | [.name, (.app.id | tostring), .status, (.conclusion // "")] | @tsv' \
-	>"$check_runs_file"
+	>"$check_runs_file" ||
+	fail "could not read check runs for $target_sha"
 
 failed_checks=()
-while IFS=$'\t' read -r check_name app_id; do
-	[[ -n $check_name ]] || continue
-	if ! grep -Fqx \
-		"$check_name"$'\t'"$app_id"$'\t'"completed"$'\t'"success" \
-		"$check_runs_file"; then
-		failed_checks+=("$check_name")
+while IFS=$'\t' read -r required_name required_app_id; do
+	check_succeeded=false
+	while IFS=$'\t' read -r check_name app_id status conclusion; do
+		if [[ $check_name == "$required_name" &&
+			($required_app_id == "-1" || $app_id == "$required_app_id") &&
+			$status == "completed" && $conclusion == "success" ]]; then
+			check_succeeded=true
+			break
+		fi
+	done <"$check_runs_file"
+
+	[[ -n $required_name ]] || continue
+	if [[ $check_succeeded != "true" ]]; then
+		failed_checks+=("$required_name")
 	fi
 done <"$required_checks_file"
 
@@ -134,6 +160,6 @@ remote_sha=$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)
 
 echo
 echo "Release: $version"
-echo "Previous: $latest_version"
+echo "Previous: ${latest_version:-none}"
 echo "Target:  $target_sha"
 echo "Checks:  all required checks succeeded"

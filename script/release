@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ -z "${BASH_VERSION:-}" ]; then
+	printf 'error: this script must be run with Bash\n' >&2
+	exit 1
+fi
+
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -60,10 +65,11 @@ read -r -p "Dispatch the release workflow for $version? [y/N] " confirmation ||
 [[ $confirmation == "y" || $confirmation == "Y" ]] ||
 	fail "release cancelled"
 
-run_url=$(gh workflow run release.yml \
+gh workflow run release.yml \
 	--repo "$REPOSITORY" \
 	--ref "$BRANCH" \
-	--raw-field "version=$version")
+	--raw-field "version=$version"
 
 echo
-echo "Release workflow dispatched: $run_url"
+echo "Release workflow dispatched for $version"
+echo "View runs: https://github.com/$REPOSITORY/actions/workflows/release.yml"
