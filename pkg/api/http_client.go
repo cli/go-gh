@@ -130,6 +130,7 @@ func NewHTTPClient(opts ClientOptions) (*http.Client, error) {
 func inspectableMIMEType(t string) bool {
 	return strings.HasPrefix(t, "text/") ||
 		strings.HasPrefix(t, "application/x-www-form-urlencoded") ||
+		strings.HasPrefix(t, "application/octocat-stream") ||
 		jsonTypeRE.MatchString(t)
 }
 
