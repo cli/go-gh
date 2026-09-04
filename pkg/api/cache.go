@@ -176,18 +176,21 @@ func (fs *fileStorage) store(key string, res *http.Response) (storeErr error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	if storeErr = os.MkdirAll(filepath.Dir(cacheFile), 0755); storeErr != nil {
+	dir := filepath.Dir(cacheFile)
+	if storeErr = os.MkdirAll(dir, 0755); storeErr != nil {
 		return
 	}
 
+	// Write to a temporary file in the same directory, then rename into place
+	// so concurrent processes and partial writes cannot corrupt the cache entry.
 	var f *os.File
-	if f, storeErr = os.OpenFile(cacheFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600); storeErr != nil {
+	if f, storeErr = os.CreateTemp(dir, ".gh-cache-*"); storeErr != nil {
 		return
 	}
-
+	tmpName := f.Name()
 	defer func() {
-		if err := f.Close(); storeErr == nil && err != nil {
-			storeErr = err
+		if storeErr != nil {
+			_ = os.Remove(tmpName)
 		}
 	}()
 
@@ -202,6 +205,19 @@ func (fs *fileStorage) store(key string, res *http.Response) (storeErr error) {
 		res.Body = origBody
 	}
 
+	if cerr := f.Close(); storeErr == nil && cerr != nil {
+		storeErr = cerr
+	}
+	if storeErr != nil {
+		return
+	}
+
+	if err := os.Chmod(tmpName, 0600); err != nil {
+		storeErr = err
+		return
+	}
+
+	storeErr = os.Rename(tmpName, cacheFile)
 	return
 }
 
