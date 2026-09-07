@@ -1,8 +1,10 @@
 package repository
 
 import (
+	"os"
 	"testing"
 
+	"github.com/cli/go-gh/v2/internal/git"
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -188,4 +190,34 @@ func TestParseWithHost(t *testing.T) {
 			assert.Equal(t, tt.wantName, r.Name)
 		})
 	}
+}
+
+func TestCurrentPrefersResolvedRemote(t *testing.T) {
+	testutils.StubConfig(t, `
+hosts:
+  github.com:
+    oauth_token: token
+`)
+
+	tempDir := t.TempDir()
+	oldWd, err := os.Getwd()
+	assert.NoError(t, err)
+	assert.NoError(t, os.Chdir(tempDir))
+	t.Cleanup(func() { _ = os.Chdir(oldWd) })
+
+	_, _, err = git.Exec("init", "--quiet")
+	assert.NoError(t, err)
+	_, _, err = git.Exec("remote", "add", "origin", "git@github.com:parent-org/example.git")
+	assert.NoError(t, err)
+	_, _, err = git.Exec("remote", "add", "github", "git@github.com:my-user/example.git")
+	assert.NoError(t, err)
+	_, _, err = git.Exec("config", "remote.origin.gh-resolved", "base")
+	assert.NoError(t, err)
+
+	repository, err := Current()
+
+	assert.NoError(t, err)
+	assert.Equal(t, "github.com", repository.Host)
+	assert.Equal(t, "parent-org", repository.Owner)
+	assert.Equal(t, "example", repository.Name)
 }
