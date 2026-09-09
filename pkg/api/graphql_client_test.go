@@ -321,3 +321,77 @@ func TestNewGraphQLClientAPIHostEndpoint(t *testing.T) {
 		})
 	}
 }
+func TestGraphQLClientQueryHTTPError(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		BodyString(`{"query":"query QUERY{organization{name}}"}`).
+		Reply(401).
+		JSON(`{"message":"Bad credentials"}`)
+
+	client, err := DefaultGraphQLClient()
+	assert.NoError(t, err)
+
+	var res struct{ Organization struct{ Name string } }
+	err = client.Query("QUERY", &res, nil)
+
+	var httpErr *HTTPError
+	assert.True(t, errors.As(err, &httpErr))
+	assert.Equal(t, 401, httpErr.StatusCode)
+	assert.Equal(t, "Bad credentials", httpErr.Message)
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestGraphQLClientMutateHTTPError(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		BodyString(`{"query":"mutation MUTATE($input:ID!){updateRepository{repository{name}}}","variables":{"input":"variables"}}`).
+		Reply(404).
+		JSON(`{"message":"Not Found"}`)
+
+	client, err := DefaultGraphQLClient()
+	assert.NoError(t, err)
+
+	var mutation struct {
+		UpdateRepository struct{ Repository struct{ Name string } }
+	}
+	variables := map[string]interface{}{"input": "variables"}
+	err = client.Mutate("MUTATE", &mutation, variables)
+
+	var httpErr *HTTPError
+	assert.True(t, errors.As(err, &httpErr))
+	assert.Equal(t, 404, httpErr.StatusCode)
+	assert.Equal(t, "Not Found", httpErr.Message)
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestGraphQLClientDoHTTPError(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		BodyString(`{"query":"QUERY","variables":null}`).
+		Reply(403).
+		JSON(`{"message":"API rate limit exceeded"}`)
+
+	client, err := DefaultGraphQLClient()
+	assert.NoError(t, err)
+
+	var res struct{ Viewer struct{ Login string } }
+	err = client.Do("QUERY", nil, &res)
+
+	var httpErr *HTTPError
+	assert.True(t, errors.As(err, &httpErr))
+	assert.Equal(t, 403, httpErr.StatusCode)
+	assert.Equal(t, "API rate limit exceeded", httpErr.Message)
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}

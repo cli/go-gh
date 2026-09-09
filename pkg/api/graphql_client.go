@@ -56,8 +56,11 @@ func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
 		endpoint = swapHost(endpoint, opts.APIHost)
 	}
 
+	gqlHTTPClient := *httpClient
+	gqlHTTPClient.Transport = newHTTPErrorRoundTripper(httpClient.Transport)
+
 	return &GraphQLClient{
-		client:     graphql.NewClient(endpoint, httpClient),
+		client:     graphql.NewClient(endpoint, &gqlHTTPClient),
 		endpoint:   endpoint,
 		httpClient: httpClient,
 	}, nil
@@ -136,12 +139,47 @@ func (c *GraphQLClient) MutateWithContext(ctx context.Context, name string, m in
 		}
 		err = &GraphQLError{items}
 	}
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr
+	}
 	return err
 }
 
 // Mutate wraps MutateWithContext using context.Background.
 func (c *GraphQLClient) Mutate(name string, m interface{}, variables map[string]interface{}) error {
 	return c.MutateWithContext(context.Background(), name, m, variables)
+}
+
+// httpErrorRoundTripper converts GraphQL responses outside the 2xx range into
+// an HTTPError so that callers can inspect and format them like any other API
+// error. Without it, the underlying GraphQL client turns such responses into a
+// plain string error that carries no status code, headers, or body.
+type httpErrorRoundTripper struct {
+	rt http.RoundTripper
+}
+
+// RoundTrip implements http.RoundTripper.
+func (rt httpErrorRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := rt.rt.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
+	if resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
+		return resp, nil
+	}
+	if resp.Request == nil {
+		resp.Request = req
+	}
+	defer resp.Body.Close()
+	return nil, HandleHTTPError(resp)
+}
+
+func newHTTPErrorRoundTripper(rt http.RoundTripper) http.RoundTripper {
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+	return httpErrorRoundTripper{rt: rt}
 }
 
 // QueryWithContext executes a GraphQL query request,
@@ -164,6 +202,10 @@ func (c *GraphQLClient) QueryWithContext(ctx context.Context, name string, q int
 			}
 		}
 		err = &GraphQLError{items}
+	}
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr
 	}
 	return err
 }
