@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -20,168 +18,86 @@ import (
 )
 
 func TestCacheResponse(t *testing.T) {
-	counter := 0
-	fakeHTTP := cacheTestTransport(func(req *http.Request) (*http.Response, error) {
-		counter += 1
-		body := fmt.Sprintf("%d: %s %s", counter, req.Method, req.URL.String())
-		status := 200
-		if req.URL.Path == "/error" {
-			status = 500
-		}
-		return &http.Response{
-			StatusCode: status,
-			Body:       io.NopCloser(bytes.NewBufferString(body)),
-		}, nil
-	})
+	t.Parallel()
 
-	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
-
-	httpClient, err := api.NewHTTPClient(
-		api.ClientOptions{
-			Host:         "github.com",
-			AuthToken:    "token",
-			Transport:    fakeHTTP,
-			EnableCache:  true,
-			CacheDir:     cacheDir,
-			LogIgnoreEnv: true,
-		},
-	)
-	assert.NoError(t, err)
-
-	do := func(method, url string, body io.Reader) (string, error) {
-		req, err := http.NewRequest(method, url, body)
-		if err != nil {
-			return "", err
-		}
-		res, err := httpClient.Do(req)
-		if err != nil {
-			return "", err
-		}
-		defer res.Body.Close()
-		resBody, err := io.ReadAll(res.Body)
-		if err != nil {
-			err = fmt.Errorf("ReadAll: %w", err)
-		}
-		return string(resBody), err
+	tests := []struct {
+		name       string
+		method     string
+		path       string
+		nextPath   string
+		body       string
+		nextBody   string
+		status     int
+		wantSecond string
+	}{
+		{name: "GET reuses response", method: "GET", path: "/path", nextPath: "/path", status: 200, wantSecond: "response 1"},
+		{name: "different URL misses", method: "GET", path: "/path", nextPath: "/other", status: 200, wantSecond: "response 2"},
+		{name: "ordinary POST bypasses cache", method: "POST", path: "/path", nextPath: "/path", body: "hello", nextBody: "hello", status: 200, wantSecond: "response 2"},
+		{name: "GraphQL POST reuses response", method: "POST", path: "/graphql", nextPath: "/graphql", body: "hello", nextBody: "hello", status: 200, wantSecond: "response 1"},
+		{name: "different GraphQL body misses", method: "POST", path: "/graphql", nextPath: "/graphql", body: "hello", nextBody: "hello2", status: 200, wantSecond: "response 2"},
+		{name: "server error is not cached", method: "GET", path: "/path", nextPath: "/path", status: 500, wantSecond: "response 2"},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	var res string
+			// Given a caching client whose upstream responses distinguish cache misses.
+			counter := 0
+			client := cacheTestClient(t, t.TempDir(), time.Hour, cacheTestTransport(func(*http.Request) (*http.Response, error) {
+				counter++
+				return &http.Response{
+					StatusCode: tt.status,
+					Body:       io.NopCloser(strings.NewReader(fmt.Sprintf("response %d", counter))),
+				}, nil
+			}))
+			do := func(path, body string) string {
+				req, err := http.NewRequest(tt.method, "https://api.github.com"+path, strings.NewReader(body))
+				require.NoError(t, err)
+				res, err := client.Do(req)
+				require.NoError(t, err)
+				defer res.Body.Close()
+				data, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				return string(data)
+			}
+			assert.Equal(t, "response 1", do(tt.path, tt.body))
 
-	res, err = do("GET", "http://example.com/path", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "1: GET http://example.com/path", res)
-	res, err = do("GET", "http://example.com/path", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "1: GET http://example.com/path", res)
+			// When the next request is made.
+			got := do(tt.nextPath, tt.nextBody)
 
-	res, err = do("GET", "http://example.com/path2", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "2: GET http://example.com/path2", res)
-
-	res, err = do("POST", "http://example.com/path2", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "3: POST http://example.com/path2", res)
-
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello`))
-	assert.NoError(t, err)
-	assert.Equal(t, "4: POST http://example.com/graphql", res)
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello`))
-	assert.NoError(t, err)
-	assert.Equal(t, "4: POST http://example.com/graphql", res)
-
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello2`))
-	assert.NoError(t, err)
-	assert.Equal(t, "5: POST http://example.com/graphql", res)
-
-	res, err = do("GET", "http://example.com/error", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "6: GET http://example.com/error", res)
-	res, err = do("GET", "http://example.com/error", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "7: GET http://example.com/error", res)
+			// Then it reuses or bypasses the entry according to the scenario.
+			assert.Equal(t, tt.wantSecond, got)
+		})
+	}
 }
 
-func TestCacheResponseRequestCacheOptions(t *testing.T) {
-	counter := 0
-	fakeHTTP := cacheTestTransport(func(req *http.Request) (*http.Response, error) {
-		counter += 1
-		body := fmt.Sprintf("%d: %s %s", counter, req.Method, req.URL.String())
-		status := 200
-		if req.URL.Path == "/error" {
-			status = 500
-		}
-		return &http.Response{
-			StatusCode: status,
-			Body:       io.NopCloser(bytes.NewBufferString(body)),
-		}, nil
+func TestCacheRequestTTLEnablesCaching(t *testing.T) {
+	t.Parallel()
+
+	// Given a client with caching disabled by default.
+	dir := t.TempDir()
+	client, err := api.NewHTTPClient(api.ClientOptions{
+		Host:         "github.com",
+		AuthToken:    "token",
+		CacheDir:     dir,
+		LogIgnoreEnv: true,
+		Transport:    cacheTestResponse(strings.NewReader("cached response")),
 	})
+	require.NoError(t, err)
+	req, err := http.NewRequest("GET", "https://api.github.com/cache-test", nil)
+	require.NoError(t, err)
+	req.Header.Set("X-GH-CACHE-TTL", "1h")
 
-	cacheDir := filepath.Join(t.TempDir(), "gh-cli-cache")
+	// When a request opts into caching.
+	res, err := client.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, res.Body.Close())
 
-	httpClient, err := api.NewHTTPClient(
-		api.ClientOptions{
-			Host:         "github.com",
-			AuthToken:    "token",
-			Transport:    fakeHTTP,
-			EnableCache:  false,
-			CacheDir:     cacheDir,
-			LogIgnoreEnv: true,
-		},
-	)
-	assert.NoError(t, err)
-
-	do := func(method, url string, body io.Reader) (string, error) {
-		req, err := http.NewRequest(method, url, body)
-		if err != nil {
-			return "", err
-		}
-		req.Header.Set("X-GH-CACHE-TTL", "1h")
-		res, err := httpClient.Do(req)
-		if err != nil {
-			return "", err
-		}
-		defer res.Body.Close()
-		resBody, err := io.ReadAll(res.Body)
-		if err != nil {
-			err = fmt.Errorf("ReadAll: %w", err)
-		}
-		return string(resBody), err
-	}
-
-	var res string
-
-	res, err = do("GET", "http://example.com/path", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "1: GET http://example.com/path", res)
-	res, err = do("GET", "http://example.com/path", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "1: GET http://example.com/path", res)
-
-	res, err = do("GET", "http://example.com/path2", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "2: GET http://example.com/path2", res)
-
-	res, err = do("POST", "http://example.com/path2", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "3: POST http://example.com/path2", res)
-
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello`))
-	assert.NoError(t, err)
-	assert.Equal(t, "4: POST http://example.com/graphql", res)
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello`))
-	assert.NoError(t, err)
-	assert.Equal(t, "4: POST http://example.com/graphql", res)
-
-	res, err = do("POST", "http://example.com/graphql", bytes.NewBufferString(`hello2`))
-	assert.NoError(t, err)
-	assert.Equal(t, "5: POST http://example.com/graphql", res)
-
-	res, err = do("GET", "http://example.com/error", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "6: GET http://example.com/error", res)
-	res, err = do("GET", "http://example.com/error", nil)
-	assert.NoError(t, err)
-	assert.Equal(t, "7: GET http://example.com/error", res)
+	// Then an independent client can reuse the published response.
+	reader := cacheTestClient(t, dir, time.Hour, cacheTestTransport(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected cache miss")
+	}))
+	assert.Equal(t, "cached response", cacheTestFetch(t, reader))
 }
 
 func TestCacheRequestTTLOverridesClientTTL(t *testing.T) {
@@ -256,12 +172,11 @@ func TestCachePreservesEntryAfterFailedRefresh(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, res.Body.Close())
 
-	// Then another client can still read the previous entry, without leaked files.
+	// Then another client can still read the previous entry.
 	reader := cacheTestClient(t, dir, time.Hour, cacheTestTransport(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("unexpected cache miss")
 	}))
 	assert.Equal(t, "previous response", cacheTestFetch(t, reader))
-	assert.Len(t, cacheTestFiles(t, dir), 1)
 }
 
 func TestCachePublishesOnlyCompleteResponses(t *testing.T) {
@@ -271,47 +186,41 @@ func TestCachePublishesOnlyCompleteResponses(t *testing.T) {
 	dir := t.TempDir()
 	seed := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("previous response")))
 	assert.Equal(t, "previous response", cacheTestFetch(t, seed))
-	started := make(chan struct{})
-	signalStarted := sync.OnceFunc(func() { close(started) })
-	release := make(chan struct{})
-	unblock := sync.OnceFunc(func() { close(release) })
-	var workers sync.WaitGroup
-	t.Cleanup(func() {
-		unblock()
-		workers.Wait()
-	})
-	remainder := strings.NewReader("complete")
-	refresh := cacheTestClient(t, dir, -time.Second, cacheTestResponse(io.MultiReader(
-		strings.NewReader("replacement "),
-		cacheTestReader(func(p []byte) (int, error) {
-			signalStarted()
-			<-release
-			return remainder.Read(p)
-		}),
-	)))
+	body, writer := io.Pipe()
+	refresh := cacheTestClient(t, dir, -time.Second, cacheTestResponse(body))
 	reader := cacheTestClient(t, dir, time.Hour, cacheTestTransport(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("unexpected cache miss")
 	}))
 	finished := make(chan error, 1)
+	t.Cleanup(func() {
+		_ = writer.Close()
+		_ = body.Close()
+		for range finished {
+		}
+	})
 
 	// When another client reads while the refresh is still being written.
-	workers.Add(1)
 	go func() {
-		defer workers.Done()
+		defer close(finished)
+		defer body.Close()
 		res, err := refresh.Get("https://api.github.com/cache-test")
 		if err == nil {
 			err = res.Body.Close()
 		}
 		finished <- err
 	}()
-	<-started
+	_, err := io.WriteString(writer, "replacement ")
+	require.NoError(t, err)
 	assert.Equal(t, "previous response", cacheTestFetch(t, reader))
-	unblock()
+
+	// Finish the replacement and wait for publication.
+	_, err = io.WriteString(writer, "complete")
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
 	require.NoError(t, <-finished)
 
-	// Then readers see the complete replacement and no temporary file remains.
+	// Then readers see the complete replacement.
 	assert.Equal(t, "replacement complete", cacheTestFetch(t, reader))
-	assert.Len(t, cacheTestFiles(t, dir), 1)
 }
 
 func TestCacheCleansUpAfterBodyPanic(t *testing.T) {

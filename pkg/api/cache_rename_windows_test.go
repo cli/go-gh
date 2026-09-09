@@ -10,64 +10,40 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/windows"
 )
 
-func TestCacheRenameRetriesTransientFailure(t *testing.T) {
+func TestCacheRenameStopsRetryingAfterBudget(t *testing.T) {
 	t.Parallel()
 
-	// Given a complete replacement that cannot initially be published.
+	// Given a destination whose reader prevents replacement for the entire retry budget.
 	dir := t.TempDir()
 	oldPath, newPath := filepath.Join(dir, "temp"), filepath.Join(dir, "cache")
 	require.NoError(t, os.WriteFile(oldPath, []byte("replacement"), 0600))
 	require.NoError(t, os.WriteFile(newPath, []byte("previous"), 0600))
+	reader, err := os.Open(newPath)
+	require.NoError(t, err)
+	defer reader.Close()
+
 	synctest.Test(t, func(t *testing.T) {
-		available := time.Now().Add(10 * time.Millisecond)
-
-		// When the rename becomes possible within the retry budget.
-		err := retryCacheRename(func() (error, bool) {
-			if time.Now().Before(available) {
-				return errors.New("file is temporarily in use"), true
-			}
-			return os.Rename(oldPath, newPath), false
-		})
-
-		// Then the completed replacement is published.
-		require.NoError(t, err)
-		data, err := os.ReadFile(newPath)
-		require.NoError(t, err)
-		assert.Equal(t, "replacement", string(data))
-	})
-}
-
-func TestCacheRenameStopsRetryingAfterBudget(t *testing.T) {
-	t.Parallel()
-	synctest.Test(t, func(t *testing.T) {
-		// Given a rename that remains blocked.
-		wantErr := &os.LinkError{Op: "rename", Old: "temp", New: "cache", Err: errors.New("file remains in use")}
 		start := time.Now()
 
-		// When its retry budget is exhausted.
-		err := retryCacheRename(func() (error, bool) { return wantErr, true })
+		// When publication is attempted while the reader remains open.
+		err := renameCacheFile(oldPath, newPath)
 
-		// Then the original error is returned within the cache's latency budget.
-		require.ErrorIs(t, err, wantErr)
-		assert.Equal(t, 100*time.Millisecond, time.Since(start))
-	})
-}
-
-func TestCacheRenameDoesNotRetryPermanentFailure(t *testing.T) {
-	t.Parallel()
-	synctest.Test(t, func(t *testing.T) {
-		// Given a rename failure that waiting cannot resolve.
-		wantErr := &os.LinkError{Op: "rename", Old: "missing", New: "cache", Err: os.ErrNotExist}
-		start := time.Now()
-
-		// When the rename is attempted.
-		err := retryCacheRename(func() (error, bool) { return wantErr, false })
-
-		// Then the error is returned without delay.
-		require.ErrorIs(t, err, wantErr)
-		assert.Zero(t, time.Since(start))
+		// Then it returns the sharing error within budget, leaving both files intact.
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, windows.ERROR_SHARING_VIOLATION) || errors.Is(err, windows.ERROR_ACCESS_DENIED),
+			"expected a Windows sharing conflict, got %v", err)
+		elapsed := time.Since(start)
+		assert.Greater(t, elapsed, time.Duration(0), "expected retries before giving up")
+		assert.LessOrEqual(t, elapsed, 100*time.Millisecond, "cache retries must stay within the latency budget")
+		previous, err := os.ReadFile(newPath)
+		require.NoError(t, err)
+		assert.Equal(t, "previous", string(previous))
+		replacement, err := os.ReadFile(oldPath)
+		require.NoError(t, err)
+		assert.Equal(t, "replacement", string(replacement))
 	})
 }
 

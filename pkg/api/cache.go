@@ -124,8 +124,7 @@ func (crt cacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 func requestCacheOptions(req *http.Request) (string, time.Duration) {
 	var dur time.Duration
 	// Added alongside the TTL header in https://github.com/cli/go-gh/pull/49.
-	// No production consumer of the directory override is known; retain it for
-	// compatibility, without dedicated test coverage until a use case is identified.
+	// No production consumer of the directory override is known.
 	dir := req.Header.Get("X-GH-CACHE-DIR")
 	ttl := req.Header.Get("X-GH-CACHE-TTL")
 	if ttl != "" {
