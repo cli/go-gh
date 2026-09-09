@@ -181,17 +181,16 @@ func (fs *fileStorage) store(key string, res *http.Response) (storeErr error) {
 		return
 	}
 
-	// Write to a temporary file in the same directory, then rename into place
-	// so concurrent processes and partial writes cannot corrupt the cache entry.
+	// Finish writing before publishing the entry. Same-directory rename gives
+	// atomic replacement on Unix; it is best-effort on other platforms.
 	var f *os.File
 	if f, storeErr = os.CreateTemp(dir, ".gh-cache-*"); storeErr != nil {
 		return
 	}
 	tmpName := f.Name()
 	defer func() {
-		if storeErr != nil {
-			_ = os.Remove(tmpName)
-		}
+		_ = f.Close()
+		_ = os.Remove(tmpName)
 	}()
 
 	var origBody io.ReadCloser
@@ -212,12 +211,7 @@ func (fs *fileStorage) store(key string, res *http.Response) (storeErr error) {
 		return
 	}
 
-	if err := os.Chmod(tmpName, 0600); err != nil {
-		storeErr = err
-		return
-	}
-
-	storeErr = os.Rename(tmpName, cacheFile)
+	storeErr = renameCacheFile(tmpName, cacheFile)
 	return
 }
 
