@@ -123,6 +123,9 @@ func (crt cacheRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 // Allow an individual request to override cache options.
 func requestCacheOptions(req *http.Request) (string, time.Duration) {
 	var dur time.Duration
+	// Added alongside the TTL header in https://github.com/cli/go-gh/pull/49.
+	// No production consumer of the directory override is known; retain it for
+	// compatibility, without dedicated test coverage until a use case is identified.
 	dir := req.Header.Get("X-GH-CACHE-DIR")
 	ttl := req.Header.Get("X-GH-CACHE-TTL")
 	if ttl != "" {
@@ -170,56 +173,62 @@ func (fs *fileStorage) read(key string) (*http.Response, error) {
 	return res, err
 }
 
-func (fs *fileStorage) store(key string, res *http.Response) (storeErr error) {
-	cacheFile := fs.filePath(key)
-
+func (fs *fileStorage) store(key string, res *http.Response) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	dir := filepath.Dir(cacheFile)
-	if storeErr = os.MkdirAll(dir, 0755); storeErr != nil {
-		return
+	cacheFilePath := fs.filePath(key)
+	dir := filepath.Dir(cacheFilePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
 	}
 
 	// Finish writing before publishing the entry. Same-directory rename gives
 	// atomic replacement on Unix; it is best-effort on other platforms.
-	var f *os.File
-	if f, storeErr = os.CreateTemp(dir, ".gh-cache-*"); storeErr != nil {
-		return
+	tmpCacheFile, err := os.CreateTemp(dir, ".gh-cache-*")
+	if err != nil {
+		return err
 	}
-	tmpName := f.Name()
+	tmpCacheFileName := tmpCacheFile.Name()
+	// Clean up on errors and panics too. After a successful rename, the
+	// temporary path no longer exists, so removing it is harmless.
 	defer func() {
-		_ = f.Close()
-		_ = os.Remove(tmpName)
+		_ = tmpCacheFile.Close()
+		_ = os.Remove(tmpCacheFileName)
 	}()
 
-	var origBody io.ReadCloser
-	if res.Body != nil {
-		origBody, res.Body = copyStream(res.Body)
-		defer res.Body.Close()
+	if err := writeCacheResponse(tmpCacheFile, res); err != nil {
+		return err
+	}
+	if err := tmpCacheFile.Close(); err != nil {
+		return err
 	}
 
-	storeErr = res.Write(f)
-	if origBody != nil {
-		res.Body = origBody
-	}
-
-	if cerr := f.Close(); storeErr == nil && cerr != nil {
-		storeErr = cerr
-	}
-	if storeErr != nil {
-		return
-	}
-
-	storeErr = renameCacheFile(tmpName, cacheFile)
-	return
+	return renameCacheFile(tmpCacheFileName, cacheFilePath)
 }
 
-func copyStream(r io.ReadCloser) (io.ReadCloser, io.ReadCloser) {
-	b := &bytes.Buffer{}
-	nr := io.TeeReader(r, b)
-	return io.NopCloser(b), &readCloser{
-		Reader: nr,
-		Closer: r,
+func writeCacheResponse(w io.Writer, res *http.Response) error {
+	if res.Body == nil {
+		// Serialize the HTTP response headers only, since there is no body.
+		return res.Write(w)
+	}
+
+	// Buffer the bytes consumed during serialization so the caller can replay
+	// them. Restore the replay reader even if writing fails or panics.
+	replay, source := copyStream(res.Body)
+	res.Body = source
+	defer source.Close()
+	defer func() {
+		res.Body = replay
+	}()
+
+	return res.Write(w)
+}
+
+func copyStream(body io.ReadCloser) (replay, source io.ReadCloser) {
+	buffer := &bytes.Buffer{}
+	return io.NopCloser(buffer), &readCloser{
+		Reader: io.TeeReader(body, buffer),
+		Closer: body,
 	}
 }
