@@ -2,6 +2,8 @@
 
 package api
 
-func isRetryableCacheRenameError(error) bool {
-	return false
+import "os"
+
+func renameCacheFile(oldPath, newPath string) error {
+	return os.Rename(oldPath, newPath)
 }
