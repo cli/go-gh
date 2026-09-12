@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/cli/go-gh/v2/internal/set"
@@ -29,8 +30,9 @@ const (
 )
 
 // TokenForHost retrieves an authentication token and the source of that token for the specified
-// host. The source can be either an environment variable, configuration file, or the system
-// keyring. In the latter case, this shells out to "gh auth token" to obtain the token.
+// host. The source can be either an environment variable name, a configuration file path, or
+// "gh" for tokens from the system keyring. In the latter case, this shells out to "gh auth token"
+// to obtain the token.
 //
 // Returns "", "default" if no applicable token is found.
 func TokenForHost(host string) (string, string) {
@@ -96,7 +98,7 @@ func tokenForHost(cfg *config.Config, host string) (string, string) {
 		return "", defaultSource
 	}
 
-	return token, oauthToken
+	return token, filepath.Join(config.ConfigDir(), "hosts.yml")
 }
 
 func tokenFromGh(path string, host string) (string, string) {

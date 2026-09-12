@@ -1,14 +1,20 @@
 package auth
 
 import (
+	"path/filepath"
 	"testing"
 
+	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTokenForHost(t *testing.T) {
+	configDir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", configDir)
+	configPath := filepath.Join(configDir, "hosts.yml")
+
 	tests := []struct {
 		name                  string
 		host                  string
@@ -52,11 +58,11 @@ func TestTokenForHost(t *testing.T) {
 			wantSource:  githubToken,
 		},
 		{
-			name:       "given a config token is set for github.com, when we get the token, then it returns that token and oauth_token source",
+			name:       "given a config token is set for github.com, when we get the token, then it returns that token and config file source",
 			host:       "github.com",
 			config:     testHostsConfig(),
 			wantToken:  "xxxxxxxxxxxxxxxxxxxx",
-			wantSource: oauthToken,
+			wantSource: configPath,
 		},
 		{
 			name:        "given GH_TOKEN and GITHUB_TOKEN and a config token are set, when we get the token for any subdomain of ghe.com, then it returns GH_TOKEN as the priority",
@@ -76,11 +82,11 @@ func TestTokenForHost(t *testing.T) {
 			wantSource:  githubToken,
 		},
 		{
-			name:       "given a config token is set for a subdomain of ghe.com, when we get the token for that subdomain, then it returns that token and oauth_token source",
+			name:       "given a config token is set for a subdomain of ghe.com, when we get the token for that subdomain, then it returns that token and config file source",
 			host:       "tenant.ghe.com",
 			config:     testHostsConfig(),
 			wantToken:  "zzzzzzzzzzzzzzzzzzzz",
-			wantSource: oauthToken,
+			wantSource: configPath,
 		},
 		{
 			name:        "given GH_TOKEN and GITHUB_TOKEN and a config token are set, when we get the token for github.localhost, then it returns GH_TOKEN as the priority",
@@ -117,11 +123,11 @@ func TestTokenForHost(t *testing.T) {
 			wantSource:            githubEnterpriseToken,
 		},
 		{
-			name:       "given a config token is set for an enterprise server host, when we get the token for that host, then it returns that token and oauth_token source",
+			name:       "given a config token is set for an enterprise server host, when we get the token for that host, then it returns that token and config file source",
 			host:       "enterprise.com",
 			config:     testHostsConfig(),
 			wantToken:  "yyyyyyyyyyyyyyyyyyyy",
-			wantSource: oauthToken,
+			wantSource: configPath,
 		},
 		{
 			name:        "given GH_TOKEN or GITHUB_TOKEN are set, when I get the token for any host not owned by GitHub, we do not get those tokens",
@@ -143,6 +149,56 @@ func TestTokenForHost(t *testing.T) {
 			token, source := tokenForHost(tt.config, tt.host)
 			require.Equal(t, tt.wantToken, token, "Expected token for \"%s\" to be \"%s\", got \"%s\"", tt.host, tt.wantToken, token)
 			require.Equal(t, tt.wantSource, source, "Expected source for \"%s\" to be \"%s\", got \"%s\"", tt.host, tt.wantSource, source)
+		})
+	}
+}
+
+func TestTokenConfigFileSource(t *testing.T) {
+	t.Setenv("GH_PATH", filepath.Join(t.TempDir(), "missing-gh"))
+	configDir := filepath.Join(t.TempDir(), "custom config")
+	xdgConfigHome := t.TempDir()
+	tests := []struct {
+		name        string
+		ghConfigDir string
+		wantSource  string
+	}{
+		{
+			name:        "GH_CONFIG_DIR takes precedence",
+			ghConfigDir: configDir,
+			wantSource:  filepath.Join(configDir, "hosts.yml"),
+		},
+		{
+			name:       "XDG_CONFIG_HOME fallback",
+			wantSource: filepath.Join(xdgConfigHome, "gh", "hosts.yml"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GH_CONFIG_DIR", tt.ghConfigDir)
+			t.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
+			for _, key := range []string{ghToken, githubToken, ghEnterpriseToken, githubEnterpriseToken} {
+				t.Setenv(key, "")
+			}
+			testutils.StubConfig(t, `
+hosts:
+  github.com:
+    oauth_token: test-token
+`)
+
+			for _, lookup := range []struct {
+				name string
+				fn   func(string) (string, string)
+			}{
+				{name: "TokenForHost", fn: TokenForHost},
+				{name: "TokenFromEnvOrConfig", fn: TokenFromEnvOrConfig},
+			} {
+				t.Run(lookup.name, func(t *testing.T) {
+					token, source := lookup.fn("github.com")
+					require.Equal(t, "test-token", token)
+					require.Equal(t, tt.wantSource, source)
+				})
+			}
 		})
 	}
 }
