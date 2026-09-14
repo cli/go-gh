@@ -157,7 +157,12 @@ func Current() (Repository, error) {
 		if candidate.Resolved == "base" {
 			rem = candidate
 		} else {
-			return ParseWithHost(candidate.Resolved, candidate.Host)
+			resolved, err := ParseWithHost(candidate.Resolved, candidate.Host)
+			if err != nil {
+				return r, err
+			}
+			resolved.Host = candidate.Host
+			return resolved, nil
 		}
 		break
 	}

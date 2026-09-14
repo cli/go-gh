@@ -221,7 +221,7 @@ hosts:
 }
 
 func TestCurrentUsesExplicitResolvedRepository(t *testing.T) {
-	// Given a remote whose gh resolution names a different repository
+	// Given a remote whose gh resolution names a repository on a different host
 	t.Setenv("GH_REPO", "")
 	testutils.StubConfig(t, `
 hosts:
@@ -233,13 +233,13 @@ hosts:
 	require.NoError(t, err)
 	_, _, err = git.Exec("remote", "add", "origin", "git@github.com:my-user/example.git")
 	require.NoError(t, err)
-	_, _, err = git.Exec("config", "remote.origin.gh-resolved", "parent-org/example")
+	_, _, err = git.Exec("config", "remote.origin.gh-resolved", "ghe.example/parent-org/example")
 	require.NoError(t, err)
 
 	// When the current repository is resolved
 	repository, err := Current()
 
-	// Then the explicit repository is returned on the remote's host
+	// Then the explicit repository is returned using the remote's host
 	require.NoError(t, err)
 	assert.Equal(t, "github.com", repository.Host)
 	assert.Equal(t, "parent-org", repository.Owner)
