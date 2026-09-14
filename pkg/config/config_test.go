@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -288,6 +289,50 @@ func TestCacheDir(t *testing.T) {
 		})
 	}
 
+}
+
+func TestReadAndReload(t *testing.T) {
+	once = sync.Once{}
+	cfg, loadErr = nil, nil
+	t.Cleanup(func() {
+		once = sync.Once{}
+		cfg, loadErr = nil, nil
+	})
+
+	dir := t.TempDir()
+	t.Setenv("GH_CONFIG_DIR", dir)
+	path := filepath.Join(dir, "config.yml")
+	require.NoError(t, os.WriteFile(path, []byte("editor: vim\n"), 0o600))
+
+	c, err := Read(nil)
+	require.NoError(t, err)
+	editor, err := c.Get([]string{"editor"})
+	require.NoError(t, err)
+	assert.Equal(t, "vim", editor)
+
+	require.NoError(t, os.WriteFile(path, []byte("editor: nano\n"), 0o600))
+
+	// Read still serves the cached value until an explicit Reload.
+	c, err = Read(nil)
+	require.NoError(t, err)
+	editor, err = c.Get([]string{"editor"})
+	require.NoError(t, err)
+	assert.Equal(t, "vim", editor)
+
+	require.NoError(t, Reload(nil))
+
+	// The previously obtained pointer observes the refreshed value in place.
+	editor, err = c.Get([]string{"editor"})
+	require.NoError(t, err)
+	assert.Equal(t, "nano", editor)
+
+	// Read returns the same, refreshed *Config pointer.
+	reread, err := Read(nil)
+	require.NoError(t, err)
+	assert.Same(t, c, reread)
+	editor, err = reread.Get([]string{"editor"})
+	require.NoError(t, err)
+	assert.Equal(t, "nano", editor)
 }
 
 func TestLoad(t *testing.T) {
