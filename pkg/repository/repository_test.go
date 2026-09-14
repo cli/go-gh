@@ -194,6 +194,7 @@ func TestParseWithHost(t *testing.T) {
 
 func TestCurrentUsesResolvedBaseRemote(t *testing.T) {
 	// Given a higher-ranked fork remote and a parent remote selected by gh
+	t.Setenv("GH_REPO", "")
 	testutils.StubConfig(t, `
 hosts:
   github.com:
@@ -221,6 +222,7 @@ hosts:
 
 func TestCurrentUsesExplicitResolvedRepository(t *testing.T) {
 	// Given a remote whose gh resolution names a different repository
+	t.Setenv("GH_REPO", "")
 	testutils.StubConfig(t, `
 hosts:
   github.com:
