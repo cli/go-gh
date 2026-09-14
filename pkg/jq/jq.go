@@ -104,7 +104,7 @@ func jsonScalarToString(input interface{}) (string, error) {
 		if math.Trunc(tt) == tt {
 			return strconv.FormatFloat(tt, 'f', 0, 64), nil
 		} else {
-			return strconv.FormatFloat(tt, 'f', 2, 64), nil
+			return strconv.FormatFloat(tt, 'f', -1, 64), nil
 		}
 	case nil:
 		return "", nil
