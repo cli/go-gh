@@ -1,12 +1,12 @@
 package repository
 
 import (
-	"os"
 	"testing"
 
 	"github.com/cli/go-gh/v2/internal/git"
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParse(t *testing.T) {
@@ -192,31 +192,55 @@ func TestParseWithHost(t *testing.T) {
 	}
 }
 
-func TestCurrentPrefersResolvedRemote(t *testing.T) {
+func TestCurrentUsesResolvedBaseRemote(t *testing.T) {
+	// Given a higher-ranked fork remote and a parent remote selected by gh
+	t.Setenv("GH_REPO", "")
 	testutils.StubConfig(t, `
 hosts:
   github.com:
     oauth_token: token
 `)
-
-	tempDir := t.TempDir()
-	oldWd, err := os.Getwd()
-	assert.NoError(t, err)
-	assert.NoError(t, os.Chdir(tempDir))
-	t.Cleanup(func() { _ = os.Chdir(oldWd) })
-
-	_, _, err = git.Exec("init", "--quiet")
-	assert.NoError(t, err)
+	t.Chdir(t.TempDir())
+	_, _, err := git.Exec("init", "--quiet")
+	require.NoError(t, err)
 	_, _, err = git.Exec("remote", "add", "origin", "git@github.com:parent-org/example.git")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, _, err = git.Exec("remote", "add", "github", "git@github.com:my-user/example.git")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, _, err = git.Exec("config", "remote.origin.gh-resolved", "base")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
+	// When the current repository is resolved
 	repository, err := Current()
 
-	assert.NoError(t, err)
+	// Then the remote selected by gh is used instead of the name-based ranking
+	require.NoError(t, err)
+	assert.Equal(t, "github.com", repository.Host)
+	assert.Equal(t, "parent-org", repository.Owner)
+	assert.Equal(t, "example", repository.Name)
+}
+
+func TestCurrentUsesExplicitResolvedRepository(t *testing.T) {
+	// Given a remote whose gh resolution names a different repository
+	t.Setenv("GH_REPO", "")
+	testutils.StubConfig(t, `
+hosts:
+  github.com:
+    oauth_token: token
+`)
+	t.Chdir(t.TempDir())
+	_, _, err := git.Exec("init", "--quiet")
+	require.NoError(t, err)
+	_, _, err = git.Exec("remote", "add", "origin", "git@github.com:my-user/example.git")
+	require.NoError(t, err)
+	_, _, err = git.Exec("config", "remote.origin.gh-resolved", "parent-org/example")
+	require.NoError(t, err)
+
+	// When the current repository is resolved
+	repository, err := Current()
+
+	// Then the explicit repository is returned on the remote's host
+	require.NoError(t, err)
 	assert.Equal(t, "github.com", repository.Host)
 	assert.Equal(t, "parent-org", repository.Owner)
 	assert.Equal(t, "example", repository.Name)
