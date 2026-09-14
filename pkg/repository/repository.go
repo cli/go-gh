@@ -150,6 +150,17 @@ func Current() (Repository, error) {
 	}
 
 	rem := filteredRemotes[0]
+	for _, candidate := range filteredRemotes {
+		if candidate.Resolved == "" {
+			continue
+		}
+		if candidate.Resolved == "base" {
+			rem = candidate
+		} else {
+			return ParseWithHost(candidate.Resolved, candidate.Host)
+		}
+		break
+	}
 	r.Host = rem.Host
 	r.Owner = rem.Owner
 	r.Name = rem.Repo
