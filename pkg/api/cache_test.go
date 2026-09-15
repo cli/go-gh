@@ -350,9 +350,10 @@ func TestCachePublicationFailureDoesNotFailResponse(t *testing.T) {
 	seed := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("previous response")))
 	assert.Equal(t, "previous response", cacheTestFetch(t, seed))
 	files := cacheTestFiles(t, dir)
-	require.Len(t, files, 1)
-	require.NoError(t, os.Remove(files[0]))
-	require.NoError(t, os.Mkdir(files[0], 0700))
+	require.Len(t, files, 2)
+	entry := cacheTestEntryFile(t, files)
+	require.NoError(t, os.Remove(entry))
+	require.NoError(t, os.Mkdir(entry, 0700))
 	client := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("fresh response")))
 
 	// When the HTTP request succeeds but cache publication fails.
@@ -361,6 +362,71 @@ func TestCachePublicationFailureDoesNotFailResponse(t *testing.T) {
 	// Then the caller still receives the response and no temporary file leaks.
 	assert.Equal(t, "fresh response", body)
 	assert.Empty(t, cacheTestFiles(t, dir))
+}
+
+func TestCacheEvictsEntryWithCorruptBody(t *testing.T) {
+	t.Parallel()
+
+	// Given a cached response.
+	dir := t.TempDir()
+	counter := 0
+	transport := cacheTestTransport(func(*http.Request) (*http.Response, error) {
+		counter += 1
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(fmt.Sprintf("response %d", counter))),
+		}, nil
+	})
+	client := cacheTestClient(t, dir, time.Hour, transport)
+	assert.Equal(t, "response 1", cacheTestFetch(t, client))
+	assert.Equal(t, "response 1", cacheTestFetch(t, client))
+
+	// When the cached entry is corrupted on disk, as produced by the
+	// pre-atomic-publish races (cli/go-gh#252, cli/cli#14394). Appending
+	// trailing bytes keeps the HTTP framing parseable, so the failure
+	// exercises checksum verification specifically.
+	files := cacheTestFiles(t, dir)
+	require.Len(t, files, 2)
+	entry := cacheTestEntryFile(t, files)
+	content, err := os.ReadFile(entry)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(entry, append(content, []byte("corrupt")...), 0644))
+
+	// Then the corrupt entry is evicted and the response is refetched...
+	assert.Equal(t, "response 2", cacheTestFetch(t, client))
+	// ...and the healed entry serves subsequent requests.
+	assert.Equal(t, "response 2", cacheTestFetch(t, client))
+	require.Len(t, cacheTestFiles(t, dir), 2)
+}
+
+func TestCacheEvictsLegacyEntryWithoutChecksum(t *testing.T) {
+	t.Parallel()
+
+	// Given a cached response written before checksums existed.
+	dir := t.TempDir()
+	counter := 0
+	transport := cacheTestTransport(func(*http.Request) (*http.Response, error) {
+		counter += 1
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(fmt.Sprintf("response %d", counter))),
+		}, nil
+	})
+	client := cacheTestClient(t, dir, time.Hour, transport)
+	assert.Equal(t, "response 1", cacheTestFetch(t, client))
+
+	// When the checksum sidecar is missing.
+	for _, f := range cacheTestFiles(t, dir) {
+		if strings.HasSuffix(f, ".sha256") {
+			require.NoError(t, os.Remove(f))
+		}
+	}
+
+	// Then the entry is refreshed instead of served...
+	assert.Equal(t, "response 2", cacheTestFetch(t, client))
+	// ...and the healed entry serves subsequent requests.
+	assert.Equal(t, "response 2", cacheTestFetch(t, client))
+	require.Len(t, cacheTestFiles(t, dir), 2)
 }
 
 func cacheTestClient(t *testing.T, dir string, ttl time.Duration, transport http.RoundTripper) *http.Client {
@@ -393,6 +459,19 @@ func cacheTestFiles(t *testing.T, dir string) []string {
 	})
 	require.NoError(t, err)
 	return files
+}
+
+// cacheTestEntryFile returns the cache entry file from a cache directory
+// listing, skipping integrity sidecars.
+func cacheTestEntryFile(t *testing.T, files []string) string {
+	t.Helper()
+	for _, f := range files {
+		if !strings.HasSuffix(f, ".sha256") {
+			return f
+		}
+	}
+	t.Fatal("no cache entry file found")
+	return ""
 }
 
 func cacheTestResponse(body io.Reader) http.RoundTripper {

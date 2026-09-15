@@ -141,6 +141,11 @@ func (fs *fileStorage) filePath(key string) string {
 	return filepath.Join(fs.dir, key)
 }
 
+// checksumPath returns the path of the integrity sidecar accompanying a cache entry.
+func (fs *fileStorage) checksumPath(key string) string {
+	return fs.filePath(key) + ".sha256"
+}
+
 func (fs *fileStorage) read(key string) (*http.Response, error) {
 	cacheFile := fs.filePath(key)
 
@@ -149,6 +154,9 @@ func (fs *fileStorage) read(key string) (*http.Response, error) {
 
 	f, err := os.Open(cacheFile)
 	if err != nil {
+		// No entry to serve. Drop any orphaned checksum left behind by an
+		// interrupted publish so such files cannot accumulate.
+		_ = os.Remove(fs.checksumPath(key))
 		return nil, err
 	}
 	defer f.Close()
@@ -166,6 +174,14 @@ func (fs *fileStorage) read(key string) (*http.Response, error) {
 	body := &bytes.Buffer{}
 	_, err = io.Copy(body, f)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := fs.verifyChecksum(key, body.Bytes()); err != nil {
+		// Never serve an entry that fails integrity verification. Evict it so
+		// subsequent requests refetch instead of re-reading known-bad bytes.
+		// This also heals entries corrupted before checksums existed.
+		_ = os.Remove(cacheFile)
 		return nil, err
 	}
 
@@ -190,11 +206,13 @@ func (fs *fileStorage) store(key string, res *http.Response) error {
 		return err
 	}
 	tmpCacheFileName := tmpCacheFile.Name()
+	tmpChecksumFileName := tmpCacheFileName + ".sha256"
 	// Clean up on errors and panics too. After a successful rename, the
-	// temporary path no longer exists, so removing it is harmless.
+	// temporary paths no longer exist, so removing them is harmless.
 	defer func() {
 		_ = tmpCacheFile.Close()
 		_ = os.Remove(tmpCacheFileName)
+		_ = os.Remove(tmpChecksumFileName)
 	}()
 
 	if err := writeCacheResponse(tmpCacheFile, res); err != nil {
@@ -203,8 +221,61 @@ func (fs *fileStorage) store(key string, res *http.Response) error {
 	if err := tmpCacheFile.Close(); err != nil {
 		return err
 	}
+	if err := writeCacheChecksum(tmpCacheFileName, tmpChecksumFileName); err != nil {
+		return err
+	}
 
-	return renameCacheFile(tmpCacheFileName, cacheFilePath)
+	// Publish the checksum first so readers never observe an entry without
+	// one. An entry without a checksum is treated as corrupt on read.
+	if err := renameCacheFile(tmpChecksumFileName, fs.checksumPath(key)); err != nil {
+		return err
+	}
+	if err := renameCacheFile(tmpCacheFileName, cacheFilePath); err != nil {
+		// Roll back the just-published checksum so a failed publication
+		// leaves no trace behind.
+		_ = os.Remove(fs.checksumPath(key))
+		return err
+	}
+	return nil
+}
+
+// writeCacheChecksum records a SHA-256 digest of a freshly written cache entry
+// in a sidecar file, so readers can detect entries corrupted after publication
+// (for example by pre-atomic-publish races, crashes, or external modification).
+func writeCacheChecksum(tmpCacheFileName, tmpChecksumFileName string) error {
+	digest, err := fileSHA256(tmpCacheFileName)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(tmpChecksumFileName, []byte(digest), 0644)
+}
+
+func fileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+// verifyChecksum reports whether content matches the digest recorded when the
+// entry was published. A missing digest (entries written before checksums
+// existed) fails verification so such entries are refreshed instead of served.
+func (fs *fileStorage) verifyChecksum(key string, content []byte) error {
+	expected, err := os.ReadFile(fs.checksumPath(key))
+	if err != nil {
+		return fmt.Errorf("cache checksum missing: %w", err)
+	}
+	digest := sha256.Sum256(content)
+	if fmt.Sprintf("%x", digest) != string(expected) {
+		return errors.New("cache checksum mismatch")
+	}
+	return nil
 }
 
 func writeCacheResponse(w io.Writer, res *http.Response) error {
