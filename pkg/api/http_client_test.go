@@ -32,6 +32,27 @@ func TestHTTPClient(t *testing.T) {
 	assert.Equal(t, 200, res.StatusCode)
 }
 
+func TestInspectableMIMEType(t *testing.T) {
+	tests := []struct {
+		name string
+		mime string
+		want bool
+	}{
+		{name: "JSON", mime: "application/json", want: true},
+		{name: "text", mime: "text/plain", want: true},
+		{name: "form data", mime: "application/x-www-form-urlencoded", want: true},
+		{name: "octocat stream", mime: "application/octocat-stream", want: true},
+		{name: "octocat stream with parameters", mime: "application/octocat-stream; charset=utf-8", want: true},
+		{name: "binary", mime: "application/octet-stream", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, inspectableMIMEType(tt.mime))
+		})
+	}
+}
+
 func TestNewHTTPClient(t *testing.T) {
 	testutils.StubConfig(t, "")
 
