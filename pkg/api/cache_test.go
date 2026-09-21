@@ -349,10 +349,9 @@ func TestCachePublicationFailureDoesNotFailResponse(t *testing.T) {
 	dir := t.TempDir()
 	seed := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("previous response")))
 	assert.Equal(t, "previous response", cacheTestFetch(t, seed))
-	files := cacheTestFiles(t, dir)
-	require.Len(t, files, 1)
-	require.NoError(t, os.Remove(files[0]))
-	require.NoError(t, os.Mkdir(files[0], 0700))
+	cacheFile := cacheTestEntryFile(t, dir)
+	require.NoError(t, os.Remove(cacheFile))
+	require.NoError(t, os.Mkdir(cacheFile, 0700))
 	client := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("fresh response")))
 
 	// When the HTTP request succeeds but cache publication fails.
@@ -361,6 +360,45 @@ func TestCachePublicationFailureDoesNotFailResponse(t *testing.T) {
 	// Then the caller still receives the response and no temporary file leaks.
 	assert.Equal(t, "fresh response", body)
 	assert.Empty(t, cacheTestFiles(t, dir))
+}
+
+func TestCacheEvictsEntryWithCorruptBody(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	seed := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("cached response")))
+	assert.Equal(t, "cached response", cacheTestFetch(t, seed))
+
+	cacheFile := cacheTestEntryFile(t, dir)
+	contents, err := os.ReadFile(cacheFile)
+	require.NoError(t, err)
+	contents = bytes.Replace(contents, []byte("cached response"), []byte("corrupt response"), 1)
+	require.NoError(t, os.WriteFile(cacheFile, contents, 0600))
+
+	client := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("fresh response")))
+	assert.Equal(t, "fresh response", cacheTestFetch(t, client))
+
+	reader := cacheTestClient(t, dir, time.Hour, cacheTestTransport(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected cache miss")
+	}))
+	assert.Equal(t, "fresh response", cacheTestFetch(t, reader))
+}
+
+func TestCacheEvictsLegacyEntryWithoutChecksum(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	seed := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("legacy response")))
+	assert.Equal(t, "legacy response", cacheTestFetch(t, seed))
+	require.NoError(t, os.Remove(cacheTestEntryFile(t, dir)+".sha256"))
+
+	client := cacheTestClient(t, dir, time.Hour, cacheTestResponse(strings.NewReader("fresh response")))
+	assert.Equal(t, "fresh response", cacheTestFetch(t, client))
+
+	reader := cacheTestClient(t, dir, time.Hour, cacheTestTransport(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("unexpected cache miss")
+	}))
+	assert.Equal(t, "fresh response", cacheTestFetch(t, reader))
 }
 
 func cacheTestClient(t *testing.T, dir string, ttl time.Duration, transport http.RoundTripper) *http.Client {
@@ -393,6 +431,17 @@ func cacheTestFiles(t *testing.T, dir string) []string {
 	})
 	require.NoError(t, err)
 	return files
+}
+
+func cacheTestEntryFile(t *testing.T, dir string) string {
+	t.Helper()
+	for _, path := range cacheTestFiles(t, dir) {
+		if !strings.HasSuffix(path, ".sha256") {
+			return path
+		}
+	}
+	t.Fatal("cache entry not found")
+	return ""
 }
 
 func cacheTestResponse(body io.Reader) http.RoundTripper {

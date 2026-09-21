@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -143,34 +144,67 @@ func (fs *fileStorage) filePath(key string) string {
 
 func (fs *fileStorage) read(key string) (*http.Response, error) {
 	cacheFile := fs.filePath(key)
+	checksumFile := cacheFile + ".sha256"
 
 	fs.mu.RLock()
-	defer fs.mu.RUnlock()
-
 	f, err := os.Open(cacheFile)
 	if err != nil {
+		fs.mu.RUnlock()
 		return nil, err
 	}
-	defer f.Close()
 
 	stat, err := f.Stat()
 	if err != nil {
+		_ = f.Close()
+		fs.mu.RUnlock()
 		return nil, err
 	}
 
 	age := time.Since(stat.ModTime())
 	if age > fs.ttl {
+		_ = f.Close()
+		fs.mu.RUnlock()
 		return nil, errors.New("cache expired")
 	}
 
-	body := &bytes.Buffer{}
-	_, err = io.Copy(body, f)
+	contents, err := io.ReadAll(f)
+	_ = f.Close()
 	if err != nil {
+		fs.mu.RUnlock()
 		return nil, err
 	}
 
-	res, err := http.ReadResponse(bufio.NewReader(body), nil)
-	return res, err
+	checksum, checksumErr := os.ReadFile(checksumFile)
+	expected := sha256.Sum256(contents)
+	validChecksum := checksumErr == nil && bytes.Equal(bytes.TrimSpace(checksum), []byte(hex.EncodeToString(expected[:])))
+	res, parseErr := http.ReadResponse(bufio.NewReader(bytes.NewReader(contents)), nil)
+	fs.mu.RUnlock()
+
+	if !validChecksum || parseErr != nil {
+		_ = fs.evict(key)
+		if checksumErr != nil {
+			return nil, errors.New("cache integrity check failed")
+		}
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		return nil, errors.New("cache integrity check failed")
+	}
+
+	return res, nil
+}
+
+func (fs *fileStorage) evict(key string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	var firstErr error
+	for _, path := range []string{fs.filePath(key), fs.filePath(key) + ".sha256"} {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 func (fs *fileStorage) store(key string, res *http.Response) error {
@@ -178,6 +212,7 @@ func (fs *fileStorage) store(key string, res *http.Response) error {
 	defer fs.mu.Unlock()
 
 	cacheFilePath := fs.filePath(key)
+	checksumFilePath := cacheFilePath + ".sha256"
 	dir := filepath.Dir(cacheFilePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -197,14 +232,38 @@ func (fs *fileStorage) store(key string, res *http.Response) error {
 		_ = os.Remove(tmpCacheFileName)
 	}()
 
-	if err := writeCacheResponse(tmpCacheFile, res); err != nil {
+	hash := sha256.New()
+	if err := writeCacheResponse(io.MultiWriter(tmpCacheFile, hash), res); err != nil {
 		return err
 	}
 	if err := tmpCacheFile.Close(); err != nil {
 		return err
 	}
 
-	return renameCacheFile(tmpCacheFileName, cacheFilePath)
+	tmpChecksumFile, err := os.CreateTemp(dir, ".gh-cache-checksum-*")
+	if err != nil {
+		return err
+	}
+	tmpChecksumFileName := tmpChecksumFile.Name()
+	defer func() {
+		_ = tmpChecksumFile.Close()
+		_ = os.Remove(tmpChecksumFileName)
+	}()
+	if _, err := fmt.Fprintf(tmpChecksumFile, "%x\n", hash.Sum(nil)); err != nil {
+		return err
+	}
+	if err := tmpChecksumFile.Close(); err != nil {
+		return err
+	}
+
+	if err := renameCacheFile(tmpChecksumFileName, checksumFilePath); err != nil {
+		return err
+	}
+	if err := renameCacheFile(tmpCacheFileName, cacheFilePath); err != nil {
+		_ = os.Remove(checksumFilePath)
+		return err
+	}
+	return nil
 }
 
 func writeCacheResponse(w io.Writer, res *http.Response) error {
