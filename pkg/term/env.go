@@ -12,6 +12,22 @@ import (
 	"golang.org/x/term"
 )
 
+// Terminal describes the terminal capabilities and streams used by a caller.
+//
+// Term and TestTerminal implement Terminal. The interface is useful when
+// production code needs a deterministic terminal implementation in tests.
+type Terminal interface {
+	In() io.Reader
+	Out() io.Writer
+	ErrOut() io.Writer
+	IsTerminalOutput() bool
+	IsColorEnabled() bool
+	Is256ColorSupported() bool
+	IsTrueColorSupported() bool
+	Size() (int, int, error)
+	Theme() string
+}
+
 // Term represents information about the terminal that a process is connected to.
 type Term struct {
 	in           *os.File

@@ -1,8 +1,59 @@
 package term
 
 import (
+	"bytes"
+	"errors"
 	"testing"
 )
+
+func TestTestTerminal(t *testing.T) {
+	input := bytes.NewBufferString("input")
+	output := &bytes.Buffer{}
+	errOutput := &bytes.Buffer{}
+	sizeErr := errors.New("size unavailable")
+	terminal := TestTerminal{
+		Input:         input,
+		Output:        output,
+		ErrorOutput:   errOutput,
+		TTY:           true,
+		Color:         true,
+		Color256:      true,
+		TrueColor:     true,
+		Width:         120,
+		Height:        40,
+		SizeError:     sizeErr,
+		TerminalTheme: "dark",
+	}
+
+	if got := terminal.In(); got != input {
+		t.Fatalf("expected input reader to be preserved")
+	}
+	if got := terminal.Out(); got != output {
+		t.Fatalf("expected output writer to be preserved")
+	}
+	if got := terminal.ErrOut(); got != errOutput {
+		t.Fatalf("expected error writer to be preserved")
+	}
+	if !terminal.IsTerminalOutput() || !terminal.IsColorEnabled() || !terminal.Is256ColorSupported() || !terminal.IsTrueColorSupported() {
+		t.Fatalf("expected configured terminal capabilities")
+	}
+	if width, height, err := terminal.Size(); width != 120 || height != 40 || !errors.Is(err, sizeErr) {
+		t.Fatalf("expected configured terminal size and error, got %d x %d, %v", width, height, err)
+	}
+	if got := terminal.Theme(); got != "dark" {
+		t.Fatalf("expected configured terminal theme, got %q", got)
+	}
+}
+
+func TestTestTerminalZeroValue(t *testing.T) {
+	var terminal TestTerminal
+	if got := terminal.In(); got == nil {
+		t.Fatal("expected zero-value terminal to provide an input reader")
+	}
+	if width, height, err := terminal.Size(); width != 0 || height != 0 || err != nil {
+		t.Fatalf("expected zero-value size, got %d x %d, %v", width, height, err)
+	}
+}
 
 func TestFromEnv(t *testing.T) {
 	tests := []struct {
