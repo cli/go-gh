@@ -1,18 +1,25 @@
 package ssh
 
 import (
-	"errors"
-	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/MakeNowJust/heredoc"
+	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/cli/safeexec"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestTranslator(t *testing.T) {
+func TestMain(m *testing.M) {
+	testutils.RunFakeSSHIfRequested()
+	os.Exit(m.Run())
+}
+
+func TestTranslatorWithRealSSH(t *testing.T) {
 	if _, err := safeexec.LookPath("ssh"); err != nil {
 		t.Skip("no ssh found on system")
 	}
@@ -20,17 +27,17 @@ func TestTranslator(t *testing.T) {
 	tests := []struct {
 		name      string
 		sshConfig string
-		arg       string
+		input     string
 		want      string
 	}{
 		{
-			name: "translate SSH URL",
+			name: "translates SSH URL",
 			sshConfig: heredoc.Doc(`
 				Host github-*
 					Hostname github.com
 			`),
-			arg:  "ssh://git@github-foo/owner/repo.git",
-			want: "ssh://git@github.com/owner/repo.git",
+			input: "ssh://git@github-foo/owner/repo.git",
+			want:  "ssh://git@github.com/owner/repo.git",
 		},
 		{
 			name: "does not translate HTTPS URL",
@@ -38,8 +45,8 @@ func TestTranslator(t *testing.T) {
 				Host github-*
 					Hostname github.com
 			`),
-			arg:  "https://github-foo/owner/repo.git",
-			want: "https://github-foo/owner/repo.git",
+			input: "https://github-foo/owner/repo.git",
+			want:  "https://github-foo/owner/repo.git",
 		},
 		{
 			name: "treats ssh.github.com as github.com",
@@ -47,117 +54,96 @@ func TestTranslator(t *testing.T) {
 				Host github.com
 					Hostname ssh.github.com
 			`),
-			arg:  "ssh://git@github.com/owner/repo.git",
-			want: "ssh://git@github.com/owner/repo.git",
+			input: "ssh://git@github.com/owner/repo.git",
+			want:  "ssh://git@github.com/owner/repo.git",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f, err := os.CreateTemp("", "ssh-config.*")
-			if err != nil {
-				t.Fatalf("error creating file: %v", err)
-			}
-			_, err = f.WriteString(tt.sshConfig)
-			_ = f.Close()
-			if err != nil {
-				t.Fatalf("error writing ssh config: %v", err)
-			}
-
+			// Given an ssh config
+			configPath := filepath.Join(t.TempDir(), "ssh-config")
+			require.NoError(t, os.WriteFile(configPath, []byte(tt.sshConfig), 0o600))
 			tr := &Translator{
 				newCommand: func(exe string, args ...string) *exec.Cmd {
-					args = append([]string{"-F", f.Name()}, args...)
-					return exec.Command(exe, args...)
+					return exec.Command(exe, append([]string{"-F", configPath}, args...)...)
 				},
 			}
-			u, err := url.Parse(tt.arg)
-			if err != nil {
-				t.Fatalf("error parsing URL: %v", err)
-			}
-			res := tr.Translate(u)
-			if got := res.String(); got != tt.want {
-				t.Errorf("expected %q, got %q", tt.want, got)
-			}
+
+			// When a URL is translated
+			got := tr.Translate(mustParseURL(t, tt.input))
+
+			// Then the URL is translated as expected
+			assert.Equal(t, tt.want, got.String())
 		})
 	}
 }
 
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GH_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-	if err := func(args []string) error {
-		if len(args) < 3 || args[2] == "error" {
-			return errors.New("fatal")
-		}
-		if args[2] == "empty.io" {
-			return nil
-		}
-		fmt.Fprintf(os.Stdout, "hostname %s\n", args[2])
-		return nil
-	}(os.Args[3:]); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	os.Exit(0)
+func TestTranslatorCachesHostname(t *testing.T) {
+	// Given a translator that has already resolved an alias
+	testutils.StubSSH(t, map[string]testutils.SSHResponse{"github-work": testutils.SSHReportsHostname("github.com")})
+	tr := NewTranslator()
+	tr.Translate(mustParseURL(t, "ssh://git@github-work/owner/repo.git"))
+
+	// When ssh would now resolve the alias differently
+	testutils.StubSSH(t, map[string]testutils.SSHResponse{"github-work": testutils.SSHReportsHostname("ghe.example")})
+	got := tr.Translate(mustParseURL(t, "ssh://git@github-work/owner/repo.git"))
+
+	// Then the first resolution is reused
+	assert.Equal(t, "ssh://git@github.com/owner/repo.git", got.String())
 }
 
-func TestTranslator_caching(t *testing.T) {
-	countLookPath := 0
-	countNewCommand := 0
-	tr := &Translator{
-		lookPath: func(s string) (string, error) {
-			countLookPath++
-			return "/path/to/ssh", nil
-		},
-		newCommand: func(exe string, args ...string) *exec.Cmd {
-			args = append([]string{"-test.run=TestHelperProcess", "--", exe}, args...)
-			c := exec.Command(os.Args[0], args...)
-			c.Env = []string{"GH_WANT_HELPER_PROCESS=1"}
-			countNewCommand++
-			return c
-		},
-	}
+func TestTranslatorResolvesEachHostSeparately(t *testing.T) {
+	// Given a translator that has already resolved one alias
+	testutils.StubSSH(t, map[string]testutils.SSHResponse{
+		"github-work":       testutils.SSHReportsHostname("github.com"),
+		"github-enterprise": testutils.SSHReportsHostname("ghe.example"),
+	})
+	tr := NewTranslator()
+	tr.Translate(mustParseURL(t, "ssh://git@github-work/owner/repo.git"))
 
-	tests := []struct {
-		input  string
-		result string
-	}{
-		{
-			input:  "ssh://github1.com/owner/repo.git",
-			result: "github1.com",
-		},
-		{
-			input:  "ssh://github2.com/owner/repo.git",
-			result: "github2.com",
-		},
-		{
-			input:  "ssh://empty.io/owner/repo.git",
-			result: "empty.io",
-		},
-		{
-			input:  "ssh://error/owner/repo.git",
-			result: "error",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			u, err := url.Parse(tt.input)
-			if err != nil {
-				t.Fatalf("error parsing URL: %v", err)
-			}
-			if res := tr.Translate(u); res.Host != tt.result {
-				t.Errorf("expected github.com, got: %q", res.Host)
-			}
-			if res := tr.Translate(u); res.Host != tt.result {
-				t.Errorf("expected github.com, got: %q (second call)", res.Host)
-			}
-		})
-	}
+	// When a URL for a different alias is translated
+	got := tr.Translate(mustParseURL(t, "ssh://git@github-enterprise/owner/repo.git"))
 
-	if countLookPath != 1 {
-		t.Errorf("expected lookPath to happen 1 time; actual: %d", countLookPath)
-	}
-	if countNewCommand != len(tests) {
-		t.Errorf("expected ssh command to shell out %d times; actual: %d", len(tests), countNewCommand)
-	}
+	// Then that alias is resolved on its own
+	assert.Equal(t, "ssh://git@ghe.example/owner/repo.git", got.String())
+}
+
+func TestTranslatorKeepsHostWhenSSHReportsNoHostname(t *testing.T) {
+	// Given ssh reports no hostname for a host
+	testutils.StubSSH(t, map[string]testutils.SSHResponse{"github-work": testutils.SSHReportsNoHostname()})
+
+	// When a URL for that host is translated
+	got := NewTranslator().Translate(mustParseURL(t, "ssh://git@github-work/owner/repo.git"))
+
+	// Then the URL is unchanged
+	assert.Equal(t, "ssh://git@github-work/owner/repo.git", got.String())
+}
+
+func TestTranslatorKeepsHostWhenSSHFails(t *testing.T) {
+	// Given ssh fails for a host
+	testutils.StubSSH(t, map[string]testutils.SSHResponse{"github-work": testutils.SSHFails()})
+
+	// When a URL for that host is translated
+	got := NewTranslator().Translate(mustParseURL(t, "ssh://git@github-work/owner/repo.git"))
+
+	// Then the URL is unchanged
+	assert.Equal(t, "ssh://git@github-work/owner/repo.git", got.String())
+}
+
+func TestTranslatorKeepsHostWhenSSHIsNotInstalled(t *testing.T) {
+	// Given ssh is not on PATH
+	t.Setenv("PATH", t.TempDir())
+
+	// When an SSH URL is translated
+	got := NewTranslator().Translate(mustParseURL(t, "ssh://git@github-work/owner/repo.git"))
+
+	// Then the URL is unchanged
+	assert.Equal(t, "ssh://git@github-work/owner/repo.git", got.String())
+}
+
+func mustParseURL(t *testing.T, s string) *url.URL {
+	t.Helper()
+	u, err := url.Parse(s)
+	require.NoError(t, err)
+	return u
 }
