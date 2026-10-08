@@ -1,7 +1,12 @@
 package repository
 
 import (
-	"net/url"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/cli/go-gh/v2/internal/git"
@@ -9,59 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestTranslateRemotesRefreshesRepositoryInfo(t *testing.T) {
-	translate := func(u *url.URL) *url.URL {
-		translated := *u
-		translated.Host = "github.com"
-		return &translated
-	}
-
-	t.Run("SSH host alias", func(t *testing.T) {
-		u, err := url.Parse("ssh://git@github.com-work/owner/repo.git")
-		if err != nil {
-			t.Fatal(err)
-		}
-		remotes := git.RemoteSet{&git.Remote{
-			Name:     "origin",
-			FetchURL: u,
-			Host:     "github.com-work",
-			Owner:    "owner",
-			Repo:     "repo",
-		}}
-
-		translateRemotes(remotes, translate)
-
-		filtered := remotes.FilterByHosts([]string{"github.com"})
-		assert.Len(t, filtered, 1)
-		assert.Equal(t, "github.com", remotes[0].Host)
-		assert.Equal(t, "owner", remotes[0].Owner)
-		assert.Equal(t, "repo", remotes[0].Repo)
-	})
-
-	t.Run("invalid fetch URL falls back to push URL", func(t *testing.T) {
-		fetchURL, err := url.Parse("ssh://git@github.com-work/")
-		if err != nil {
-			t.Fatal(err)
-		}
-		pushURL, err := url.Parse("ssh://git@github.com-work/owner/repo.git")
-		if err != nil {
-			t.Fatal(err)
-		}
-		remotes := git.RemoteSet{&git.Remote{
-			Name:     "origin",
-			FetchURL: fetchURL,
-			PushURL:  pushURL,
-			Host:     "github.com-work",
-		}}
-
-		translateRemotes(remotes, translate)
-
-		assert.Equal(t, "github.com", remotes[0].Host)
-		assert.Equal(t, "owner", remotes[0].Owner)
-		assert.Equal(t, "repo", remotes[0].Repo)
-	})
-}
 
 func TestParse(t *testing.T) {
 	testutils.StubConfig(t, "")
@@ -298,4 +250,196 @@ hosts:
 	assert.Equal(t, "github.com", repository.Host)
 	assert.Equal(t, "parent-org", repository.Owner)
 	assert.Equal(t, "example", repository.Name)
+}
+
+const noKnownHostRemoteErr = "unable to determine current repository, none of the git remotes configured for this repository point to a known GitHub host"
+
+func TestCurrentResolvesFetchURLThroughSSHHostAlias(t *testing.T) {
+	// Given a fetch URL that uses an SSH host alias for github.com
+	loggedInTo(t, "github.com")
+	sshConfigMapsHost(t, "github.com-work", "github.com")
+	inRepoWithOrigin(t, "git@github.com-work:acme/widgets.git")
+
+	// When the current repository is resolved
+	repository, err := Current()
+
+	// Then the repository is on the aliased host
+	require.NoError(t, err)
+	assert.Equal(t, "github.com", repository.Host)
+	assert.Equal(t, "acme", repository.Owner)
+	assert.Equal(t, "widgets", repository.Name)
+}
+
+func TestCurrentPrefersFetchURLOverPushURL(t *testing.T) {
+	// Given fetch and push URLs that name different repositories
+	loggedInTo(t, "github.com")
+	inRepoWithOrigin(t, "https://github.com/acme/widgets", "https://github.com/my-user/widgets")
+
+	// When the current repository is resolved
+	repository, err := Current()
+
+	// Then the fetch URL's repository is used
+	require.NoError(t, err)
+	assert.Equal(t, "github.com", repository.Host)
+	assert.Equal(t, "acme", repository.Owner)
+	assert.Equal(t, "widgets", repository.Name)
+}
+
+func TestCurrentFallsBackToPushURLWhenFetchURLIsLocalPath(t *testing.T) {
+	// Given a fetch URL that is a local path
+	loggedInTo(t, "github.com")
+	inRepoWithOrigin(t, "/srv/git/widgets.git", "https://github.com/acme/widgets")
+
+	// When the current repository is resolved
+	repository, err := Current()
+
+	// Then the push URL's repository is used
+	require.NoError(t, err)
+	assert.Equal(t, "github.com", repository.Host)
+	assert.Equal(t, "acme", repository.Owner)
+	assert.Equal(t, "widgets", repository.Name)
+}
+
+func TestCurrentResolvesPushURLThroughSSHHostAlias(t *testing.T) {
+	// Given a local fetch path and a push URL that uses an SSH host alias for github.com
+	loggedInTo(t, "github.com")
+	sshConfigMapsHost(t, "github.com-work", "github.com")
+	inRepoWithOrigin(t, "/srv/git/widgets.git", "git@github.com-work:acme/widgets.git")
+
+	// When the current repository is resolved
+	repository, err := Current()
+
+	// Then the push URL's repository is on the aliased host
+	require.NoError(t, err)
+	assert.Equal(t, "github.com", repository.Host)
+	assert.Equal(t, "acme", repository.Owner)
+	assert.Equal(t, "widgets", repository.Name)
+}
+
+func TestCurrentIgnoresPushURLWhenFetchURLIsOnUnknownHost(t *testing.T) {
+	// Given a fetch URL on a host I'm not logged in to and a push URL on one I am
+	loggedInTo(t, "github.com")
+	inRepoWithOrigin(t, "https://gitlab.com/acme/widgets", "https://github.com/acme/widgets")
+
+	// When the current repository is resolved
+	_, err := Current()
+
+	// Then the remote is not treated as pointing to a known host
+	require.EqualError(t, err, noKnownHostRemoteErr)
+}
+
+func TestCurrentUsesLastPushURL(t *testing.T) {
+	// Given a local fetch path and several push URLs
+	loggedInTo(t, "github.com")
+	inRepoWithOrigin(t, "/srv/git/widgets.git", "https://github.com/acme/widgets", "https://github.com/backup/mirror")
+
+	// When the current repository is resolved
+	repository, err := Current()
+
+	// Then the last push URL's repository is used
+	require.NoError(t, err)
+	assert.Equal(t, "github.com", repository.Host)
+	assert.Equal(t, "backup", repository.Owner)
+	assert.Equal(t, "mirror", repository.Name)
+}
+
+func TestCurrentIgnoresEarlierPushURLsWhenLastIsLocalPath(t *testing.T) {
+	// Given a local fetch path and a last push URL that is also a local path
+	loggedInTo(t, "github.com")
+	inRepoWithOrigin(t, "/srv/git/widgets.git", "https://github.com/acme/widgets", "/srv/git/mirror.git")
+
+	// When the current repository is resolved
+	_, err := Current()
+
+	// Then the earlier push URL is not used
+	require.EqualError(t, err, noKnownHostRemoteErr)
+}
+
+func TestCurrentRejectsKnownHostThatSSHMapsToAnotherHost(t *testing.T) {
+	// Given the only known host is one that SSH config maps to an IP address
+	loggedInTo(t, "github.company.example")
+	sshConfigMapsHost(t, "github.company.example", "192.0.2.10")
+	inRepoWithOrigin(t, "git@github.company.example:acme/widgets.git")
+
+	// When the current repository is resolved
+	_, err := Current()
+
+	// Then the remote is not treated as pointing to a known host
+	require.EqualError(t, err, noKnownHostRemoteErr)
+}
+
+// loggedInTo makes host the only known GitHub host, ignoring any host or token from the environment.
+func loggedInTo(t *testing.T, host string) {
+	t.Helper()
+	for _, name := range []string{"GH_HOST", "GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN"} {
+		t.Setenv(name, "")
+	}
+	testutils.StubConfig(t, fmt.Sprintf("hosts:\n  %s:\n    oauth_token: token\n", host))
+}
+
+// inRepoWithOrigin changes into a new git repository whose origin fetches from fetchURL and pushes to pushURLs in order.
+func inRepoWithOrigin(t *testing.T, fetchURL string, pushURLs ...string) {
+	t.Helper()
+	t.Setenv("GH_REPO", "")
+	t.Chdir(t.TempDir())
+	_, _, err := git.Exec("init", "--quiet")
+	require.NoError(t, err)
+	_, _, err = git.Exec("remote", "add", "origin", fetchURL)
+	require.NoError(t, err)
+	for _, pushURL := range pushURLs {
+		_, _, err = git.Exec("remote", "set-url", "--add", "--push", "origin", pushURL)
+		require.NoError(t, err)
+	}
+}
+
+const fakeSSHHostnameEnv = "GO_GH_TEST_FAKE_SSH_HOSTNAME"
+
+// sshConfigMapsHost puts a fake ssh first on PATH whose "ssh -G" reports hostname for alias.
+// The fake is this test binary, which TestMain runs as ssh when fakeSSHHostnameEnv is set.
+func sshConfigMapsHost(t *testing.T, alias, hostname string) {
+	t.Helper()
+	dir := t.TempDir()
+	name := "ssh"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	copyTestBinary(t, filepath.Join(dir, name))
+	t.Setenv(fakeSSHHostnameEnv, alias+"="+hostname)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func copyTestBinary(t *testing.T, dst string) {
+	t.Helper()
+	src, err := os.Executable()
+	require.NoError(t, err)
+	in, err := os.Open(src)
+	require.NoError(t, err)
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY, 0o755)
+	require.NoError(t, err)
+	_, err = io.Copy(out, in)
+	require.NoError(t, err)
+	require.NoError(t, out.Close())
+}
+
+func TestMain(m *testing.M) {
+	if mapping, ok := os.LookupEnv(fakeSSHHostnameEnv); ok {
+		runFakeSSH(mapping, os.Args[1:])
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
+
+// runFakeSSH mimics "ssh -G HOST", printing the mapped hostname for the alias and HOST itself otherwise.
+func runFakeSSH(mapping string, args []string) {
+	if len(args) != 2 || args[0] != "-G" {
+		fmt.Fprintf(os.Stderr, "fake ssh: unexpected arguments %q\n", args)
+		os.Exit(1)
+	}
+	host := args[1]
+	alias, hostname, _ := strings.Cut(mapping, "=")
+	if strings.EqualFold(host, alias) {
+		host = hostname
+	}
+	fmt.Printf("hostname %s\n", host)
 }

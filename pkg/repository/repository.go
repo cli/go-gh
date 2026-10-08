@@ -169,16 +169,21 @@ func Current() (Repository, error) {
 
 func translateRemotes(remotes git.RemoteSet, translate func(*url.URL) *url.URL) {
 	for _, remote := range remotes {
-		hasFetchInfo := false
+		hasRepoInfo := false
 		if remote.FetchURL != nil {
 			remote.FetchURL = translate(remote.FetchURL)
-			hasFetchInfo = updateRemoteInfo(remote, remote.FetchURL)
+			hasRepoInfo = updateRemoteInfo(remote, remote.FetchURL)
 		}
 		if remote.PushURL != nil {
 			remote.PushURL = translate(remote.PushURL)
-			if !hasFetchInfo {
-				updateRemoteInfo(remote, remote.PushURL)
+			if !hasRepoInfo {
+				hasRepoInfo = updateRemoteInfo(remote, remote.PushURL)
 			}
+		}
+		// Like gh, a remote whose URLs don't name a repository has no identity,
+		// even if an earlier push URL did when the remote was parsed.
+		if !hasRepoInfo {
+			remote.Host, remote.Owner, remote.Repo = "", "", ""
 		}
 	}
 }
