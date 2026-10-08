@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/h2non/gock.v1"
 )
 
@@ -319,6 +323,41 @@ func TestNewHTTPClientCheckRedirect(t *testing.T) {
 		assert.Equal(t, []string{http.MethodDelete}, methods)
 		assert.Equal(t, http.StatusMovedPermanently, res.StatusCode)
 	})
+}
+
+func TestNewHTTPClientUnixDomainSocket(t *testing.T) {
+	// t.TempDir() can exceed the 104-byte socket path limit on macOS.
+	dir, err := os.MkdirTemp("", "gh")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	socketPath := filepath.Join(dir, "gh.sock")
+	listener, err := net.Listen("unix", socketPath)
+	require.NoError(t, err)
+	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "%s %s", r.Host, r.URL.Path)
+	})}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
+
+	client, err := NewHTTPClient(ClientOptions{
+		Host:             "github.com",
+		AuthToken:        "oauth_token",
+		UnixDomainSocket: socketPath,
+	})
+	assert.NoError(t, err)
+
+	// Both plain and TLS URLs are routed over the socket as plain HTTP.
+	for _, url := range []string{"http://api.github.com/user", "https://api.github.com/user"} {
+		t.Run(url, func(t *testing.T) {
+			res, err := client.Get(url)
+			assert.NoError(t, err)
+			defer res.Body.Close()
+			body, err := io.ReadAll(res.Body)
+			assert.NoError(t, err)
+			assert.Equal(t, http.StatusOK, res.StatusCode)
+			assert.Equal(t, "api.github.com /user", string(body))
+		})
+	}
 }
 
 type tripper struct {
