@@ -5,7 +5,6 @@ package repository
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 
@@ -133,27 +132,7 @@ func Current() (Repository, error) {
 		return r, errors.New("unable to determine current repository, no git remotes configured for this repository")
 	}
 
-	translator := ssh.NewTranslator()
-	for _, remote := range remotes {
-		if remote.FetchURL != nil {
-			remote.FetchURL = translator.Translate(remote.FetchURL)
-		}
-		if remote.PushURL != nil {
-			remote.PushURL = translator.Translate(remote.PushURL)
-		}
-		// Like gh, a remote whose URLs don't name a repository has no identity,
-		// even if an earlier push URL did when the remote was parsed.
-		remote.Host, remote.Owner, remote.Repo = "", "", ""
-		for _, u := range []*url.URL{remote.FetchURL, remote.PushURL} {
-			if u == nil {
-				continue
-			}
-			if host, owner, repo, err := git.RepoInfoFromURL(u); err == nil {
-				remote.Host, remote.Owner, remote.Repo = host, owner, repo
-				break
-			}
-		}
-	}
+	remotes.Translate(ssh.NewTranslator().Translate)
 
 	hosts := auth.KnownHosts()
 
