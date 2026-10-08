@@ -134,7 +134,26 @@ func Current() (Repository, error) {
 	}
 
 	translator := ssh.NewTranslator()
-	translateRemotes(remotes, translator.Translate)
+	for _, remote := range remotes {
+		if remote.FetchURL != nil {
+			remote.FetchURL = translator.Translate(remote.FetchURL)
+		}
+		if remote.PushURL != nil {
+			remote.PushURL = translator.Translate(remote.PushURL)
+		}
+		// Like gh, a remote whose URLs don't name a repository has no identity,
+		// even if an earlier push URL did when the remote was parsed.
+		remote.Host, remote.Owner, remote.Repo = "", "", ""
+		for _, u := range []*url.URL{remote.FetchURL, remote.PushURL} {
+			if u == nil {
+				continue
+			}
+			if host, owner, repo, err := git.RepoInfoFromURL(u); err == nil {
+				remote.Host, remote.Owner, remote.Repo = host, owner, repo
+				break
+			}
+		}
+	}
 
 	hosts := auth.KnownHosts()
 
@@ -165,36 +184,4 @@ func Current() (Repository, error) {
 	r.Name = rem.Repo
 
 	return r, nil
-}
-
-func translateRemotes(remotes git.RemoteSet, translate func(*url.URL) *url.URL) {
-	for _, remote := range remotes {
-		hasRepoInfo := false
-		if remote.FetchURL != nil {
-			remote.FetchURL = translate(remote.FetchURL)
-			hasRepoInfo = updateRemoteInfo(remote, remote.FetchURL)
-		}
-		if remote.PushURL != nil {
-			remote.PushURL = translate(remote.PushURL)
-			if !hasRepoInfo {
-				hasRepoInfo = updateRemoteInfo(remote, remote.PushURL)
-			}
-		}
-		// Like gh, a remote whose URLs don't name a repository has no identity,
-		// even if an earlier push URL did when the remote was parsed.
-		if !hasRepoInfo {
-			remote.Host, remote.Owner, remote.Repo = "", "", ""
-		}
-	}
-}
-
-func updateRemoteInfo(remote *git.Remote, u *url.URL) bool {
-	host, owner, repo, err := git.RepoInfoFromURL(u)
-	if err != nil {
-		return false
-	}
-	remote.Host = host
-	remote.Owner = owner
-	remote.Repo = repo
-	return true
 }
