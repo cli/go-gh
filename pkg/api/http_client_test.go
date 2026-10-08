@@ -325,7 +325,59 @@ func TestNewHTTPClientCheckRedirect(t *testing.T) {
 	})
 }
 
-func TestNewHTTPClientUnixDomainSocket(t *testing.T) {
+func TestNewHTTPClientSendsHTTPRequestsThroughUnixDomainSocket(t *testing.T) {
+	t.Parallel()
+
+	// Given a server listening on a unix socket and a client configured to use it
+	socketPath := serveOnUnixSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "socket server received %s%s", r.Host, r.URL.Path)
+	}))
+	client, err := NewHTTPClient(ClientOptions{
+		Host:             "github.com",
+		AuthToken:        "oauth_token",
+		UnixDomainSocket: socketPath,
+	})
+	require.NoError(t, err)
+
+	// When the client requests an http URL whose host cannot resolve
+	res, err := client.Get("http://unresolvable.invalid/user")
+
+	// Then the request is delivered to the socket server
+	require.NoError(t, err)
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "socket server received unresolvable.invalid/user", string(body))
+}
+
+func TestNewHTTPClientSendsHTTPSRequestsThroughUnixDomainSocketWithoutTLS(t *testing.T) {
+	t.Parallel()
+
+	// Given a plain HTTP server listening on a unix socket and a client configured to use it
+	socketPath := serveOnUnixSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "socket server received %s%s", r.Host, r.URL.Path)
+	}))
+	client, err := NewHTTPClient(ClientOptions{
+		Host:             "github.com",
+		AuthToken:        "oauth_token",
+		UnixDomainSocket: socketPath,
+	})
+	require.NoError(t, err)
+
+	// When the client requests an https URL whose host cannot resolve
+	res, err := client.Get("https://unresolvable.invalid/user")
+
+	// Then the request is delivered to the socket server as plain HTTP
+	require.NoError(t, err)
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "socket server received unresolvable.invalid/user", string(body))
+}
+
+// serveOnUnixSocket serves handler on a new unix socket and returns its path.
+func serveOnUnixSocket(t *testing.T, handler http.Handler) string {
+	t.Helper()
 	// t.TempDir() can exceed the 104-byte socket path limit on macOS.
 	dir, err := os.MkdirTemp("", "gh")
 	require.NoError(t, err)
@@ -333,31 +385,10 @@ func TestNewHTTPClientUnixDomainSocket(t *testing.T) {
 	socketPath := filepath.Join(dir, "gh.sock")
 	listener, err := net.Listen("unix", socketPath)
 	require.NoError(t, err)
-	server := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "%s %s", r.Host, r.URL.Path)
-	})}
+	server := &http.Server{Handler: handler}
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { _ = server.Close() })
-
-	client, err := NewHTTPClient(ClientOptions{
-		Host:             "github.com",
-		AuthToken:        "oauth_token",
-		UnixDomainSocket: socketPath,
-	})
-	assert.NoError(t, err)
-
-	// Both plain and TLS URLs are routed over the socket as plain HTTP.
-	for _, url := range []string{"http://api.github.com/user", "https://api.github.com/user"} {
-		t.Run(url, func(t *testing.T) {
-			res, err := client.Get(url)
-			assert.NoError(t, err)
-			defer res.Body.Close()
-			body, err := io.ReadAll(res.Body)
-			assert.NoError(t, err)
-			assert.Equal(t, http.StatusOK, res.StatusCode)
-			assert.Equal(t, "api.github.com /user", string(body))
-		})
-	}
+	return socketPath
 }
 
 type tripper struct {
