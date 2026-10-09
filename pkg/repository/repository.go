@@ -132,15 +132,7 @@ func Current() (Repository, error) {
 		return r, errors.New("unable to determine current repository, no git remotes configured for this repository")
 	}
 
-	translator := ssh.NewTranslator()
-	for _, r := range remotes {
-		if r.FetchURL != nil {
-			r.FetchURL = translator.Translate(r.FetchURL)
-		}
-		if r.PushURL != nil {
-			r.PushURL = translator.Translate(r.PushURL)
-		}
-	}
+	remotes.Translate(ssh.NewTranslator().Translate)
 
 	hosts := auth.KnownHosts()
 
