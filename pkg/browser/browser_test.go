@@ -203,6 +203,38 @@ func TestBrowse(t *testing.T) {
 	}
 }
 
+// Regression for #174: a launcher path containing a space (a common
+// case on Windows with `C:\Program Files\...\chrome.exe`) was being
+// shell-split into garbage by shlex. splitLauncher should try the
+// literal path first so it survives unquoted.
+func TestSplitLauncherPathWithSpaces(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "with space")
+	require.NoError(t, os.MkdirAll(subdir, 0o755))
+
+	name := "fake-browser"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	path := filepath.Join(subdir, name)
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755))
+
+	exe, args, err := splitLauncher(path)
+	require.NoError(t, err)
+	assert.Equal(t, path, exe)
+	assert.Empty(t, args)
+}
+
+// splitLauncher should still honor traditional `firefox --private`
+// style launchers that pass extra args alongside the binary name.
+func TestSplitLauncherWithArgs(t *testing.T) {
+	launcher := fmt.Sprintf("%q --private-window", os.Args[0])
+	exe, args, err := splitLauncher(launcher)
+	require.NoError(t, err)
+	assert.Contains(t, exe, filepath.Base(os.Args[0]))
+	assert.Equal(t, []string{"--private-window"}, args)
+}
+
 func TestResolveLauncher(t *testing.T) {
 	tests := []struct {
 		name         string
