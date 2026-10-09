@@ -103,6 +103,54 @@ func TestGraphQLClientMutateError(t *testing.T) {
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
+func TestGraphQLClientQueryHTTPError(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		Reply(http.StatusUnauthorized).
+		JSON(`{"message":"Bad credentials"}`)
+
+	client, err := DefaultGraphQLClient()
+	assert.NoError(t, err)
+
+	var res struct{ Viewer struct{ Login string } }
+	err = client.Query("QUERY", &res, nil)
+	var httpErr *HTTPError
+	assert.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusUnauthorized, httpErr.StatusCode)
+	assert.Equal(t, "Bad credentials", httpErr.Message)
+	assert.EqualError(t, err, "HTTP 401: Bad credentials (https://api.github.com/graphql)")
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestGraphQLClientMutateHTTPError(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		Reply(http.StatusForbidden).
+		JSON(`{"message":"Forbidden"}`)
+
+	client, err := DefaultGraphQLClient()
+	assert.NoError(t, err)
+
+	var mutation struct {
+		UpdateRepository struct{ Repository struct{ Name string } }
+	}
+	err = client.Mutate("MUTATE", &mutation, nil)
+	var httpErr *HTTPError
+	assert.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusForbidden, httpErr.StatusCode)
+	assert.Equal(t, "Forbidden", httpErr.Message)
+	assert.EqualError(t, err, "HTTP 403: Forbidden (https://api.github.com/graphql)")
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
 func TestGraphQLClientDo(t *testing.T) {
 	testutils.StubConfig(t, "")
 

@@ -56,8 +56,11 @@ func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
 		endpoint = swapHost(endpoint, opts.APIHost)
 	}
 
+	graphqlHTTPClient := *httpClient
+	graphqlHTTPClient.Transport = graphqlErrorRoundTripper{rt: httpClient.Transport}
+
 	return &GraphQLClient{
-		client:     graphql.NewClient(endpoint, httpClient),
+		client:     graphql.NewClient(endpoint, &graphqlHTTPClient),
 		endpoint:   endpoint,
 		httpClient: httpClient,
 	}, nil
@@ -122,6 +125,10 @@ func (c *GraphQLClient) Do(query string, variables map[string]interface{}, respo
 // Provided input will be set as a variable named input.
 func (c *GraphQLClient) MutateWithContext(ctx context.Context, name string, m interface{}, variables map[string]interface{}) error {
 	err := c.client.MutateNamed(ctx, name, m, variables)
+	return normalizeGraphQLError(err)
+}
+
+func normalizeGraphQLError(err error) error {
 	var graphQLErrs graphql.Errors
 	if err != nil && errors.As(err, &graphQLErrs) {
 		items := make([]GraphQLErrorItem, len(graphQLErrs))
@@ -134,8 +141,14 @@ func (c *GraphQLClient) MutateWithContext(ctx context.Context, name string, m in
 				Type:       e.Type,
 			}
 		}
-		err = &GraphQLError{items}
+		return &GraphQLError{items}
 	}
+
+	var httpErr *HTTPError
+	if err != nil && errors.As(err, &httpErr) {
+		return httpErr
+	}
+
 	return err
 }
 
@@ -151,21 +164,7 @@ func (c *GraphQLClient) Mutate(name string, m interface{}, variables map[string]
 // to the GitHub GraphQL schema.
 func (c *GraphQLClient) QueryWithContext(ctx context.Context, name string, q interface{}, variables map[string]interface{}) error {
 	err := c.client.QueryNamed(ctx, name, q, variables)
-	var graphQLErrs graphql.Errors
-	if err != nil && errors.As(err, &graphQLErrs) {
-		items := make([]GraphQLErrorItem, len(graphQLErrs))
-		for i, e := range graphQLErrs {
-			items[i] = GraphQLErrorItem{
-				Message:    e.Message,
-				Locations:  e.Locations,
-				Path:       e.Path,
-				Extensions: e.Extensions,
-				Type:       e.Type,
-			}
-		}
-		err = &GraphQLError{items}
-	}
-	return err
+	return normalizeGraphQLError(err)
 }
 
 // Query wraps QueryWithContext using context.Background.
@@ -176,6 +175,19 @@ func (c *GraphQLClient) Query(name string, q interface{}, variables map[string]i
 type graphQLResponse struct {
 	Data   interface{}
 	Errors []GraphQLErrorItem
+}
+
+type graphqlErrorRoundTripper struct {
+	rt http.RoundTripper
+}
+
+func (rt graphqlErrorRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := rt.rt.RoundTrip(req)
+	if err != nil || resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return resp, err
+	}
+
+	return resp, HandleHTTPError(resp)
 }
 
 func graphQLEndpoint(host string) string {
