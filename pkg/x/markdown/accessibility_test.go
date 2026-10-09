@@ -192,7 +192,7 @@ func TestAccessibleLightStyleConfigIs4Bit(t *testing.T) {
 // that are downsampled to 4-bit colors unlike Glamour, which are 8-bit colors.
 // For more information, https://github.com/alecthomas/chroma/blob/0bf0e9f9ae2a81d463afe769cce01ff821bee3ba/formatters/tty_indexed.go#L32-L44
 func validateColors(t *testing.T, v reflect.Value, path string) {
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return
 		}
@@ -212,7 +212,7 @@ func validateColors(t *testing.T, v reflect.Value, path string) {
 			if fieldType.Name == "Chroma" {
 				continue
 			} else if (fieldType.Name == "Color" || fieldType.Name == "BackgroundColor") &&
-				fieldType.Type.Kind() == reflect.Ptr && fieldType.Type.Elem().Kind() == reflect.String {
+				fieldType.Type.Kind() == reflect.Pointer && fieldType.Type.Elem().Kind() == reflect.String {
 
 				if field.IsNil() {
 					continue
