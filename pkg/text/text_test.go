@@ -163,12 +163,64 @@ func TestTruncate(t *testing.T) {
 			},
 			want: "\x1b[0;31mé́́é́́é́́é́́é́́é́́é́́é́́...\x1b[0m",
 		},
+		{
+			// A ZWJ sequence occupies two columns however many people are in it,
+			// so eight of the eleven are still available for the text after it.
+			name: "Emoji ZWJ sequence",
+			args: args{
+				max: 11,
+				s:   "👨‍👩‍👧‍👦 family names here",
+			},
+			want: "👨‍👩‍👧‍👦 famil...",
+		},
+		{
+			name: "Regional indicator pair",
+			args: args{
+				max: 11,
+				s:   "🇯🇵 Japanese README",
+			},
+			want: "🇯🇵 Japan...",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Truncate(tt.args.max, tt.args.s)
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func TestTruncateFillsTheBudget(t *testing.T) {
+	// Truncate measures with DisplayWidth to decide whether a string is too
+	// wide, so the result has to be measured the same way: never wider than the
+	// budget, and never narrower than it once the string really was too long.
+	// Mixing two width models silently loses columns, which shows up as ragged
+	// table output for anyone whose text is not ASCII.
+	corpus := []string{
+		"hello world, a plain ascii string",
+		"テストテストテストテスト",
+		"幫新舉報違章工廠新增編號",
+		"프로젝트 내의",
+		"💡💡💡💡💡💡💡💡💡💡💡💡",
+		"👨‍👩‍👧‍👦 family names here",
+		"🇯🇵 Japanese README",
+		"🏳️‍🌈 pride flag entry",
+		"👍🏽 thumbs up with a skin tone",
+		"❤️ reactions on issues",
+		"é́́é́́é́́é́́é́́é́́é́́é́́é́́é́́é́́é́́",
+		"\x1b[0;31mcoloured text that is long\x1b[0m",
+	}
+	for _, s := range corpus {
+		for maxWidth := 1; maxWidth <= 24; maxWidth++ {
+			got := Truncate(maxWidth, s)
+			gotWidth := DisplayWidth(got)
+			assert.LessOrEqual(t, gotWidth, maxWidth,
+				"Truncate(%d, %q) = %q is wider than the budget", maxWidth, s, got)
+			if DisplayWidth(s) > maxWidth {
+				assert.Equal(t, maxWidth, gotWidth,
+					"Truncate(%d, %q) = %q leaves columns unused", maxWidth, s, got)
+			}
+		}
 	}
 }
 

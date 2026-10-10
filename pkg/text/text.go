@@ -9,7 +9,7 @@ import (
 	"unicode"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/truncate"
+	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -46,7 +46,12 @@ func Truncate(maxWidth int, s string) string {
 	if maxWidth >= minWidthForEllipsis {
 		tail = ellipsis
 	}
-	r := truncate.StringWithTail(s, uint(maxWidth), tail)
+	// ansi.Truncate measures in grapheme clusters, the same unit lipgloss.Width
+	// uses in DisplayWidth above. Measuring the cut with a different width model
+	// than the one used to decide whether a cut is needed makes the result miss
+	// the budget: a rune-wise truncator reads an emoji ZWJ sequence as one wide
+	// character per person in it, so it stops several columns early.
+	r := ansi.Truncate(s, maxWidth, tail)
 	if DisplayWidth(r) < maxWidth {
 		r += " "
 	}
