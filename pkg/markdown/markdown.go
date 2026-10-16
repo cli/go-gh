@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/glamour"
+	"charm.land/glamour/v2"
 	xcolor "github.com/cli/go-gh/v2/pkg/x/color"
 	xmarkdown "github.com/cli/go-gh/v2/pkg/x/markdown"
 )
