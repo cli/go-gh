@@ -272,6 +272,27 @@ func TestGraphQLClientDoWithContext(t *testing.T) {
 	}
 }
 
+func TestGraphQLClientDoWithContextAndHeaders(t *testing.T) {
+	testutils.StubConfig(t, "")
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		Reply(200).
+		SetHeader("X-RateLimit-Remaining", "4999").
+		JSON(`{"data":{"viewer":{"login":"hubot"}}}`)
+
+	client, err := NewGraphQLClient(ClientOptions{Host: "github.com", AuthToken: "token"})
+	assert.NoError(t, err)
+
+	res := struct{ Viewer struct{ Login string } }{}
+	headers, err := client.DoWithContextAndHeaders(context.Background(), "QUERY", nil, &res)
+	assert.NoError(t, err)
+	assert.Equal(t, "4999", headers.Get("X-RateLimit-Remaining"))
+	assert.Equal(t, "hubot", res.Viewer.Login)
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
 func TestGraphQLEndpoint(t *testing.T) {
 	tests := []struct {
 		name         string
