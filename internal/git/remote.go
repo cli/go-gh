@@ -65,6 +65,42 @@ func (rs RemoteSet) FilterByHosts(hosts []string) RemoteSet {
 	return filtered
 }
 
+// Translate rewrites the URLs of every remote and re-derives each remote's
+// repository identity from the result.
+func (rs RemoteSet) Translate(translate func(*url.URL) *url.URL) {
+	for _, r := range rs {
+		r.Translate(translate)
+	}
+}
+
+// Translate rewrites the remote's URLs and re-derives its repository identity
+// from the result.
+func (r *Remote) Translate(translate func(*url.URL) *url.URL) {
+	if r.FetchURL != nil {
+		r.FetchURL = translate(r.FetchURL)
+	}
+	if r.PushURL != nil {
+		r.PushURL = translate(r.PushURL)
+	}
+	r.resolveIdentity()
+}
+
+// resolveIdentity sets the remote's repository from its fetch URL, falling back
+// to its push URL. Like gh, a remote whose URLs don't name a repository has no
+// identity.
+func (r *Remote) resolveIdentity() {
+	r.Host, r.Owner, r.Repo = "", "", ""
+	for _, u := range []*url.URL{r.FetchURL, r.PushURL} {
+		if u == nil {
+			continue
+		}
+		if host, owner, repo, err := RepoInfoFromURL(u); err == nil {
+			r.Host, r.Owner, r.Repo = host, owner, repo
+			return
+		}
+	}
+}
+
 func listRemotes() ([]string, error) {
 	stdOut, _, err := Exec("remote", "-v")
 	if err != nil {
@@ -88,7 +124,6 @@ func parseRemotes(gitRemotes []string) RemoteSet {
 		if err != nil {
 			continue
 		}
-		host, owner, repo, _ := RepoInfoFromURL(url)
 
 		var rem *Remote
 		if len(remotes) > 0 {
@@ -105,21 +140,12 @@ func parseRemotes(gitRemotes []string) RemoteSet {
 		switch urlType {
 		case "fetch":
 			rem.FetchURL = url
-			rem.Host = host
-			rem.Owner = owner
-			rem.Repo = repo
 		case "push":
 			rem.PushURL = url
-			if rem.Host == "" {
-				rem.Host = host
-			}
-			if rem.Owner == "" {
-				rem.Owner = owner
-			}
-			if rem.Repo == "" {
-				rem.Repo = repo
-			}
 		}
+	}
+	for _, rem := range remotes {
+		rem.resolveIdentity()
 	}
 	return remotes
 }

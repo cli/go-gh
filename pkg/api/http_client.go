@@ -236,8 +236,9 @@ func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 }
 
 func newUnixDomainSocketRoundTripper(socketPath string) http.RoundTripper {
-	dial := func(_ context.Context, network, addr string) (net.Conn, error) {
-		return net.Dial("unix", socketPath)
+	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		var d net.Dialer
+		return d.DialContext(ctx, "unix", socketPath)
 	}
 
 	return &http.Transport{

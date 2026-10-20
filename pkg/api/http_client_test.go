@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/h2non/gock.v1"
 )
 
@@ -319,6 +323,72 @@ func TestNewHTTPClientCheckRedirect(t *testing.T) {
 		assert.Equal(t, []string{http.MethodDelete}, methods)
 		assert.Equal(t, http.StatusMovedPermanently, res.StatusCode)
 	})
+}
+
+func TestNewHTTPClientSendsHTTPRequestsThroughUnixDomainSocket(t *testing.T) {
+	t.Parallel()
+
+	// Given a server listening on a unix socket and a client configured to use it
+	socketPath := serveOnUnixSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "socket server received %s%s", r.Host, r.URL.Path)
+	}))
+	client, err := NewHTTPClient(ClientOptions{
+		Host:             "github.com",
+		AuthToken:        "oauth_token",
+		UnixDomainSocket: socketPath,
+	})
+	require.NoError(t, err)
+
+	// When the client requests an http URL whose host cannot resolve
+	res, err := client.Get("http://unresolvable.invalid/user")
+
+	// Then the request is delivered to the socket server
+	require.NoError(t, err)
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "socket server received unresolvable.invalid/user", string(body))
+}
+
+func TestNewHTTPClientSendsHTTPSRequestsThroughUnixDomainSocketWithoutTLS(t *testing.T) {
+	t.Parallel()
+
+	// Given a plain HTTP server listening on a unix socket and a client configured to use it
+	socketPath := serveOnUnixSocket(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "socket server received %s%s", r.Host, r.URL.Path)
+	}))
+	client, err := NewHTTPClient(ClientOptions{
+		Host:             "github.com",
+		AuthToken:        "oauth_token",
+		UnixDomainSocket: socketPath,
+	})
+	require.NoError(t, err)
+
+	// When the client requests an https URL whose host cannot resolve
+	res, err := client.Get("https://unresolvable.invalid/user")
+
+	// Then the request is delivered to the socket server as plain HTTP
+	require.NoError(t, err)
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "socket server received unresolvable.invalid/user", string(body))
+}
+
+// serveOnUnixSocket serves handler on a new unix socket and returns its path.
+func serveOnUnixSocket(t *testing.T, handler http.Handler) string {
+	t.Helper()
+	// t.TempDir() can exceed the 104-byte socket path limit on macOS.
+	dir, err := os.MkdirTemp("", "gh")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	socketPath := filepath.Join(dir, "gh.sock")
+	listener, err := net.Listen("unix", socketPath)
+	require.NoError(t, err)
+	server := &http.Server{Handler: handler}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
+	return socketPath
 }
 
 type tripper struct {

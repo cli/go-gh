@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/muesli/reflow/truncate"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"

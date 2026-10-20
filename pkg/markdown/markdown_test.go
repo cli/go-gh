@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/glamour/v2"
 	"github.com/MakeNowJust/heredoc"
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/cli/go-gh/v2/pkg/x/color"
@@ -290,27 +291,27 @@ func Test_RenderColor(t *testing.T) {
 			name:    "when the light theme is selected, the codeblock renders using 8-bit colors",
 			text:    codeBlock,
 			theme:   "light",
-			wantOut: "\x1b[0m\x1b[38;5;235mfmt\x1b[0m\x1b[38;5;210m.\x1b[0m\x1b[38;5;35mPrintln\x1b[0m\x1b[38;5;210m(\x1b[0m\x1b[38;5;95m\"Hello, world!\"\x1b[0m\x1b[38;5;210m)\x1b[0m",
+			wantOut: "\x1b[m\x1b[38;5;235mfmt\x1b[0m\x1b[38;5;210m.\x1b[0m\x1b[38;5;35mPrintln\x1b[0m\x1b[38;5;210m(\x1b[0m\x1b[38;5;95m\"Hello, world!\"\x1b[0m\x1b[38;5;210m)\x1b[0m",
 		},
 		{
 			name:    "when the dark theme is selected, the codeblock renders using 8-bit colors",
 			text:    codeBlock,
 			theme:   "dark",
-			wantOut: "\x1b[0m\x1b[38;5;251mfmt\x1b[0m\x1b[38;5;187m.\x1b[0m\x1b[38;5;42mPrintln\x1b[0m\x1b[38;5;187m(\x1b[0m\x1b[38;5;173m\"Hello, world!\"\x1b[0m\x1b[38;5;187m)\x1b[0m",
+			wantOut: "\x1b[m\x1b[38;5;251mfmt\x1b[0m\x1b[38;5;187m.\x1b[0m\x1b[38;5;42mPrintln\x1b[0m\x1b[38;5;187m(\x1b[0m\x1b[38;5;173m\"Hello, world!\"\x1b[0m\x1b[38;5;187m)\x1b[0m",
 		},
 		{
 			name:             "when the accessible env var is set and the light theme is selected, the codeblock renders using 4-bit colors",
 			text:             codeBlock,
 			theme:            "light",
 			accessibleEnvVar: "true",
-			wantOut:          "\x1b[0m\x1b[30mfmt\x1b[0m\x1b[33m.\x1b[0m\x1b[36mPrintln\x1b[0m\x1b[33m(\x1b[0m\x1b[90m\"Hello, world!\"\x1b[0m\x1b[33m)\x1b[0m",
+			wantOut:          "\x1b[m\x1b[30mfmt\x1b[0m\x1b[33m.\x1b[0m\x1b[36mPrintln\x1b[0m\x1b[33m(\x1b[0m\x1b[90m\"Hello, world!\"\x1b[0m\x1b[33m)\x1b[0m",
 		},
 		{
 			name:             "when the accessible env var is set and the dark theme is selected, the codeblock renders using 4-bit colors",
 			text:             codeBlock,
 			theme:            "dark",
 			accessibleEnvVar: "true",
-			wantOut:          "\x1b[0m\x1b[37mfmt\x1b[0m\x1b[37m.\x1b[0m\x1b[36mPrintln\x1b[0m\x1b[37m(\x1b[0m\x1b[33m\"Hello, world!\"\x1b[0m\x1b[37m)\x1b[0m",
+			wantOut:          "\x1b[m\x1b[37mfmt\x1b[0m\x1b[37m.\x1b[0m\x1b[36mPrintln\x1b[0m\x1b[37m(\x1b[0m\x1b[33m\"Hello, world!\"\x1b[0m\x1b[37m)\x1b[0m",
 		},
 	}
 	for _, tt := range tests {
@@ -331,6 +332,38 @@ func Test_RenderColor(t *testing.T) {
 			out, err := Render(tt.text, WithTheme(tt.theme))
 			require.NoError(t, err)
 			assert.Contains(t, out, tt.wantOut)
+		})
+	}
+}
+
+func Test_RenderWithOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		text    string
+		opts    []glamour.TermRendererOption
+		wantOut string
+	}{
+		{
+			name:    "WithBaseURL resolves relative link targets",
+			text:    "[issue](issues/3718)",
+			opts:    []glamour.TermRendererOption{WithBaseURL("https://github.com/cli/go-gh/")},
+			wantOut: "\x1b]8;id=3962589643;https://github.com/cli/go-gh/issues/3718\aissue\x1b]8;;\a \x1b]8;id=3962589643;https://github.com/cli/go-gh/issues/3718\ahttps://github.com/cli/go-gh/issues/3718\x1b]8;;\a",
+		},
+		{
+			name:    "WithWrap preserves the complete target on every wrapped link segment",
+			text:    "[a link whose text wraps across multiple lines](https://github.com/cli/go-gh/issues/3718)",
+			opts:    []glamour.TermRendererOption{WithWrap(40)},
+			wantOut: "\x1b]8;id=3962589643;https://github.com/cli/go-gh/issues/3718\aa link whose text wraps across multiple\x1b]8;;\a \n\x1b]8;id=3962589643;https://github.com/cli/go-gh/issues/3718\alines\x1b]8;;\a \x1b]8;id=3962589643;https://github.com/cli/go-gh/issues/3718\ahttps://github.com/cli/go-\x1b]8;;\a        \n\x1b]8;id=3962589643;https://github.com/cli/go-gh/issues/3718\agh/issues/3718\x1b]8;;\a",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GLAMOUR_STYLE", "notty")
+
+			out, err := Render(tt.text, tt.opts...)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantOut, strings.TrimSpace(out))
 		})
 	}
 }
