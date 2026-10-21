@@ -66,47 +66,56 @@ func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
 // DoWithContext executes a GraphQL query request.
 // The response is populated into the response argument.
 func (c *GraphQLClient) DoWithContext(ctx context.Context, query string, variables map[string]interface{}, response interface{}) error {
+	_, err := c.DoWithContextAndHeaders(ctx, query, variables, response)
+	return err
+}
+
+// DoWithContextAndHeaders executes a GraphQL query request and returns the
+// response headers along with any request error. The response headers are
+// available even when the server returns a non-2xx status.
+func (c *GraphQLClient) DoWithContextAndHeaders(ctx context.Context, query string, variables map[string]interface{}, response interface{}) (http.Header, error) {
 	reqBody, err := json.Marshal(map[string]interface{}{"query": query, "variables": variables})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", c.endpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
+	headers := resp.Header.Clone()
 
 	success := resp.StatusCode >= 200 && resp.StatusCode < 300
 	if !success {
-		return HandleHTTPError(resp)
+		return headers, HandleHTTPError(resp)
 	}
 
 	if resp.StatusCode == http.StatusNoContent {
-		return nil
+		return headers, nil
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return headers, err
 	}
 
 	gr := graphQLResponse{Data: response}
 	err = json.Unmarshal(body, &gr)
 	if err != nil {
-		return err
+		return headers, err
 	}
 
 	if len(gr.Errors) > 0 {
-		return &GraphQLError{Errors: gr.Errors}
+		return headers, &GraphQLError{Errors: gr.Errors}
 	}
 
-	return nil
+	return headers, nil
 }
 
 // Do wraps DoWithContext using context.Background.
