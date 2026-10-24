@@ -42,6 +42,7 @@ func TestConfigDir(t *testing.T) {
 		{
 			name: "XDG_CONFIG_HOME specified",
 			env: map[string]string{
+				"GH_CONFIG_DIR":   "",
 				"XDG_CONFIG_HOME": tempDir,
 			},
 			output: filepath.Join(tempDir, "gh"),
@@ -58,7 +59,8 @@ func TestConfigDir(t *testing.T) {
 			name:        "AppData specified",
 			onlyWindows: true,
 			env: map[string]string{
-				"AppData": tempDir,
+				"GH_CONFIG_DIR": "",
+				"AppData":       tempDir,
 			},
 			output: filepath.Join(tempDir, "GitHub CLI"),
 		},
@@ -75,6 +77,7 @@ func TestConfigDir(t *testing.T) {
 			name:        "XDG_CONFIG_HOME and AppData specified",
 			onlyWindows: true,
 			env: map[string]string{
+				"GH_CONFIG_DIR":   "",
 				"XDG_CONFIG_HOME": tempDir,
 				"AppData":         tempDir,
 			},
@@ -171,6 +174,7 @@ func TestDataDir(t *testing.T) {
 		{
 			name: "HOME/USERPROFILE specified",
 			env: map[string]string{
+				"GH_DATA_DIR":     "",
 				"XDG_DATA_HOME":   "",
 				"GH_CONFIG_DIR":   "",
 				"XDG_CONFIG_HOME": "",
@@ -183,6 +187,7 @@ func TestDataDir(t *testing.T) {
 		{
 			name: "XDG_DATA_HOME specified",
 			env: map[string]string{
+				"GH_DATA_DIR":   "",
 				"XDG_DATA_HOME": tempDir,
 			},
 			output: filepath.Join(tempDir, "gh"),
@@ -191,6 +196,7 @@ func TestDataDir(t *testing.T) {
 			name:        "LocalAppData specified",
 			onlyWindows: true,
 			env: map[string]string{
+				"GH_DATA_DIR":  "",
 				"LocalAppData": tempDir,
 			},
 			output: filepath.Join(tempDir, "GitHub CLI"),
@@ -199,10 +205,26 @@ func TestDataDir(t *testing.T) {
 			name:        "XDG_DATA_HOME and LocalAppData specified",
 			onlyWindows: true,
 			env: map[string]string{
+				"GH_DATA_DIR":   "",
 				"XDG_DATA_HOME": tempDir,
 				"LocalAppData":  tempDir,
 			},
 			output: filepath.Join(tempDir, "gh"),
+		},
+		{
+			name: "GH_DATA_DIR specified",
+			env: map[string]string{
+				"GH_DATA_DIR": filepath.Join(tempDir, "gh_data_dir"),
+			},
+			output: filepath.Join(tempDir, "gh_data_dir"),
+		},
+		{
+			name: "GH_DATA_DIR and XDG_DATA_HOME specified",
+			env: map[string]string{
+				"GH_DATA_DIR":   filepath.Join(tempDir, "gh_data_dir"),
+				"XDG_DATA_HOME": tempDir,
+			},
+			output: filepath.Join(tempDir, "gh_data_dir"),
 		},
 	}
 
