@@ -293,6 +293,30 @@ func TestGraphQLClientDoWithContextAndHeaders(t *testing.T) {
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
 }
 
+func TestGraphQLClientDoWithContextAndHeadersOnHTTPError(t *testing.T) {
+	testutils.StubConfig(t, "")
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		Reply(http.StatusForbidden).
+		SetHeader("X-RateLimit-Remaining", "0").
+		JSON(`{"message":"API rate limit exceeded"}`)
+
+	client, err := NewGraphQLClient(ClientOptions{Host: "github.com", AuthToken: "token"})
+	assert.NoError(t, err)
+
+	res := struct{ Viewer struct{ Login string } }{}
+	headers, err := client.DoWithContextAndHeaders(context.Background(), "QUERY", nil, &res)
+
+	var httpErr *HTTPError
+	assert.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusForbidden, httpErr.StatusCode)
+	assert.Equal(t, "0", headers.Get("X-RateLimit-Remaining"))
+	assert.Equal(t, "0", httpErr.Headers.Get("X-RateLimit-Remaining"))
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
 func TestGraphQLEndpoint(t *testing.T) {
 	tests := []struct {
 		name         string
