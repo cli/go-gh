@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/h2non/gock.v1"
 )
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
 
 func TestGraphQLClient(t *testing.T) {
 	testutils.StubConfig(t, testConfig())
@@ -101,6 +109,87 @@ func TestGraphQLClientMutateError(t *testing.T) {
 	assert.True(t, errors.As(err, &graphQLErr))
 	assert.EqualError(t, graphQLErr, "GraphQL: Could not resolve to an Organization with the login of 'cli'. (organization)")
 	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestGraphQLClientQueryHTTPError(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		Reply(http.StatusUnauthorized).
+		JSON(`{"message":"Bad credentials"}`)
+
+	client, err := DefaultGraphQLClient()
+	assert.NoError(t, err)
+
+	var res struct{ Viewer struct{ Login string } }
+	err = client.Query("QUERY", &res, nil)
+	var httpErr *HTTPError
+	assert.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusUnauthorized, httpErr.StatusCode)
+	assert.Equal(t, "Bad credentials", httpErr.Message)
+	assert.EqualError(t, err, "HTTP 401: Bad credentials (https://api.github.com/graphql)")
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestGraphQLClientMutateHTTPError(t *testing.T) {
+	testutils.StubConfig(t, testConfig())
+	t.Cleanup(gock.Off)
+
+	gock.New("https://api.github.com").
+		Post("/graphql").
+		MatchHeader("Authorization", "token abc123").
+		Reply(http.StatusForbidden).
+		JSON(`{"message":"Forbidden"}`)
+
+	client, err := DefaultGraphQLClient()
+	assert.NoError(t, err)
+
+	var mutation struct {
+		UpdateRepository struct{ Repository struct{ Name string } }
+	}
+	err = client.Mutate("MUTATE", &mutation, nil)
+	var httpErr *HTTPError
+	assert.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusForbidden, httpErr.StatusCode)
+	assert.Equal(t, "Forbidden", httpErr.Message)
+	assert.EqualError(t, err, "HTTP 403: Forbidden (https://api.github.com/graphql)")
+	assert.True(t, gock.IsDone(), printPendingMocks(gock.Pending()))
+}
+
+func TestGraphQLErrorRoundTripperReturnsResponseWithoutTransportError(t *testing.T) {
+	req, err := http.NewRequest(http.MethodPost, "https://api.github.com/graphql", nil)
+	assert.NoError(t, err)
+	headers := make(http.Header)
+	headers.Set("Content-Type", "application/json")
+	headers.Set("X-GitHub-Request-Id", "test-request-id")
+	resp := &http.Response{
+		Status:     "401 Unauthorized",
+		StatusCode: http.StatusUnauthorized,
+		Header:     headers,
+		Body:       io.NopCloser(strings.NewReader(`{"message":"Bad credentials"}`)),
+		Request:    req,
+	}
+	capture := &graphQLHTTPErrorCapture{}
+	req = req.WithContext(context.WithValue(req.Context(), graphQLHTTPErrorCaptureKey{}, capture))
+	roundTripper := graphQLHTTPErrorCaptureRoundTripper{rt: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		return resp, nil
+	})}
+
+	got, err := roundTripper.RoundTrip(req)
+	assert.NoError(t, err)
+	assert.Same(t, resp, got)
+	body, err := io.ReadAll(got.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, `{"message":"Bad credentials"}`, string(body))
+	assert.NoError(t, got.Body.Close())
+
+	httpErr := capture.httpError()
+	assert.Equal(t, http.StatusUnauthorized, httpErr.StatusCode)
+	assert.Equal(t, "Bad credentials", httpErr.Message)
+	assert.Equal(t, "test-request-id", httpErr.Headers.Get("X-GitHub-Request-Id"))
 }
 
 func TestGraphQLClientDo(t *testing.T) {

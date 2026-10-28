@@ -56,8 +56,11 @@ func NewGraphQLClient(opts ClientOptions) (*GraphQLClient, error) {
 		endpoint = swapHost(endpoint, opts.APIHost)
 	}
 
+	graphqlHTTPClient := *httpClient
+	graphqlHTTPClient.Transport = graphQLHTTPErrorCaptureRoundTripper{rt: httpClient.Transport}
+
 	return &GraphQLClient{
-		client:     graphql.NewClient(endpoint, httpClient),
+		client:     graphql.NewClient(endpoint, &graphqlHTTPClient),
 		endpoint:   endpoint,
 		httpClient: httpClient,
 	}, nil
@@ -121,7 +124,19 @@ func (c *GraphQLClient) Do(query string, variables map[string]interface{}, respo
 // to the GitHub GraphQL schema.
 // Provided input will be set as a variable named input.
 func (c *GraphQLClient) MutateWithContext(ctx context.Context, name string, m interface{}, variables map[string]interface{}) error {
+	capture := &graphQLHTTPErrorCapture{}
+	ctx = context.WithValue(ctx, graphQLHTTPErrorCaptureKey{}, capture)
 	err := c.client.MutateNamed(ctx, name, m, variables)
+	return normalizeGraphQLError(err, capture)
+}
+
+func normalizeGraphQLError(err error, capture *graphQLHTTPErrorCapture) error {
+	if err != nil {
+		if httpErr := capture.httpError(); httpErr != nil {
+			return httpErr
+		}
+	}
+
 	var graphQLErrs graphql.Errors
 	if err != nil && errors.As(err, &graphQLErrs) {
 		items := make([]GraphQLErrorItem, len(graphQLErrs))
@@ -134,8 +149,14 @@ func (c *GraphQLClient) MutateWithContext(ctx context.Context, name string, m in
 				Type:       e.Type,
 			}
 		}
-		err = &GraphQLError{items}
+		return &GraphQLError{items}
 	}
+
+	var httpErr *HTTPError
+	if err != nil && errors.As(err, &httpErr) {
+		return httpErr
+	}
+
 	return err
 }
 
@@ -150,22 +171,10 @@ func (c *GraphQLClient) Mutate(name string, m interface{}, variables map[string]
 // The query argument should be a pointer to struct that corresponds
 // to the GitHub GraphQL schema.
 func (c *GraphQLClient) QueryWithContext(ctx context.Context, name string, q interface{}, variables map[string]interface{}) error {
+	capture := &graphQLHTTPErrorCapture{}
+	ctx = context.WithValue(ctx, graphQLHTTPErrorCaptureKey{}, capture)
 	err := c.client.QueryNamed(ctx, name, q, variables)
-	var graphQLErrs graphql.Errors
-	if err != nil && errors.As(err, &graphQLErrs) {
-		items := make([]GraphQLErrorItem, len(graphQLErrs))
-		for i, e := range graphQLErrs {
-			items[i] = GraphQLErrorItem{
-				Message:    e.Message,
-				Locations:  e.Locations,
-				Path:       e.Path,
-				Extensions: e.Extensions,
-				Type:       e.Type,
-			}
-		}
-		err = &GraphQLError{items}
-	}
-	return err
+	return normalizeGraphQLError(err, capture)
 }
 
 // Query wraps QueryWithContext using context.Background.
@@ -176,6 +185,74 @@ func (c *GraphQLClient) Query(name string, q interface{}, variables map[string]i
 type graphQLResponse struct {
 	Data   interface{}
 	Errors []GraphQLErrorItem
+}
+
+type graphQLHTTPErrorCaptureKey struct{}
+
+type graphQLHTTPErrorCapture struct {
+	response *http.Response
+	body     bytes.Buffer
+}
+
+func (capture *graphQLHTTPErrorCapture) reset() {
+	capture.response = nil
+	capture.body.Reset()
+}
+
+func (capture *graphQLHTTPErrorCapture) errorResponse(resp *http.Response, req *http.Request) {
+	copy := *resp
+	copy.Header = resp.Header.Clone()
+	copy.Body = nil
+	copy.Request = req
+	capture.response = &copy
+	if resp.Body != nil {
+		resp.Body = &graphQLHTTPErrorCaptureBody{ReadCloser: resp.Body, capture: capture}
+	}
+}
+
+func (capture *graphQLHTTPErrorCapture) httpError() *HTTPError {
+	if capture.response == nil {
+		return nil
+	}
+
+	resp := *capture.response
+	resp.Body = io.NopCloser(bytes.NewReader(capture.body.Bytes()))
+	httpErr, _ := HandleHTTPError(&resp).(*HTTPError)
+	return httpErr
+}
+
+type graphQLHTTPErrorCaptureBody struct {
+	io.ReadCloser
+	capture *graphQLHTTPErrorCapture
+}
+
+func (body *graphQLHTTPErrorCaptureBody) Read(p []byte) (int, error) {
+	n, err := body.ReadCloser.Read(p)
+	if n > 0 {
+		_, _ = body.capture.body.Write(p[:n])
+	}
+	return n, err
+}
+
+// graphQLHTTPErrorCaptureRoundTripper keeps HTTP errors as responses so the
+// GraphQL client can close the body, while retaining details for normalization.
+type graphQLHTTPErrorCaptureRoundTripper struct {
+	rt http.RoundTripper
+}
+
+func (rt graphQLHTTPErrorCaptureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	capture, _ := req.Context().Value(graphQLHTTPErrorCaptureKey{}).(*graphQLHTTPErrorCapture)
+	if capture != nil {
+		capture.reset()
+	}
+
+	resp, err := rt.rt.RoundTrip(req)
+	if err != nil || resp == nil || resp.StatusCode >= 200 && resp.StatusCode < 300 || capture == nil {
+		return resp, err
+	}
+
+	capture.errorResponse(resp, req)
+	return resp, nil
 }
 
 func graphQLEndpoint(host string) string {
