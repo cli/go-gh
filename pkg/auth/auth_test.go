@@ -3,6 +3,7 @@ package auth
 import (
 	"testing"
 
+	"github.com/cli/go-gh/v2/internal/testutils"
 	"github.com/cli/go-gh/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -145,6 +146,16 @@ func TestTokenForHost(t *testing.T) {
 			require.Equal(t, tt.wantSource, source, "Expected source for \"%s\" to be \"%s\", got \"%s\"", tt.host, tt.wantSource, source)
 		})
 	}
+}
+
+func TestTokenForHost_ReturnsReasonWhenGhCommandFails(t *testing.T) {
+	testutils.StubConfig(t, testNoHostsConfigData())
+	t.Setenv("GH_PATH", "/path/to/missing/gh")
+
+	token, source := TokenForHost("github.com")
+
+	assert.Equal(t, "", token)
+	assert.Contains(t, source, "failed to run `gh auth token`")
 }
 
 func TestDefaultHost(t *testing.T) {
@@ -399,8 +410,11 @@ func TestNormalizeHostname(t *testing.T) {
 }
 
 func testNoHostsConfig() *config.Config {
-	var data = ``
-	return config.ReadFromString(data)
+	return config.ReadFromString(testNoHostsConfigData())
+}
+
+func testNoHostsConfigData() string {
+	return ``
 }
 
 func testSingleHostConfig() *config.Config {
