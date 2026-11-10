@@ -220,6 +220,9 @@ func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		// exact configured API host.
 		requestHost := req.URL.Hostname()
 		if k == authorization {
+			if _, _, err := net.SplitHostPort(hrt.host); err == nil {
+				requestHost = req.URL.Host
+			}
 			isAPIHost := hrt.apiHost != "" && strings.EqualFold(requestHost, hrt.apiHost)
 			if !isSameDomain(requestHost, hrt.host) && !isAPIHost {
 				continue
