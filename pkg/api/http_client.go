@@ -140,6 +140,19 @@ func isSameDomain(requestHost, domain string) bool {
 	return (requestHost == domain) || strings.HasSuffix(requestHost, "."+domain)
 }
 
+// hostname strips a port from a configured host so it can be compared with
+// req.URL.Hostname, which never includes a port. A bare hostname is unchanged.
+func hostname(host string) string {
+	if host == "" {
+		return ""
+	}
+	u, err := url.Parse("//" + host)
+	if err != nil || u.Hostname() == "" {
+		return host
+	}
+	return u.Hostname()
+}
+
 // swapHost returns rawURL with its host replaced by apiHost.
 func swapHost(rawURL, apiHost string) string {
 	if apiHost == "" {
@@ -220,8 +233,10 @@ func (hrt headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		// exact configured API host.
 		requestHost := req.URL.Hostname()
 		if k == authorization {
-			isAPIHost := hrt.apiHost != "" && strings.EqualFold(requestHost, hrt.apiHost)
-			if !isSameDomain(requestHost, hrt.host) && !isAPIHost {
+			// Configured hosts may include a port (GH_HOST=127.0.0.1:8443).
+			// The request hostname does not, so compare names only.
+			isAPIHost := hrt.apiHost != "" && strings.EqualFold(requestHost, hostname(hrt.apiHost))
+			if !isSameDomain(requestHost, hostname(hrt.host)) && !isAPIHost {
 				continue
 			}
 		}
