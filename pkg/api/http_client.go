@@ -140,6 +140,13 @@ func isSameDomain(requestHost, domain string) bool {
 	return (requestHost == domain) || strings.HasSuffix(requestHost, "."+domain)
 }
 
+func stripHostPort(host string) string {
+	if hostname, _, err := net.SplitHostPort(host); err == nil {
+		return strings.Trim(hostname, "[]")
+	}
+	return strings.Trim(host, "[]")
+}
+
 // swapHost returns rawURL with its host replaced by apiHost.
 func swapHost(rawURL, apiHost string) string {
 	if apiHost == "" {
@@ -206,7 +213,7 @@ func newHeaderRoundTripper(host string, apiHost string, authToken string, header
 		return rt
 	}
 	return headerRoundTripper{
-		host:    host,
+		host:    stripHostPort(host),
 		apiHost: apiHost,
 		headers: headers,
 		rt:      rt,

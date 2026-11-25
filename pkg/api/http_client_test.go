@@ -131,6 +131,22 @@ func TestNewHTTPClient(t *testing.T) {
 			wantHeaders: defaultHeaders(),
 		},
 		{
+			name:        "adds authorization for a configured host with a port",
+			host:        "test.com:8443",
+			reqURL:      "https://test.com:8443",
+			wantHeaders: defaultHeaders(),
+		},
+		{
+			name:   "withholds authorization from an unrelated host with a port",
+			host:   "test.com:8443",
+			reqURL: "https://unrelated.example:8443",
+			wantHeaders: func() http.Header {
+				h := defaultHeaders()
+				h.Del(authorization)
+				return h
+			}(),
+		},
+		{
 			name:        "adds authorization for exact API host",
 			host:        "test.com",
 			apiHost:     "gateway.example",
